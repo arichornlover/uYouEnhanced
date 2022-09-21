@@ -33,8 +33,8 @@ NSBundle *tweakBundle = uYouPlusBundle();
 // Keychain patching
 static NSString *accessGroupID() {
     NSDictionary *query = [NSDictionary dictionaryWithObjectsAndKeys:
-                           (__bridge NSString *)kSecClassGenericPassword, (__bridge NSString *)kSecClass,
-                           @"bundleSeedID", kSecAttrAccount,
+                           (__bridge NSString *)kSecClassGenericPassword, (__bridge NSString *)kSecClass,          
+	     	           @"bundleSeedID", kSecAttrAccount,
                            @"", kSecAttrService,
                            (id)kCFBooleanTrue, kSecReturnAttributes,
                            nil];
@@ -49,7 +49,7 @@ static NSString *accessGroupID() {
     return accessGroup;
 }
 
-// 
+//
 BOOL hideHUD() {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"hideHUD_enabled"];
 }
@@ -97,6 +97,27 @@ BOOL fixGoogleSignIn() {
 }
 BOOL replacePreviousAndNextButton() {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"replacePreviousAndNextButton_enabled"];
+}
+BOOL ytDisableHighContrastUI () {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"ytDisableHighContrastUI_enabled"];
+}
+BOOL BlueUI () {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"BlueUI_enabled"];
+}
+BOOL RedUI () {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"RedUI_enabled"];
+}
+BOOL OrangeUI () {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"OrangeUI_enabled"];
+}
+BOOL PinkUI () {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"PinkUI_enabled"];
+}
+BOOL PurpleUI () {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"PurpleUI_enabled"];
+}
+BOOL GreenUI () {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"GreenUI_enabled"];
 }
 
 # pragma mark - Tweaks
@@ -152,6 +173,11 @@ BOOL replacePreviousAndNextButton() {
 - (id)initWithMessage:(id)arg1 dismissHandler:(id)arg2 {
     return hideHUD() ? nil : %orig;
 }
+%end
+
+// Hide Update Dialog: https://github.com/PoomSmart/YouTubeHeader/blob/main/YTGlobalConfig.h
+%hook YTGlobalConfig
+- (BOOL)shouldBlockUpgradeDialog { return YES;}
 %end
 
 // YTAutoFullScreen: https://github.com/PoomSmart/YTAutoFullScreen/
@@ -299,6 +325,11 @@ BOOL replacePreviousAndNextButton() {
 
 %hook YTInlinePlayerBarContainerView
 - (void)setUserInteractionEnabled:(BOOL)enabled { %orig(YES); }
+%end
+
+// Hide YouTube Heatwave in Video Player (YouTube 17.19.2 or newer) - @level3tjg - https://www.reddit.com/r/jailbreak/comments/v29yvk/
+%hook YTInlinePlayerBarContainerView
+- (BOOL)canShowHeatwave { return NO;}
 %end
 
 // Workaround for issue #54
@@ -510,7 +541,7 @@ BOOL replacePreviousAndNextButton() {
 // Fix "You can't sign in to this app because Google can't confirm that it's safe" warning when signing in. by julioverne & PoomSmart
 // https://gist.github.com/PoomSmart/ef5b172fd4c5371764e027bea2613f93
 // https://github.com/qnblackcat/uYouPlus/pull/398
-/* 
+/*
 %group gDevice_challenge_request_hack
 %hook SSOService
 + (id)fetcherWithRequest:(NSMutableURLRequest *)request configuration:(id)configuration {
@@ -876,6 +907,125 @@ static void replaceTab(YTIGuideResponse *response) {
 %end
 %end
 
+%group gYTDisableHighContrastUI
+%hook YTCommonColorPalette
+- (UIColor *)textPrimary {
+     if (self.pageStyle == 1) {
+         return [UIColor colorWithRed: 0.56 green: 0.56 blue: 0.56 alpha: 1.00];
+     }
+         return [UIColor colorWithRed: 0.38 green: 0.38 blue: 0.38 alpha: 1.00];
+ }
+- (UIColor *)textSecondary {
+    if (self.pageStyle == 1) {
+        return [UIColor colorWithRed: 0.56 green: 0.56 blue: 0.56 alpha: 1.00];
+     }
+        return [UIColor colorWithRed: 0.38 green: 0.38 blue: 0.38 alpha: 1.00];
+ }
+%end
+%end
+
+%group gBlueUI
+%hook YTCommonColorPalette
+- (UIColor *)textPrimary {
+     if (self.pageStyle == 1) {
+         return [UIColor colorWithRed: 0.26 green: 0.43 blue: 0.48 alpha: 1.00];
+     }
+         return [UIColor colorWithRed: 0.36 green: 0.56 blue: 0.62 alpha: 1.00];
+ }
+- (UIColor *)textSecondary {
+    if (self.pageStyle == 1) {
+        return [UIColor colorWithRed: 0.26 green: 0.43 blue: 0.48 alpha: 1.00];
+     }
+        return [UIColor colorWithRed: 0.36 green: 0.56 blue: 0.62 alpha: 1.00];
+ }
+%end
+%end
+
+%group gRedUI
+%hook YTCommonColorPalette
+- (UIColor *)textPrimary {
+     if (self.pageStyle == 1) {
+         return [UIColor colorWithRed: 1.00 green: 0.31 blue: 0.27 alpha: 1.00];
+     }
+         return [UIColor colorWithRed: 0.84 green: 0.25 blue: 0.23 alpha: 1.00];
+ }
+- (UIColor *)textSecondary {
+    if (self.pageStyle == 1) {
+        return [UIColor colorWithRed: 1.00 green: 0.31 blue: 0.27 alpha: 1.00];
+     }
+        return [UIColor colorWithRed: 0.84 green: 0.25 blue: 0.23 alpha: 1.00];
+ }
+%end
+%end
+
+%group gOrangeUI
+%hook YTCommonColorPalette
+- (UIColor *)textPrimary {
+     if (self.pageStyle == 1) {
+         return [UIColor colorWithRed: 0.73 green: 0.45 blue: 0.05 alpha: 1.00];
+     }
+         return [UIColor colorWithRed: 0.80 green: 0.49 blue: 0.05 alpha: 1.00];
+ }
+- (UIColor *)textSecondary {
+    if (self.pageStyle == 1) {
+        return [UIColor colorWithRed: 0.73 green: 0.45 blue: 0.05 alpha: 1.00];
+     }
+        return [UIColor colorWithRed: 0.80 green: 0.49 blue: 0.05 alpha: 1.00];
+ }
+%end
+%end
+
+%group gPinkUI
+%hook YTCommonColorPalette
+- (UIColor *)textPrimary {
+     if (self.pageStyle == 1) {
+         return [UIColor colorWithRed: 0.74 green: 0.02 blue: 0.46 alpha: 1.00];
+     }
+         return [UIColor colorWithRed: 0.81 green: 0.56 blue: 0.71 alpha: 1.00];
+ }
+- (UIColor *)textSecondary {
+    if (self.pageStyle == 1) {
+        return [UIColor colorWithRed: 0.74 green: 0.02 blue: 0.46 alpha: 1.00];
+     }
+        return [UIColor colorWithRed: 0.81 green: 0.56 blue: 0.71 alpha: 1.00];
+ }
+%end
+%end
+
+%group gPurpleUI
+%hook YTCommonColorPalette
+- (UIColor *)textPrimary {
+     if (self.pageStyle == 1) {
+         return [UIColor colorWithRed: 0.62 green: 0.01 blue: 0.73 alpha: 1.00];
+     }
+         return [UIColor colorWithRed: 0.44 green: 0.00 blue: 0.52 alpha: 1.00];
+ }
+- (UIColor *)textSecondary {
+    if (self.pageStyle == 1) {
+        return [UIColor colorWithRed: 0.62 green: 0.01 blue: 0.73 alpha: 1.00];
+     }
+        return [UIColor colorWithRed: 0.44 green: 0.00 blue: 0.52 alpha: 1.00];
+ }
+%end
+%end
+
+%group gGreenUI
+%hook YTCommonColorPalette
+- (UIColor *)textPrimary {
+     if (self.pageStyle == 1) {
+         return [UIColor colorWithRed: 0.01 green: 0.66 blue: 0.18 alpha: 1.00];
+     }
+         return [UIColor colorWithRed: 0.00 green: 0.50 blue: 0.13 alpha: 1.00];
+ }
+- (UIColor *)textSecondary {
+    if (self.pageStyle == 1) {
+        return [UIColor colorWithRed: 0.01 green: 0.66 blue: 0.18 alpha: 1.00];
+     }
+        return [UIColor colorWithRed: 0.00 green: 0.50 blue: 0.13 alpha: 1.00];
+ }
+%end
+%end
+
 // iOS 16 uYou crash fix - @level3tjg: https://github.com/qnblackcat/uYouPlus/pull/224
 %group iOS16
 %hook OBPrivacyLinkButton
@@ -924,5 +1074,26 @@ static void replaceTab(YTIGuideResponse *response) {
     }
     if (!fixGoogleSignIn()) {
        %init(gFixGoogleSignIn);
+    }
+    if (ytDisableHighContrastUI()) {
+       %init(gYTDisableHighContrastUI);
+    }
+    if (BlueUI()) {
+       %init(gBlueUI);
+    }
+    if (RedUI()) {
+       %init(gRedUI);
+    }
+    if (OrangeUI()) {
+       %init(gOrangeUI);
+    }
+    if (PinkUI()) {
+       %init(gPinkUI);
+    }
+    if (PurpleUI()) {
+       %init(gPurpleUI);
+    }
+    if (GreenUI()) {
+       %init(gGreenUI);
     }
 }
