@@ -98,25 +98,28 @@ BOOL fixGoogleSignIn() {
 BOOL replacePreviousAndNextButton() {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"replacePreviousAndNextButton_enabled"];
 }
-BOOL ytDisableHighContrastUI () {
+BOOL dontEatMyContent() {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"dontEatMyContent_enabled"];
+}
+BOOL ytDisableHighContrastUI() {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"ytDisableHighContrastUI_enabled"];
 }
-BOOL BlueUI () {
+BOOL BlueUI() {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"BlueUI_enabled"];
 }
-BOOL RedUI () {
+BOOL RedUI() {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"RedUI_enabled"];
 }
-BOOL OrangeUI () {
+BOOL OrangeUI() {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"OrangeUI_enabled"];
 }
-BOOL PinkUI () {
+BOOL PinkUI() {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"PinkUI_enabled"];
 }
-BOOL PurpleUI () {
+BOOL PurpleUI() {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"PurpleUI_enabled"];
 }
-BOOL GreenUI () {
+BOOL GreenUI() {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"GreenUI_enabled"];
 }
 
@@ -237,6 +240,94 @@ BOOL GreenUI () {
         [rootViewController presentViewController:alertController animated:YES completion:nil];
 	} else { return %orig; }
 }
+%end
+
+%group gDontEatMyContent
+%hook YTPlayerViewController
+
+- (void)viewDidAppear:(BOOL)animated {
+    YTPlayerView *playerView = [self playerView];
+    UIView *renderingViewContainer = MSHookIvar<UIView *>(playerView, "_renderingViewContainer");
+    renderingView = [playerView renderingView];
+
+    CGFloat constant = 23; // Make renderingView a bit larger since safe area has sizeable margins from the notch and side borders; tested on iPhone 13 mini
+
+    widthConstraint = [renderingView.widthAnchor constraintEqualToAnchor:renderingViewContainer.safeAreaLayoutGuide.widthAnchor constant:constant];
+    heightConstraint = [renderingView.heightAnchor constraintEqualToAnchor:renderingViewContainer.safeAreaLayoutGuide.heightAnchor constant:constant];
+    centerXConstraint = [renderingView.centerXAnchor constraintEqualToAnchor:renderingViewContainer.centerXAnchor];
+    centerYConstraint = [renderingView.centerYAnchor constraintEqualToAnchor:renderingViewContainer.centerYAnchor];
+    
+    // playerView.backgroundColor = [UIColor greenColor];
+    // renderingViewContainer.backgroundColor = [UIColor redColor];
+    // renderingView.backgroundColor = [UIColor blueColor];
+
+    YTMainAppVideoPlayerOverlayViewController *activeVideoPlayerOverlay = [self activeVideoPlayerOverlay];
+
+    // Must check class since YTInlineMutedPlaybackPlayerOverlayViewController doesn't have -(BOOL)isFullscreen
+    if ([NSStringFromClass([activeVideoPlayerOverlay class]) isEqualToString:@"YTMainAppVideoPlayerOverlayViewController"] && [activeVideoPlayerOverlay isFullscreen]) {
+        activate();
+    } else {
+        center();
+    }
+
+    %orig(animated);
+}
+
+- (void)didPressToggleFullscreen {  
+    YTMainAppVideoPlayerOverlayViewController *activeVideoPlayerOverlay = [self activeVideoPlayerOverlay];
+    
+    if (![activeVideoPlayerOverlay isFullscreen]) // Entering fullscreen
+        activate();
+    else // Exiting fullscreen
+        deactivate();
+    
+    %orig;
+}
+
+- (void)didSwipeToEnterFullscreen { 
+    %orig; activate(); 
+}
+
+- (void)didSwipeToExitFullscreen { 
+    %orig; deactivate();
+}
+
+- (void)singleVideo:(id)arg1 aspectRatioDidChange:(CGFloat)arg2 {
+    aspectRatio = arg2;
+    if (aspectRatio == 0.0) { 
+        // App backgrounded
+    } else if (aspectRatio < THRESHOLD) {
+        deactivate();
+    } else {
+        activate();
+    }
+    %orig(arg1, arg2);
+}
+
+%end
+
+%hook YTVideoZoomOverlayView
+
+- (void)didRecognizePinch:(UIPinchGestureRecognizer *)pinchGestureRecognizer {
+    // %log((CGFloat) [pinchGestureRecognizer scale], (CGFloat) [pinchGestureRecognizer velocity]);
+    if ([pinchGestureRecognizer velocity] <= 0.0) { // >>Zoom out<<
+        zoomedToFill = false;
+        activate();
+    } else if ([pinchGestureRecognizer velocity] > 0.0) { // <<Zoom in>>
+        zoomedToFill = true;
+        deactivate();
+    }
+
+    %orig(pinchGestureRecognizer);
+}
+
+- (void)flashAndHideSnapIndicator {}
+
+// https://github.com/lgariv/UniZoom/blob/master/Tweak.xm
+- (void)setSnapIndicatorVisible:(bool)arg1 {
+    %orig(NO);
+}
+%end
 %end
 
 // Workaround for MiRO92/uYou-for-YouTube#12, qnblackcat/uYouPlus#263
@@ -1068,6 +1159,9 @@ static void replaceTab(YTIGuideResponse *response) {
     }
     if (replacePreviousAndNextButton()) {
        %init(gReplacePreviousAndNextButton);
+    }
+    if (dontEatMyContent)
+        %init(gDontEatMyContent)
     }
     if (@available(iOS 16, *)) {
        %init(iOS16);
