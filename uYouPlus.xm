@@ -1190,4 +1190,3 @@ static void replaceTab(YTIGuideResponse *response) {
     if (GreenUI()) {
        %init(gGreenUI);
     }
-}
