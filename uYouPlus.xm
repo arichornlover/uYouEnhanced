@@ -5,6 +5,7 @@
 #import "Header.h"
 #import "Tweaks/YouTubeHeader/YTVideoQualitySwitchOriginalController.h"
 #import "Tweaks/YouTubeHeader/YTPlayerViewController.h"
+#import "Tweaks/YouTubeHeader/YTVideoZoomOverlayView.h"
 #import "Tweaks/YouTubeHeader/YTWatchController.h"
 #import "Tweaks/YouTubeHeader/YTIGuideResponse.h"
 #import "Tweaks/YouTubeHeader/YTIGuideResponseSupportedRenderers.h"
@@ -269,10 +270,8 @@ BOOL GreenUI() {
     } else {
         center();
     }
-
     %orig(animated);
 }
-
 - (void)didPressToggleFullscreen {  
     YTMainAppVideoPlayerOverlayViewController *activeVideoPlayerOverlay = [self activeVideoPlayerOverlay];
     
@@ -283,15 +282,12 @@ BOOL GreenUI() {
     
     %orig;
 }
-
 - (void)didSwipeToEnterFullscreen { 
     %orig; activate(); 
 }
-
 - (void)didSwipeToExitFullscreen { 
     %orig; deactivate();
 }
-
 - (void)singleVideo:(id)arg1 aspectRatioDidChange:(CGFloat)arg2 {
     aspectRatio = arg2;
     if (aspectRatio == 0.0) { 
@@ -303,11 +299,9 @@ BOOL GreenUI() {
     }
     %orig(arg1, arg2);
 }
-
 %end
 
 %hook YTVideoZoomOverlayView
-
 - (void)didRecognizePinch:(UIPinchGestureRecognizer *)pinchGestureRecognizer {
     // %log((CGFloat) [pinchGestureRecognizer scale], (CGFloat) [pinchGestureRecognizer velocity]);
     if ([pinchGestureRecognizer velocity] <= 0.0) { // >>Zoom out<<
@@ -320,7 +314,6 @@ BOOL GreenUI() {
 
     %orig(pinchGestureRecognizer);
 }
-
 - (void)flashAndHideSnapIndicator {}
 
 // https://github.com/lgariv/UniZoom/blob/master/Tweak.xm
@@ -1190,3 +1183,4 @@ static void replaceTab(YTIGuideResponse *response) {
     if (GreenUI()) {
        %init(gGreenUI);
     }
+}
