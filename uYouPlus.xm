@@ -914,6 +914,15 @@ static void replaceTab(YTIGuideResponse *response) {
 %end
 %end
 
+#define UNSUPPORTED_DEVICES @[@"iPhone14,3", @"iPhone14,6", @"iPhone14,8"]
+#define THRESHOLD 1.99
+
+double aspectRatio = 16/9;
+bool zoomedToFill = false;
+
+MLHAMSBDLSampleBufferRenderingView *renderingView;
+NSLayoutConstraint *widthConstraint, *heightConstraint, *centerXConstraint, *centerYConstraint;
+
 %group gDontEatMyContent
 %hook YTPlayerViewController
 
