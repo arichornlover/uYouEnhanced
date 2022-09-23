@@ -1155,7 +1155,7 @@ static void replaceTab(YTIGuideResponse *response) {
     if (replacePreviousAndNextButton()) {
        %init(gReplacePreviousAndNextButton);
     }
-    if (dontEatMyContent)
+    if (dontEatMyContent()) {
         %init(gDontEatMyContent);
     }
     if (@available(iOS 16, *)) {
