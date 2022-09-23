@@ -5,6 +5,7 @@
 #import <substrate.h>
 #import <sys/utsname.h>
 #import "Header.h"
+#import "Tweaks/YouTubeHeader/MLHAMSBDLSampleBufferRenderingView.h"
 #import "Tweaks/YouTubeHeader/YTVideoQualitySwitchOriginalController.h"
 #import "Tweaks/YouTubeHeader/YTPlayerView.h"
 #import "Tweaks/YouTubeHeader/YTPlayerViewController.h"
@@ -17,6 +18,7 @@
 #import "Tweaks/YouTubeHeader/YTCommonColorPalette.h"
 #import "Tweaks/YouTubeHeader/ASCollectionView.h"
 #import "Tweaks/YouTubeHeader/YTMainAppVideoPlayerOverlayView.h"
+#import "Tweaks/YouTubeHeader/YTMainAppVideoPlayerOverlayViewController"
 #import "Tweaks/YouTubeHeader/YTPlayerOverlay.h"
 #import "Tweaks/YouTubeHeader/YTPlayerOverlayProvider.h"
 #import "Tweaks/YouTubeHeader/YTReelWatchPlaybackOverlayView.h"
