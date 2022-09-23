@@ -2,12 +2,11 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <dlfcn.h>
-#import <substrate.h>
-#import <sys/utsname.h>
 #import "Header.h"
 #import "Tweaks/YouTubeHeader/MLHAMSBDLSampleBufferRenderingView.h"
 #import "Tweaks/YouTubeHeader/YTVideoQualitySwitchOriginalController.h"
 #import "Tweaks/YouTubeHeader/YTPlayerView.h"
+#import "Tweaks/YouTubeHeader/YTPlayerViewController.h"
 #import "Tweaks/YouTubeHeader/YTWatchController.h"
 #import "Tweaks/YouTubeHeader/YTIGuideResponse.h"
 #import "Tweaks/YouTubeHeader/YTIGuideResponseSupportedRenderers.h"
