@@ -969,7 +969,9 @@ static void replaceTab(YTIGuideResponse *response) {
     %orig(arg1, arg2);
 }
 %end
+%end
 
+// for DontEatMyContent Tweak
 %hook YTVideoZoomOverlayView
 - (void)didRecognizePinch:(UIPinchGestureRecognizer *)pinchGestureRecognizer {
     // %log((CGFloat) [pinchGestureRecognizer scale], (CGFloat) [pinchGestureRecognizer velocity]);
@@ -989,7 +991,6 @@ static void replaceTab(YTIGuideResponse *response) {
 - (void)setSnapIndicatorVisible:(bool)arg1 {
     %orig(NO);
 }
-%end
 %end
 
 %group gYTDisableHighContrastUI
