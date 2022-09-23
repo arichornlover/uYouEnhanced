@@ -9,7 +9,7 @@ on:
       uyou_version:
         description: "The version of uYou"
         default: "2.1"
-        required: false
+        required: true
         type: string
       decrypted_youtube_url:
         description: "The direct URL to the decrypted YouTube ipa"
@@ -66,7 +66,7 @@ jobs:
       - name: Setup Theos Jailed
         uses: actions/checkout@v3
         with:
-          repository: kabiroberai/theos-jailed
+          repository: qnblackcat/theos-jailed
           ref: master
           path: theos-jailed
           submodules: recursive
