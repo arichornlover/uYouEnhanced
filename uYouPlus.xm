@@ -5,6 +5,7 @@
 #import <sys/utsname.h>
 #import "Header.h"
 #import "Tweaks/YouTubeHeader/YTVideoQualitySwitchOriginalController.h"
+#import "Tweaks/YouTubeHeader/YTPlayerView.h"
 #import "Tweaks/YouTubeHeader/YTPlayerViewController.h"
 #import "Tweaks/YouTubeHeader/YTWatchController.h"
 #import "Tweaks/YouTubeHeader/YTIGuideResponse.h"
