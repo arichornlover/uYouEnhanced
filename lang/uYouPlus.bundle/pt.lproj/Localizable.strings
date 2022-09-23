@@ -1,9 +1,10 @@
 // Settings
+
 "REPLACE_PREVIOUS_NEXT_BUTTON" = "Substituir o botão Anterior e Próximo";
 "REPLACE_PREVIOUS_NEXT_BUTTON_DESC" = "Substitui o botão Anterior e Próximo pelo botão Avançar e Retroceder. A reinicialização do app é necessária.";
 
 "FIX_GOOGLE_SIGNIN" = "Corrigir o login do Google (somente para usuários da TrollStore)";
-"FIX_GOOGLE_SIGNIN_DESC" = "Funciona apenas quando o app foi instalado via TrollStore: ative esta opção para que você possa fazer login com sua conta do Google. A reinicialização do app é necessária.";
+"FIX_GOOGLE_SIGNIN_DESC" = "Ative esta opção somente quando você não conseguir fazer login com sua conta do Google e o aplicativo foi instalado via TrollStore. Se você conseguir fazer login normalmente, mantenha-o desativado. A reinicialização do app é necessária.";
 
 "KILL_APP" = "Fechar o YouTube";
 "KILL_APP_DESC" = "Toque aqui para fechar o YouTube!";
