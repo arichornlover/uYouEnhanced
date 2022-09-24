@@ -3,10 +3,11 @@
 #import <objc/runtime.h>
 #import <dlfcn.h>
 #import "Header.h"
-#import "Tweaks/YouTubeHeader/MLHAMSBDLSampleBufferRenderingView.h"
+#import <sys/utsname.h>
+// #import "Tweaks/YouTubeHeader/MLHAMSBDLSampleBufferRenderingView.h"
 #import "Tweaks/YouTubeHeader/YTVideoQualitySwitchOriginalController.h"
-#import "Tweaks/YouTubeHeader/YTPlayerView.h"
-#import "Tweaks/YouTubeHeader/YTPlayerViewController.h"
+// #import "Tweaks/YouTubeHeader/YTPlayerView.h"
+// #import "Tweaks/YouTubeHeader/YTPlayerViewController.h"
 #import "Tweaks/YouTubeHeader/YTWatchController.h"
 #import "Tweaks/YouTubeHeader/YTIGuideResponse.h"
 #import "Tweaks/YouTubeHeader/YTIGuideResponseSupportedRenderers.h"
@@ -15,8 +16,8 @@
 #import "Tweaks/YouTubeHeader/YTIBrowseRequest.h"
 #import "Tweaks/YouTubeHeader/YTCommonColorPalette.h"
 #import "Tweaks/YouTubeHeader/ASCollectionView.h"
-#import "Tweaks/YouTubeHeader/YTMainAppVideoPlayerOverlayView.h"
-#import "Tweaks/YouTubeHeader/YTMainAppVideoPlayerOverlayViewController.h"
+// #import "Tweaks/YouTubeHeader/YTMainAppVideoPlayerOverlayView.h"
+// #import "Tweaks/YouTubeHeader/YTMainAppVideoPlayerOverlayViewController.h"
 #import "Tweaks/YouTubeHeader/YTPlayerOverlay.h"
 #import "Tweaks/YouTubeHeader/YTPlayerOverlayProvider.h"
 #import "Tweaks/YouTubeHeader/YTReelWatchPlaybackOverlayView.h"
@@ -1003,6 +1004,56 @@ NSLayoutConstraint *widthConstraint, *heightConstraint, *centerXConstraint, *cen
 %end
 %end
 
+// https://stackoverflow.com/a/11197770/19227228
+NSString* deviceName() {
+    struct utsname systemInfo;
+    uname(&systemInfo);
+    return [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
+}
+
+BOOL isDeviceSupported() {
+    NSString *identifier = deviceName();
+    NSArray *unsupportedDevices = UNSUPPORTED_DEVICES;
+    
+    for (NSString *device in unsupportedDevices) {
+        if ([device isEqualToString:identifier]) {
+            return NO;
+        }
+    }
+
+    if ([identifier containsString:@"iPhone"]) {
+        NSString *model = [identifier stringByReplacingOccurrencesOfString:@"iPhone" withString:@""];
+        model = [model stringByReplacingOccurrencesOfString:@"," withString:@"."];
+        if ([identifier isEqualToString:@"iPhone13,1"]) { // iPhone 12 mini
+            return YES; 
+        } else if ([model floatValue] >= 14.0) { // iPhone 13 series and newer
+            return YES;
+        } else return NO;
+    } else return NO;
+}
+
+void activate() {
+    if (aspectRatio < THRESHOLD || zoomedToFill) return;
+    // NSLog(@"activate");
+    center();
+    renderingView.translatesAutoresizingMaskIntoConstraints = NO;
+    widthConstraint.active = YES;
+    heightConstraint.active = YES;
+}
+
+void deactivate() {
+    // NSLog(@"deactivate");
+    center();
+    renderingView.translatesAutoresizingMaskIntoConstraints = YES;
+    widthConstraint.active = NO;
+    heightConstraint.active = NO;
+}
+
+void center() {
+    centerXConstraint.active = YES;
+    centerYConstraint.active = YES;
+}
+
 %group gYTDisableHighContrastUI
 %hook YTCommonColorPalette
 - (UIColor *)textPrimary {
@@ -1165,7 +1216,7 @@ NSLayoutConstraint *widthConstraint, *heightConstraint, *centerXConstraint, *cen
     if (replacePreviousAndNextButton()) {
        %init(gReplacePreviousAndNextButton);
     }
-    if (dontEatMyContent()) {
+    if (dontEatMyContent() && isDeviceSupported()) {
         %init(gDontEatMyContent);
     }
     if (@available(iOS 16, *)) {

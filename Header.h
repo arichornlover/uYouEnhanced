@@ -56,6 +56,7 @@
 // BigYTMiniPlayer
 @interface YTMainAppVideoPlayerOverlayView : UIView
 - (UIViewController *)_viewControllerForAncestor;
++ (CGFloat)topButtonAdditionalPadding;
 @end
 
 @interface YTWatchMiniBarView : UIView
@@ -98,7 +99,7 @@
 @end
 
 // DontEatMyContent
-@interface YTPlayerViewController : UIViewController
+@interface YTPlayerViewController (YTPlayerViewControllerCategory)
 - (id)activeVideoPlayerOverlay;
 - (id)playerView;
 @end
@@ -116,9 +117,9 @@
 - (id)videoPlayerOverlayView;
 @end
 
-@interface YTMainAppVideoPlayerOverlayView : UIView
-+ (CGFloat)topButtonAdditionalPadding;
-@end
+// @interface YTMainAppVideoPlayerOverlayView : UIView
+// + (CGFloat)topButtonAdditionalPadding;
+// @end
 
 NSString* deviceName();
 BOOL isDeviceSupported();
