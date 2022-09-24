@@ -97,6 +97,11 @@
 @end
 
 // DontEatMyContent
+@interface YTPlayerViewController : UIViewController
+- (id)activeVideoPlayerOverlay;
+- (id)playerView;
+@end
+
 @interface YTPlayerView : UIView
 - (BOOL)zoomToFill;
 - (id)renderingView;
