@@ -1,3 +1,4 @@
+#import <UIKit/UIKit.h>
 #import "Tweaks/YouTubeHeader/YTPlayerViewController.h"
 
 #define LOC(x) [tweakBundle localizedStringForKey:x value:nil table:nil]
@@ -116,6 +117,7 @@
 @end
 
 @interface YTMainAppVideoPlayerOverlayView : UIView
++ (CGFloat)topButtonAdditionalPadding;
 @end
 
 NSString* deviceName();
