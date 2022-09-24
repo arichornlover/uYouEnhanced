@@ -95,3 +95,20 @@
 
 @interface UIPredictionViewController : UIViewController
 @end
+
+// DontEatMyContent
+@interface YTPlayerView : UIView
+- (BOOL)zoomToFill;
+- (id)renderingView;
+@end
+
+@interface MLHAMSBDLSampleBufferRenderingView : UIView
+@end
+
+@interface YTMainAppVideoPlayerOverlayViewController : UIViewController
+- (BOOL)isFullscreen;
+- (id)videoPlayerOverlayView;
+@end
+
+@interface YTMainAppVideoPlayerOverlayView : UIView
+@end
