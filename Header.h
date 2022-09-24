@@ -112,3 +112,9 @@
 
 @interface YTMainAppVideoPlayerOverlayView : UIView
 @end
+
+NSString* deviceName();
+BOOL isDeviceSupported();
+void activate(); 
+void deactivate();
+void center();
