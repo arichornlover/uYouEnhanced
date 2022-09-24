@@ -1,16 +1,25 @@
 // Settings
 
-"HIDE_PREVIOUS_AND_NEXT_BUTTON" = "Vor- und Zurücktasten ausblenden";
-"HIDE_PREVIOUS_AND_NEXT_BUTTON_DESC" = "Vor- und Zurückspultasten vom Videoplayer ausblenden.";
+"REPLACE_PREVIOUS_NEXT_BUTTON" = "Vor- und Zurücktasten ersetzen";
+"REPLACE_PREVIOUS_NEXT_BUTTON_DESC" = "Vor- und Zurücktasten mit  Vor- und Zurückspultasten ersetzen. App restart is required.";
 
-"YT_MINIPLAYER" = "Miniplayer für alle YT Videos aktivieren";
-"YT_MINIPLAYER_DESC" = "z.B. bei Videos für Kinder";
+"FIX_GOOGLE_SIGNIN" = "Google-Anmeldung beheben (nur für TrollStore Benutzer!)";
+"FIX_GOOGLE_SIGNIN_DESC" = "Aktiviere diese Option nur, wenn Sie sich nicht mit Ihrem Google-Account anmelden können und die App über TrollStore installiert wurde. Wenn Sie sich normal anmelden können, halte diese Option deaktiviert! App-Neustart erforderlich!";
+
+"KILL_APP" = "YouTube crashen";
+"KILL_APP_DESC" = "Tippe hier, um YouTube zum Abstürzen zu bringen!";
+
+"HIDE_PREVIOUS_AND_NEXT_BUTTON" = "Vor- und Zurücktasten ausblenden";
+"HIDE_PREVIOUS_AND_NEXT_BUTTON_DESC" = "Vor- und Zurücktasten vom Videoplayer ausblenden.";
+
+"YT_MINIPLAYER" = "Miniplayer für alle YouTube-Videos aktivieren";
+"YT_MINIPLAYER_DESC" = "z.B. bei Videos für Kinder.";
 
 "CAST_CONFIRM" = "Warnung vor TV-Übertragungen (YTCastConfirm)";
 "CAST_CONFIRM_DESC" = "Zeigt eine Warnung an, um eine ausversehene TV-Übertragung zu verhindern.";
 
 "HIDE_HOVER_CARD" = "Endkarten ausblenden (YTNoHoverCards)";
-"HIDE_HOVER_CARD_DESC" = "Endkarten (Thumbnails) am Ende des Videos ausblenden.";
+"HIDE_HOVER_CARD_DESC" = "Creator-Endkarten (Thumbnails) am Ende des Videos ausblenden.";
 
 "NEW_MINIPLAYER_STYLE" = "Neuer Miniplayer Style (BigYTMiniPlayer)";
 "NEW_MINIPLAYER_STYLE_DESC" = "App-Neustart erforderlich!";
@@ -34,7 +43,7 @@
 "OLED_DARKMODE_DESC" = "Könnte in manchen Fällen nicht richtig funktionieren. App-Neustart ist erforderlich, wenn diese Option akti-/deaktiviert wird!";
 
 "OLED_KEYBOARD" = "OLED-Tastatur (Experimental)";
-"OLED_KEYBOARD_DESC" = "Könnte in manchen Fällen nicht richtig funktionieren. App-Neustart erforderlich1";
+"OLED_KEYBOARD_DESC" = "Könnte in manchen Fällen nicht richtig funktionieren. App-Neustart erforderlich!";
 
 "HIDE_PAID_PROMOTION_CARDS" = "Enthält bezahlte Werbung Info ausblenden";
 "HIDE_PAID_PROMOTION_CARDS_DESC" = "Enthält bezahlte Werbung Infobanner bei manchen Videos ausblenden.";
