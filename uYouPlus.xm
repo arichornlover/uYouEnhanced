@@ -14,7 +14,6 @@
 #import "Tweaks/YouTubeHeader/YTIPivotBarRenderer.h"
 #import "Tweaks/YouTubeHeader/YTIBrowseRequest.h"
 #import "Tweaks/YouTubeHeader/YTCommonColorPalette.h"
-#import "Tweaks/YouTubeHeader/YTAppDelegate.h"
 #import "Tweaks/YouTubeHeader/ASCollectionView.h"
 #import "Tweaks/YouTubeHeader/YTMainAppVideoPlayerOverlayView.h"
 #import "Tweaks/YouTubeHeader/YTMainAppVideoPlayerOverlayViewController.h"
@@ -913,21 +912,6 @@ static void replaceTab(YTIGuideResponse *response) {
         return %orig;
 }
 %end
-%end
-
-%hook YTAppDelegate
-
-- (BOOL)application:(id)arg1 didFinishLaunchingWithOptions:(id)arg2 {
-    defaults = [NSUserDefaults standardUserDefaults];
-    YTGlobalConfig *globalConfig = [self valueForKey:@"_globalConfig"];
-    YTColdConfig *coldConfig = [self valueForKey:@"_coldConfig"];
-    YTHotConfig *hotConfig = [self valueForKey:@"_hotConfig"];
-    hookClass(globalConfig, [globalConfig class]);
-    hookClass(coldConfig, [coldConfig class]);
-    hookClass(hotConfig, [hotConfig class]);
-    return %orig;
-}
-
 %end
 
 #define UNSUPPORTED_DEVICES @[@"iPhone14,3", @"iPhone14,6", @"iPhone14,8"]
