@@ -2,4 +2,4 @@ I edited <b>"CodeResources"</b> file for an issue with <b>uYouPlus</b> reinstall
 In this <b>"CodeResources"</b> file I remove all <b>"MessagesExtension.appex"</b> code from this file.<br>
 uYouPlus APP Version: uYouPlus_17.41.2_2.1<br>
 File location: Payload\YouTube.app\_CodeSignature\CodeResources
-<br><b>Issue solved for me.</b>
+<br><s><b>Issue solved for me.</b></s>
