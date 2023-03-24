@@ -491,12 +491,11 @@ static BOOL didFinishLaunching;
 
 %group gDisableWifiRelatedSettings
 %hook YTSettingsSectionItemManager
-- (void)updatePurchasesandmembershipsSectionWithEntry:(id)arg1 {} // Purchases and memberships
-- (void)updateNotificationsSectionWithEntry:(id)arg1 {} // Notifications
-- (void)updateConnectedappsSectionWithEntry:(id)arg1 {} // Connected apps
-- (void)updateManageallhistorySectionWithEntry:(id)arg1 {} // Manage all history
+- (void)updateNotificationSectionWithEntry:(id)arg1 {} // Notifications
+- (void)updateHistorySectionWithEntry:(id)arg1 {} // History
 - (void)updatePrivacySectionWithEntry:(id)arg1 {} // Privacy
-- (void)updateLivechatSectionWithEntry:(id)arg1 {} // Live chat
+- (void)updateHistoryAndPrivacySectionWithEntry:(id)arg1 {} // History & Privacy
+- (void)updateLiveChatSectionWithEntry:(id)arg1 {} // Live chat
 %end
 %end
 
