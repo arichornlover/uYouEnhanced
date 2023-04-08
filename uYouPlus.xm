@@ -5,7 +5,6 @@
 #import <sys/utsname.h>
 #import <substrate.h>
 #import "Header.h"
-#import "Tweaks/FLEX/FLEX.h"
 #import "Tweaks/YouTubeHeader/YTVideoQualitySwitchOriginalController.h"
 #import "Tweaks/YouTubeHeader/YTPlayerViewController.h"
 #import "Tweaks/YouTubeHeader/YTWatchController.h"
@@ -228,7 +227,7 @@ static BOOL didFinishLaunching;
     self.downloadsVC = [self.downloadsVC init];
 
     if (IsEnabled(@"flex_enabled")) {
-        [[FLEXManager sharedManager] showExplorer];
+        [[%c(FLEXManager) performSelector:@selector(sharedManager)] performSelector:@selector(showExplorer)];
     }
 
     return didFinishLaunching;
@@ -236,7 +235,7 @@ static BOOL didFinishLaunching;
 - (void)appWillResignActive:(id)arg1 {
     %orig;
          if (IsEnabled(@"flex_enabled")) {
-         [[FLEXManager sharedManager] showExplorer];
+        [[%c(FLEXManager) performSelector:@selector(sharedManager)] performSelector:@selector(showExplorer)];
     }
 }
 %end
@@ -991,17 +990,31 @@ void DEMC_centerRenderingView() {
 }
 %end
 
-// Disable tap to skip - code not working
-// %hook YTDoubleTapToSeekController
-// - (void)enableDoubleTapToSeek:(bool) {
-//    return IsEnabled(@"tapToSkip_enabled") ? NO : %orig;
-// }
-// %end
-
 // Disable Pinch to zoom
 %hook YTColdConfig
 - (BOOL)videoZoomFreeZoomEnabledGlobalConfig {
     return IsEnabled(@"pinchToZoom_enabled") ? NO : %orig;
+}
+%end
+
+// YTStockVolumeHUD - https://github.com/lilacvibes/YTStockVolumeHUD
+%group gStockVolumeHUD
+%hook YTVolumeBarView
+- (void)volumeChanged:(id)arg1 {
+        %orig(nil);
+}
+%end
+
+%hook UIApplication 
+- (void)setSystemVolumeHUDEnabled:(BOOL)arg1 forAudioCategory:(id)arg2 {
+        %orig(true, arg2);
+}
+%end
+%end
+
+%hook YTDoubleTapToSeekController
+- (void)enableDoubleTapToSeek:(BOOL)arg1 {
+    return IsEnabled(@"tapToSkip_disabled") ? %orig(NO) : %orig;
 }
 %end
 
@@ -1133,6 +1146,13 @@ void DEMC_centerRenderingView() {
     if ((IsEnabled(@"hideBuySuperThanks_enabled")) && ([self.accessibilityIdentifier isEqualToString:@"id.elements.components.suggested_action"])) { 
         self.hidden = YES; 
     }
+}
+%end
+
+%hook YTReelWatchRootViewController
+- (void)setPausedStateCarouselView {
+    if (IsEnabled(@"hideSubcriptions_enabled")) {}
+    else { return %orig; }
 }
 %end
 
@@ -2257,88 +2277,91 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 
     %init;
     if (@available(iOS 16, *)) {
-       %init(iOS16);
+        %init(iOS16);
     }
     if (IsEnabled(@"reExplore_enabled")) {
-       %init(gReExplore);
+        %init(gReExplore);
     }
     if (IsEnabled(@"bigYTMiniPlayer_enabled") && (UIDevice.currentDevice.userInterfaceIdiom != UIUserInterfaceIdiomPad)) {
-       %init(Main);
+        %init(Main);
     }
     if (IsEnabled(@"dontEatMyContent_enabled") && DEMC_deviceIsSupported()) {
-       %init(gDontEatMyContent);
+        %init(gDontEatMyContent);
     }
     if (IsEnabled(@"hidePreviousAndNextButton_enabled")) {
-       %init(gHidePreviousAndNextButton);
+        %init(gHidePreviousAndNextButton);
     }
     if (IsEnabled(@"replacePreviousAndNextButton_enabled")) {
-       %init(gReplacePreviousAndNextButton);
+        %init(gReplacePreviousAndNextButton);
     }
     if (IsEnabled(@"hideOverlayDarkBackground_enabled")) {
-       %init(gHideOverlayDarkBackground);
+        %init(gHideOverlayDarkBackground);
     }
     if (IsEnabled(@"hideVideoPlayerShadowOverlayButtons_enabled")) {
-       %init(gHideVideoPlayerShadowOverlayButtons);
+        %init(gHideVideoPlayerShadowOverlayButtons);
     }
     if (IsEnabled(@"disableWifiRelatedSettings_enabled")) {
-       %init(gDisableWifiRelatedSettings);
+        %init(gDisableWifiRelatedSettings);
     }
     if (oldDarkTheme()) {
-       %init(gOldDarkTheme)
+        %init(gOldDarkTheme)
     }
     if (oledDarkTheme()) {
-        %init(gOLED)
+         %init(gOLED)
     }
     if (IsEnabled(@"oledKeyBoard_enabled")) {
-       %init(gOLEDKB);
+        %init(gOLEDKB);
     }
     if (IsEnabled(@"disableHints_enabled")) {
-       %init(gDisableHints);
+        %init(gDisableHints);
     }
     if (IsEnabled(@"hideChipBar_enabled")) {
-       %init(gHideChipBar);
+        %init(gHideChipBar);
     }
     if (IsEnabled(@"iPhoneLayout_enabled") && (UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad)) {
-       %init(giPhoneLayout);
+        %init(giPhoneLayout);
+    }  
+    if (IsEnabled(@"stockVolumeHUD_enabled")) {
+        %init(gStockVolumeHUD);
     }
     if (IsEnabled(@"hideYouTubeSlimStatusBar_enabled")) {
-       %init(gHideYouTubeSlimStatusBar);
+        %init(gHideYouTubeSlimStatusBar);
     }
     if (IsEnabled(@"hideYouTubeLogo_enabled")) {
-       %init(gHideYouTubeLogo);
+        %init(gHideYouTubeLogo);
     }
     if (IsEnabled(@"hideuYouTab_enabled")) {
-       %init(gHideuYouTab);
+        %init(gHideuYouTab);
     }
     if (IsEnabled(@"hideHeatwaves_enabled")) {
-       %init(gHideHeatwaves);
+        %init(gHideHeatwaves);
     }
     if (IsEnabled(@"ytNoModernUI_enabled")) {
-       %init(gYTNoModernUI);
+        %init(gYTNoModernUI);
     }
     if (defaultContrastMode()) {
-       %init(gLowContrastMode);
+        %init(gLowContrastMode);
     }
     if (redContrastMode()) {
-       %init(gRedContrastMode);
+        %init(gRedContrastMode);
     }
     if (blueContrastMode()) {
-       %init(gBlueContrastMode);
+        %init(gBlueContrastMode);
     }
     if (greenContrastMode()) {
-       %init(gGreenContrastMode);
+        %init(gGreenContrastMode);
     }
     if (yellowContrastMode()) {
-       %init(gYellowContrastMode);
+        %init(gYellowContrastMode);
     }
     if (orangeContrastMode()) {
-       %init(gOrangeContrastMode);
+        %init(gOrangeContrastMode);
     }
     if (purpleContrastMode()) {
-       %init(gPurpleContrastMode);
+        %init(gPurpleContrastMode);
     }
     if (pinkContrastMode()) {
-       %init(gPinkContrastMode);
+        %init(gPinkContrastMode);
     }
 
     // Disable updates
