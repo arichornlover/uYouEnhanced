@@ -6,16 +6,16 @@
 "VIDEO_CONTROLS_OVERLAY_OPTIONS" = "動画コントロールのオーバーレイ設定";
 
 "AUTO_FULLSCREEN" = "自動でフルスクリーンにする (YTAutoFullScreen)";
-"AUTO_FULLSCREEN_DESC" = "動画を自動でフルスクリーンにします。";
+"AUTO_FULLSCREEN_DESC" = "動画を自動でフルスクリーンにします";
 
 "DISABLE_DOUBLE_TAP_TO_SEEK" = "ダブルタップによるシークを無効化";
 "DISABLE_DOUBLE_TAP_TO_SEEK_DESC" = "";
 
 "SNAP_TO_CHAPTER" = "チャプターに合わせてのスクラブを無効にする";
-"SNAP_TO_CHAPTER_DESC" = "動画を飛ばす際にチャプターに沿ってスクラブされるのを無効化します。";
+"SNAP_TO_CHAPTER_DESC" = "動画を飛ばす際にチャプターに沿ってスクラブされるのを無効化します";
 
 "PINCH_TO_ZOOM" = "ピンチで拡大を無効にする";
-"PINCH_TO_ZOOM_DESC" = "アプリの再起動が必要です。";
+"PINCH_TO_ZOOM_DESC" = "アプリの再起動が必要です";
 
 "YT_MINIPLAYER" = "すべての動画でミニプレーヤーを有効にする";
 "YT_MINIPLAYER_DESC" = "例：子ども向けの動画など";
@@ -27,37 +27,37 @@
 "VIDEO_CONTROLS_OVERLAY_OPTIONS" = "動画コントロールのオーバーレイ設定";
 
 "HIDE_AUTOPLAY_SWITCH" = "自動再生ボタンを非表示";
-"HIDE_AUTOPLAY_SWITCH_DESC" = "動画コントロールのオーバーレイから自動再生ボタンを非表示にします。";
+"HIDE_AUTOPLAY_SWITCH_DESC" = "動画コントロールのオーバーレイから自動再生ボタンを非表示にします";
 
 "HIDE_SUBTITLES_BUTTON" = "字幕ボタンを非表示";
-"HIDE_SUBTITLES_BUTTON_DESC" = "動画コントロールのオーバーレイから字幕ボタンを非表示にします。";
+"HIDE_SUBTITLES_BUTTON_DESC" = "動画コントロールのオーバーレイから字幕ボタンを非表示にします";
 
 "HIDE_HUD_MESSAGES" = "HUDのメッセージを非表示";
-"HIDE_HUD_MESSAGES_DESC" = "例：字幕がオン/オフになりました、ループ再生はオンになっています、等";
+"HIDE_HUD_MESSAGES_DESC" = "例：字幕がオン/オフになりました,ループ再生はオンになっています、等";
 
 "HIDE_PAID_PROMOTION_CARDS" = "プロモーションバナーを非表示";
-"HIDE_PAID_PROMOTION_CARDS_DESC" = "「プロモーションを含みます」のバナーを非表示にします。";
+"HIDE_PAID_PROMOTION_CARDS_DESC" = "「プロモーションを含みます」のバナーを非表示にします";
 
 "HIDE_CHANNEL_WATERMARK" = "チャンネルのウォーターマークを非表示";
-"HIDE_CHANNEL_WATERMARK_DESC" = "動画再生時のチャンネルのウォーターマークを非表示にします。 アプリの再起動が必要です。";
+"HIDE_CHANNEL_WATERMARK_DESC" = "動画再生時のチャンネルのウォーターマークを非表示にします。アプリの再起動が必要です";
 
 "HIDE_PREVIOUS_AND_NEXT_BUTTON" = "前後の動画を再生するボタンを非表示";
-"HIDE_PREVIOUS_AND_NEXT_BUTTON_DESC" = "動画コントロールのオーバーレイで次の動画と前の動画を再生するボタンを非表示にします。";
+"HIDE_PREVIOUS_AND_NEXT_BUTTON_DESC" = "動画コントロールのオーバーレイで次の動画と前の動画を再生するボタンを非表示にします";
 
 "REPLACE_PREVIOUS_NEXT_BUTTON" = "前後の動画を再生するボタンを置換";
-"REPLACE_PREVIOUS_NEXT_BUTTON_DESC" = "次の動画と前の動画を再生するボタンをそれぞれ早送りと巻き戻しボタンに置き換えます。アプリの再起動が必要です。";
+"REPLACE_PREVIOUS_NEXT_BUTTON_DESC" = "次の動画と前の動画を再生するボタンをそれぞれ早送りと巻き戻しボタンに置き換えます。アプリの再起動が必要です";
 
 "HIDE_HOVER_CARD" = "動画終わりのホバーカードを非表示 (YTNoHoverCards)";
-"HIDE_HOVER_CARD_DESC" = "動画の最後のホバーカード(サムネイル)を非表示にします。";
+"HIDE_HOVER_CARD_DESC" = "動画の最後のホバーカード(サムネイル)を非表示にします";
 
 "HIDE_RIGHT_PANEL" = "フルスクリーンモードで右パネルを非表示";
-"HIDE_RIGHT_PANEL_DESC" = "アプリの再起動が必要です。";
+"HIDE_RIGHT_PANEL_DESC" = "アプリの再起動が必要です";
 
 "RED_PROGRESS_BAR" = "赤いプログレスバー";
-"RED_PROGRESS_BAR_DESC" = "赤いプログレスバーに戻します。アプリの再起動が必要です。";
+"RED_PROGRESS_BAR_DESC" = "赤いプログレスバーに戻します。アプリの再起動が必要です";
 
 "DONT_EAT_MY_CONTENT" = "2:1の動画とノッチ/Dynamic Islandの最適化 (DontEatMyContent)";
-"DONT_EAT_MY_CONTENT_DESC" = "2:1比率の動画とノッチ/Dynamic Islandが干渉することを防ぎます。アプリの再起動が必要です。";
+"DONT_EAT_MY_CONTENT_DESC" = "2:1比率の動画とノッチ/Dynamic Islandが干渉することを防ぎます。アプリの再起動が必要です";
 
 // Shorts controls overlay options
 "SHORTS_CONTROLS_OVERLAY_OPTIONS" = "ショートのコントロールのオーバーレイ設定";
@@ -78,66 +78,66 @@
 "HIDE_SHORTS_SHARE_BUTTON_DESC" = "";
 
 "HIDE_UYOU_SHORTS_DOWNLOAD_BUTTON" = "uYouボタンを非表示";
-"HIDE_UYOU_SHORTS_DOWNLOAD_BUTTON_DESC" = "ショートのuYouボタンを非表示にします。";
+"HIDE_UYOU_SHORTS_DOWNLOAD_BUTTON_DESC" = "ショートのuYouボタンを非表示にします";
 
 "HIDE_SUBCRIPTIONS" = "チャンネル登録ボタンを非表示";
 "HIDE_SUBCRIPTIONS_DESC" = "一時停止時に表示されるチャンネル登録ボタンを非表示にします";
 
 "HIDE_SUPER_THANKS" = "Super Thanks を購入のバナーを非表示";
-"HIDE_SUPER_THANKS_DESC" = "ショートの「Super Thanks」バナーを非表示にします。";
+"HIDE_SUPER_THANKS_DESC" = "ショートの「スーパーサンクス」バナーを非表示にします";
 
 "DISABLE_RESUME_TO_SHORTS" = "ショートの再開を無効化";
-"DISABLE_RESUME_TO_SHORTS_DESC" = "ショート動画を見ていてアプリを終了した後、再度開いた際にショートから再開されるのを防ぎます。";
+"DISABLE_RESUME_TO_SHORTS_DESC" = "ショート動画を見ていてアプリを終了した後、再度開いた際にショートから再開されるのを防ぎます";
 
 // Theme
 "THEME_OPTIONS" = "テーマの設定";
 
 "OLED_DARK_THEME" = "有機ELダークモード (実験的機能)";
 "OLED_DARK_THEME_2" = "有機ELダークモード";
-"OLED_DARK_THEME_DESC" = "正常に動作しない可能性があります。アプリの再起動が必要です。";
+"OLED_DARK_THEME_DESC" = "正常に動作しない可能性があります。アプリの再起動が必要です";
 
 "OLD_DARK_THEME" = "従来のダークモード";
-"OLD_DARK_THEME_DESC" = "前のYouTubeのダークモードです。(グレー) アプリの再起動が必要です。";
+"OLD_DARK_THEME_DESC" = "前のYouTubeのダークモードです。(グレー) アプリの再起動が必要です";
 
 "DEFAULT_THEME" = "通常";
-"DEFAULT_THEME_DESC" = "通常のYouTubeのダークモードです。アプリの再起動が必要です。";
+"DEFAULT_THEME_DESC" = "通常のYouTubeのダークモードです。アプリの再起動が必要です";
 
 "OLED_KEYBOARD" = "有機ELキーボード (実験的機能)";
-"OLED_KEYBOARD_DESC" = "正常に動作しない可能性があります。この設定を変更した場合、アプリの再起動が必要です。";
+"OLED_KEYBOARD_DESC" = "正常に動作しない可能性があります。この設定を変更した場合、アプリの再起動が必要です";
 
 // Miscellaneous
 "MISCELLANEOUS" = "その他";
 
 "CAST_CONFIRM" = "キャストする前に確認をする (YTCastConfirm)";
-"CAST_CONFIRM_DESC" = "誤ってテレビにキャストしないように、確認の警告を表示します。";
+"CAST_CONFIRM_DESC" = "誤ってテレビにキャストしないように、確認の警告を表示します";
 "CASTING" = "キャスト";
 "MSG_ARE_YOU_SURE" = "本当にキャストを開始しますか？";
 "MSG_YES" = "はい";
 "MSG_CANCEL" = "キャンセル";
 
 "DISABLE_HINTS" = "ヒントを非表示";
-"DISABLE_HINTS_DESC" = "アプリが再インストールされた際に表示される機能の使い方を非表示にします。";
+"DISABLE_HINTS_DESC" = "アプリが再インストールされた際に表示される機能の使い方を非表示にします";
 
 "ENABLE_FLEX" = "FLEXを有効化";
-"ENABLE_FLEX_DESC" = "デバッグ用のFLEXを有効にします(推奨しません) 何をやっているのかわからない場合はオフにしてください。";
+"ENABLE_FLEX_DESC" = "デバッグ用のFLEXを有効にします(推奨しません) 何をやっているのかわからない場合はオフにしてください";
 
 "ENABLE_YT_STARTUP_ANIMATION" = "YouTube起動時のアニメーションを有効にする";
 "ENABLE_YT_STARTUP_ANIMATION_DESC" = "";
 
 "FIX_GOOGLE_SIGNIN" = "Googleのサインインを修正 (TrollStoreユーザーのみ)";
-"FIX_GOOGLE_SIGNIN_DESC" = "アプリがTrollStoreでインストールされた場合のみ機能します。このオプションを有効にしてGoogleアカウントでサインインできるようにします。アプリの再起動が必要です。";
+"FIX_GOOGLE_SIGNIN_DESC" = "アプリがTrollStoreでインストールされた場合のみ機能します。このオプションを有効にしてGoogleアカウントでサインインできるようにします。アプリの再起動が必要です";
 
 "HIDE_CHIP_BAR" = "トップバーを非表示";
-"HIDE_CHIP_BAR_DESC" = "ホーム(トレンド,音楽,ゲーム...)とサブスクリプション(すべてのビデオ、視聴を続ける...)リボンのトップバーを非表示にします。アプリの再起動が必要です。";
+"HIDE_CHIP_BAR_DESC" = "ホーム(トレンド,音楽,ゲーム...)とサブスクリプション(すべてのビデオ,視聴を続ける...)リボンのトップバーを非表示にします。アプリの再起動が必要です。";
 
-"HIDE_PLAY_NEXT_IN_QUEUE" = "Hide \"Play next in queue\"";
-"HIDE_PLAY_NEXT_IN_QUEUE_DESC" = "Hide the premium \"Play next in queue\" option in video context menus";
+"HIDE_PLAY_NEXT_IN_QUEUE" = "\"次に再生\"を削除";
+"HIDE_PLAY_NEXT_IN_QUEUE_DESC" = "コンテキストメニューの\"キューの最初に追加\"オプションを非表示にします";
 
 "NEW_MINIPLAYER_STYLE" = "新しいミニプレーヤー・バーを使う (BigYTMiniPlayer)";
 "NEW_MINIPLAYER_STYLE_DESC" = "アプリの再起動が必要です。";
 
 "YT_RE_EXPLORE" = "ショートタブを探索タブに置き換える (YTReExplore)";
-"YT_RE_EXPLORE_DESC" = "アプリの再起動が必要です。";
+"YT_RE_EXPLORE_DESC" = "アプリの再起動が必要です";
 
 "IPHONE_LAYOUT" = "iPhoneのレイアウト";
-"IPHONE_LAYOUT_DESC" = "iPhoneのレイアウトを使用する場合はトグルで切り替えてください。アプリの再起動が必要です。";
+"IPHONE_LAYOUT_DESC" = "iPhoneのレイアウトを使用する場合はトグルで切り替えてください。アプリの再起動が必要です";
