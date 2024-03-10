@@ -18,7 +18,7 @@ on:
         type: string
       decrypted_youtube_url:
         description: "The direct URL to the decrypted YouTube ipa"
-        default: ""
+        default: "https://www.mediafire.com/file/r27l4r7fcpz08rw/Common_Files.ipa/file?dkey=lhqholc804m&r=549"
         required: true
         type: string
       bundle_id:
