@@ -1122,7 +1122,7 @@ BOOL isAdString(NSString *description) {
         self.opaque = YES;
         self.userInteractionEnabled = NO;
         [self sizeToFit];
-        [self.superview layoutIfNeeded];
+//      [self.superview layoutIfNeeded];
         [self setNeedsLayout];
         [self removeFromSuperview];
     }
@@ -1216,16 +1216,12 @@ BOOL isAdString(NSString *description) {
 }
 %end
 
-// Hide the (Connect / Thanks / Save / Report) Buttons under the Video Player - 17.33.2 and up - @arichornlover (inspired by @PoomSmart's version) DEPRECATED METHOD ⚠️
+// Hide the (Connect / Thanks / Save / Report) Buttons under the Video Player - 17.33.2 and up - @arichornlover (inspired by @PoomSmart's version) Legacy Code ⚠️
 %hook _ASDisplayView
 - (void)layoutSubviews {
     %orig;
     BOOL hideConnectButton = IS_ENABLED(@"hideConnectButton_enabled");
-//  BOOL hideShareButton = IS_ENABLED(@"hideShareButton_enabled"); // OLD
-//  BOOL hideRemixButton = IS_ENABLED(@"hideRemixButton_enabled"); // OLD
     BOOL hideThanksButton = IS_ENABLED(@"hideThanksButton_enabled");
-//  BOOL hideAddToOfflineButton = IS_ENABLED(@"hideAddToOfflineButton_enabled"); // OLD
-//  BOOL hideClipButton = IS_ENABLED(@"hideClipButton_enabled"); // OLD
     BOOL hideSaveToPlaylistButton = IS_ENABLED(@"hideSaveToPlaylistButton_enabled");
     BOOL hideReportButton = IS_ENABLED(@"hideReportButton_enabled");
 
@@ -1243,7 +1239,7 @@ BOOL isAdString(NSString *description) {
 }
 %end
 
-// Hide the (Connect / Share / Remix / Thanks / Download / Clip / Save / Report) Buttons under the Video Player - 17.33.2 and up - @PoomSmart (inspired by @arichornlover) - NEW METHOD
+// Hide the (Connect / Share / Remix / Thanks / Download / Clip / Save / Report) Buttons under the Video Player - 17.33.2 and up - @PoomSmart (inspired by @arichornlover)
 static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *identifiers) {
     for (id child in [nodeController children]) {
         if ([child isKindOfClass:%c(ELMNodeController)]) {
@@ -1264,25 +1260,25 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
                     return YES;
             }
 
-            return findCell(child, identifiers);
+            if (findCell(child, identifiers)) {
+                return YES;
+            }
         }
-
-        return NO;
     }
     return NO;
 }
 
-%hook ASCollectionView // This stopped working on May 14th 2024 due to a Server-Side Change from YouTube.
+%hook ASCollectionView
 
 - (CGSize)sizeForElement:(ASCollectionElement *)element {
     if ([self.accessibilityIdentifier isEqualToString:@"id.video.scrollable_action_bar"]) {
         ASCellNode *node = [element node];
         ASNodeController *nodeController = [node controller];
-        if (IS_ENABLED(@"hideShareButton_enabled") && findCell(nodeController, @[@"id.video.share.button"])) {
+        if (IS_ENABLED(@"hideShareButton_enabled") && findCell(nodeController, @[@"id.video.share.button", @"class.share.button"])) {
             return CGSizeZero;
         }
 
-        if (IS_ENABLED(@"hideRemixButton_enabled") && findCell(nodeController, @[@"id.video.remix.button"])) {
+        if (IS_ENABLED(@"hideRemixButton_enabled") && findCell(nodeController, @[@"id.video.remix.button", @"class.remix.button"])) {
             return CGSizeZero;
         }
 
@@ -1290,15 +1286,15 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
             return CGSizeZero;
         }
 
-        if (IS_ENABLED(@"hideClipButton_enabled") && findCell(nodeController, @[@"clip_button.eml"])) {
+        if (IS_ENABLED(@"hideClipButton_enabled") && findCell(nodeController, @[@"clip_button.eml", @"class.clip_button"])) {
             return CGSizeZero;
         }
 
-        if (IS_ENABLED(@"hideDownloadButton_enabled") && findCell(nodeController, @[@"id.ui.add_to.offline.button"])) {
+        if (IS_ENABLED(@"hideDownloadButton_enabled") && findCell(nodeController, @[@"id.ui.add_to.offline.button", @"class.download_button"])) {
             return CGSizeZero;
         }
 
-        if (IS_ENABLED(@"hideCommentSection_enabled") && findCell(nodeController, @[@"id.ui.carousel_header"])) {
+        if (IS_ENABLED(@"hideCommentSection_enabled") && findCell(nodeController, @[@"id.ui.carousel_header", @"class.comment_section"])) {
             return CGSizeZero;
         }
     }

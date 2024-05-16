@@ -180,7 +180,6 @@ extern NSBundle *uYouPlusBundle();
     ];
     [sectionItems addObject:developers];
 
-/* UNFINISHED BUTTON
     YTSettingsSectionItem *copySettings = [%c(YTSettingsSectionItem)
         itemWithTitle:LOC(@"COPY_SETTINGS")
         titleDescription:LOC(@"COPY_SETTINGS_DESC")
@@ -188,17 +187,18 @@ extern NSBundle *uYouPlusBundle();
         detailTextBlock:nil
         selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
             NSMutableString *settingsString = [NSMutableString string];
-            for (NSString *key in @{ MISSING KEYS }) {
-                BOOL enabled = [[NSUserDefaults standardUserDefaults] boolForKey:key];
-                [settingsString appendFormat:@"%@: %d", key, enabled ? 1 : 0];
+            NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+            NSDictionary *modifiedSettings = [userDefaults dictionaryRepresentation];
+            for (NSString *key in modifiedSettings) {
+                NSString *value = [userDefaults objectForKey:key];
+                [settingsString appendFormat:@"%@: %@\n", key, value];
             }
             [[UIPasteboard generalPasteboard] setString:settingsString];
-            // show a confirmation message or perform some other action here - @arichornlover
+            // Show a confirmation message or perform some other action here - @arichornlover
             return YES;
         }
     ];
     [sectionItems addObject:copySettings];
-*/
 
     YTSettingsSectionItem *pasteSettings = [%c(YTSettingsSectionItem)
         itemWithTitle:LOC(@"PASTE_SETTINGS")
