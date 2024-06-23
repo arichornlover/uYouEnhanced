@@ -736,10 +736,20 @@ static int contrastMode() {
 %end
 %end
 
-// Hide YouTube Heatwaves in Video Player (YouTube v17.19.2-latest) - @level3tjg - https://www.reddit.com/r/jailbreak/comments/v29yvk/
+// Hide YouTube Heatwaves in Video Player - v17.33.2+ - @arichornlover
 %group gHideHeatwaves
 %hook YTInlinePlayerBarContainerView
 - (BOOL)canShowHeatwave { return NO; }
+%end
+%hook YTPlayerBarHeatwaveView
+- (id)initWithFrame:(CGRect)frame heatmap:(id)heat {
+    return NULL;
+}
+%end
+%hook YTPlayerBarController
+- (void)setHeatmap:(id)arg1 {
+    %orig(NULL);
+}
 %end
 %end
 
