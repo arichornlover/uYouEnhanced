@@ -8,7 +8,7 @@
 	branch = main
 [submodule "Tweaks/YouMute"]
 	path = Tweaks/YouMute
-	url = https://github.com/arichornlover/YouMute.git
+	url = https://github.com/PoomSmart/YouMute.git
 	branch = main
 [submodule "Tweaks/YouQuality"]
 	path = Tweaks/YouQuality
@@ -24,7 +24,7 @@
 	branch = uYouEnhanced
 [submodule "Tweaks/YouTubeHeader"]
 	path = Tweaks/YouTubeHeader
-	url = https://github.com/arichornlover/YouTubeHeader.git
+	url = https://github.com/arichornloverALT/YouTubeHeader.git
 	branch = main
 [submodule "Extensions"]
 	path = Extensions
@@ -32,7 +32,7 @@
 	branch = main
 [submodule "Tweaks/YTABConfig"]
 	path = Tweaks/YTABConfig
-	url = https://github.com/arichornlover/YTABConfig2.git
+	url = https://github.com/PoomSmart/YTABConfig.git
 	branch = main
 [submodule "Tweaks/Alderis"]
 	path = Tweaks/Alderis
@@ -58,26 +58,26 @@
 	url = https://github.com/PoomSmart/NoYTPremium.git
 [submodule "Tweaks/YTSpeed"]
 	path = Tweaks/YTSpeed
-	url = https://github.com/arichornlover/YTSpeed.git
+	url = https://github.com/arichornloverALT/YTSpeed.git
 [submodule "Tweaks/MrBeastify"]
 	path = Tweaks/MrBeastify
-	url = https://github.com/arichornlover/MrBeastify.git
+	url = https://github.com/arichornloverALT/MrBeastify.git
 	branch = main
 [submodule "Tweaks/FLEXing"]
 	path = Tweaks/FLEXing
 	url = https://github.com/PoomSmart/FLEXing
 [submodule "Tweaks/YTHoldForSpeed"]
 	path = Tweaks/YTHoldForSpeed
-	url = https://github.com/arichornlover/YTHoldForSpeed.git
+	url = https://github.com/arichornloverALT/YTHoldForSpeed.git
 [submodule "Tweaks/uYouLocalization"]
 	path = Tweaks/uYouLocalization
 	url = https://github.com/dayanch96/uYouLocalization.git
 [submodule "Tweaks/YouGroupSettings"]
 	path = Tweaks/YouGroupSettings
-	url = https://github.com/arichornlover/YouGroupSettings.git
+	url = https://github.com/arichornloverALT/YouGroupSettings.git
 [submodule "Tweaks/YouTimeStamp"]
 	path = Tweaks/YouTimeStamp
-	url = https://github.com/arichornlover/YouTimeStamp.git
+	url = https://github.com/arichornloverALT/YouTimeStamp.git
 [submodule "Tweaks/protobuf"]
 	path = Tweaks/protobuf
 	url = https://github.com/protocolbuffers/protobuf.git
