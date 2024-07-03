@@ -296,7 +296,7 @@
 
 | **Tweaks/App** | **Developer** | **Version** | **Open source** |
 | - | - | :-: | :-:  |
-| **YouTube** | Google Inc | 19.21.2 | ✖︎ |
+| **YouTube** | Google Inc | 19.26.5 | ✖︎ |
 | [uYou](https://github.com/MiRO92/uYou-for-YouTube) | [MiRO92](https://twitter.com/miro92) | 3.0.4 | ✖︎ |
 | **Open in YouTube** | [CokePokes](https://github.com/CokePokes) | 1.2 | [✔︎](https://github.com/CokePokes/YoutubeExtensions) |
 | **iSponsorBlock** | [Galactic-Dev](https://github.com/Galactic-Dev) | 1.2.5 | [✔︎](https://github.com/Galactic-Dev/iSponsorBlock) |
@@ -306,17 +306,18 @@
 | **DontEatMyContent** | [therealFoxster](https://github.com/therealFoxster) | 1.1.6 | [✔︎](https://github.com/therealFoxster/DontEatMyContent) |
 | **YTSpeed** | [Lyvendia](https://github.com/Lyvendia) | 1.0.1 | [✔︎](https://github.com/Lyvendia/YTSpeed) |
 | **Alderis Color Picker** | [HASHBANG Productions](https://github.com/hbang) | 1.2 | [✔︎](https://github.com/hbang/Alderis) |
-| **YTUHD** | [PoomSmart](https://twitter.com/poomsmart) | 1.5.1 | [✔︎](https://github.com/PoomSmart/YTUHD) |
-| **YouPiP** | [PoomSmart](https://twitter.com/poomsmart) | 1.8.9 | [✔︎](https://github.com/PoomSmart/YouPiP) |
+| **YTUHD** | [PoomSmart](https://twitter.com/poomsmart) | 1.5.3 | [✔︎](https://github.com/PoomSmart/YTUHD) |
+| **YouPiP** | [PoomSmart](https://twitter.com/poomsmart) | 1.8.12 | [✔︎](https://github.com/PoomSmart/YouPiP) |
 | **IAmYouTube** | [PoomSmart](https://twitter.com/poomsmart) | 1.3.0 | [✔︎](https://github.com/PoomSmart/IAmYouTube) |
 | **YTABConfig** | [PoomSmart](https://twitter.com/poomsmart) | 1.7.2 | [✔︎](https://github.com/PoomSmart/YTABConfig) |
 | **YTReExplore** | [PoomSmart](https://twitter.com/poomsmart) | 1.0.2 | [✔︎](https://github.com/PoomSmart/YTReExplore) |
 | **NoYTPremium** | [PoomSmart](https://twitter.com/poomsmart) | 1.0.4 | [✔︎](https://github.com/PoomSmart/NoYTPremium) |
 | **YTNoPaidPromo** | [PoomSmart](https://twitter.com/poomsmart) | 1.0.0 | [✔︎](https://github.com/PoomSmart/YTNoPaidPromo) |
 | **YouRememberCaption** | [PoomSmart](https://twitter.com/poomsmart) | 1.0.0 | [✔︎](https://poomsmart.github.io/repo/depictions/youremembercaption.html) |
-| **Return YouTube Dislike** | [PoomSmart](https://twitter.com/poomsmart) | 1.11.11 | [✔︎](https://github.com/PoomSmart/Return-YouTube-Dislikes) |
-| **YouMute** | [PoomSmart](https://twitter.com/poomsmart) | 1.2.1-3 | [✔︎](https://github.com/PoomSmart/YouMute) |
+| **Return YouTube Dislike** | [PoomSmart](https://twitter.com/poomsmart) | 1.11.14 | [✔︎](https://github.com/PoomSmart/Return-YouTube-Dislikes) |
+| **YouMute** | [PoomSmart](https://twitter.com/poomsmart) | 1.2.2 | [✔︎](https://github.com/PoomSmart/YouMute) |
 | **YouQuality** | [PoomSmart](https://twitter.com/poomsmart) | 1.2.1 | [✔︎](https://github.com/PoomSmart/YouQuality) |
+| **YouTube-X** | [PoomSmart](https://twitter.com/poomsmart) | 1.6.9 | [✔︎](https://github.com/PoomSmart/YouTube-X) |
 | **YTVideoOverlay** | [PoomSmart](https://twitter.com/poomsmart) | 1.1.6 | [✔︎](https://github.com/PoomSmart/YTVideoOverlay) |
 | **YTHoldForSpeed** | [joshuaseltzer](https://github.com/joshuaseltzer) | 1.2.0 | [✔︎](https://github.com/joshuaseltzer/YTHoldForSpeed) |
 | **LowContrastMode** | [arichornlover](https://github.com/arichornlover) | 1.5.2 | [✔︎](https://github.com/arichornlover/YTLowContrastMode) |
@@ -332,7 +333,7 @@
 | MiRO92 | uYou 3.0 | v18.06.6 - v18.18.2 | iOS 14.0 - iOS 15.8.2 |
 | MiRO92 | uYou 3.0.1 | v18.19.1 - v18.41.5 | iOS 14.0 - iOS 17.5.1 |
 | MiRO92 | uYou 3.0.2 / 3.0.3 | v19.06.2 - v19.15.1 | iOS 14.0 - iOS 17.5.1 |
-| MiRO92 | uYou 3.0.4 | v19.06.2 - latest | iOS 14.0 - 17.5.1 |
+| MiRO92 | uYou 3.0.4 | v19.06.2 - v19.22.6 | iOS 14.0 - 17.5.1 |
 
 # Building
 
@@ -370,18 +371,19 @@ See [Installation - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/Installati
 
 # Wiki
 
-See [arichornlover - Wiki](https://github.com/arichornlover/uYouenhanced/wiki/) or [qnblackcat - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/)
+See [arichornlover - Wiki](https://github.com/arichornlover/uYouEnhanced/wiki/) or [qnblackcat - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/)
 
 
 ## Lightweight Alternative - YTLitePlus
 
 <details>
     <summary>Read more</summary><br>
-- Change from uYouEnhanced to YTLitePlus (optional)
 
-Hello, this is here to showcase this tweak. I have been seeing the YTLitePlus tweak on Reddit for quite some time now and decided to join in. Before you download the tweak, you should take a look at the pros and cons below to learn more about the tweak.
+# Switch from uYouEnhanced to YTLitePlus (optional)
 
-https://github.com/Balackburn/YTLitePlus/releases
+Hello, this is here to showcase this tweak. I have been seeing the posts about the YTLitePlus tweak on Reddit for quite some time now and decided to add it here. Before you download or check out the tweak, you should take a look at the pros and cons below to learn more about YTLitePlus.
+
+https://github.com/YTLitePlus/YTLitePlus/releases
 
 **Pros**
 
@@ -389,9 +391,9 @@ https://github.com/Balackburn/YTLitePlus/releases
 
 - YTLitePlus provides more features in YTLite & YTLitePlus Sections in Settings that uYouPlus/uYouEnhanced may not have.
 
-- YTLitePlus includes a lightweight version of the App Version Spoofer, making it easier to use.
+- YTLitePlus includes a lightweight and simplified version of the App Version Spoofer, making it easier to use.
 
-- YTLitePlus does not cause your device to overheat, unlike uYouEnhanced.
+- YTLitePlus does not cause your device to overheat, unlike uYouPlus/uYouEnhanced.
 
 - YTLitePlus provides faster video & audio downloading than uYouPlus/uYouEnhanced.
 
@@ -399,5 +401,5 @@ https://github.com/Balackburn/YTLitePlus/releases
 
 - Video quality on WiFi option is not available in YTLitePlus.
 
-- Reordering the pivot bar tabs such as ‘Home‘, ‘Shorts‘, ‘Explore‘, ‘Trending‘, Create‘, ‘Subscriptions‘ & ‘You‘ is not available in YTLitePlus.
+- Reordering the pivot bar tabs such as `Home`, `Shorts`, `Explore`, `Trending`, `Create`, `Subscriptions` & `You` is not available in YTLitePlus.
 </details>

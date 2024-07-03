@@ -20,8 +20,7 @@
 	branch = main
 [submodule "Tweaks/Return-YouTube-Dislikes"]
 	path = Tweaks/Return-YouTube-Dislikes
-	url = https://github.com/arichornloverALT/Return-YouTube-Dislikes.git
-	branch = uYouEnhanced
+	url = https://github.com/PoomSmart/Return-YouTube-Dislikes.git
 [submodule "Tweaks/YouTubeHeader"]
 	path = Tweaks/YouTubeHeader
 	url = https://github.com/arichornloverALT/YouTubeHeader.git
@@ -34,6 +33,10 @@
 	path = Tweaks/YTABConfig
 	url = https://github.com/PoomSmart/YTABConfig.git
 	branch = main
+[submodule "Tweaks/FLEXing"]
+	path = Tweaks/FLEXing
+	url = https://github.com/PoomSmart/FLEXing
+	branch = rootless
 [submodule "Tweaks/Alderis"]
 	path = Tweaks/Alderis
 	url = https://github.com/hbang/Alderis.git
@@ -47,9 +50,6 @@
 	path = Tweaks/iSponsorBlock
 	url = https://github.com/Galactic-Dev/iSponsorBlock.git
 	branch = master
-[submodule "Tweaks/IAmYouTube"]
-	path = Tweaks/IAmYouTube
-	url = https://github.com/PoomSmart/IAmYouTube.git
 [submodule "Tweaks/YTClassicVideoQuality"]
 	path = Tweaks/YTClassicVideoQuality
 	url = https://github.com/PoomSmart/YTClassicVideoQuality.git
@@ -59,16 +59,19 @@
 [submodule "Tweaks/YTSpeed"]
 	path = Tweaks/YTSpeed
 	url = https://github.com/arichornloverALT/YTSpeed.git
+[submodule "Tweaks/YouTube-X"]
+	path = Tweaks/YouTube-X
+	url = https://github.com/PoomSmart/YouTube-X/
+[submodule "Tweaks/IAmYouTube"]
+	path = Tweaks/IAmYouTube
+	url = https://github.com/PoomSmart/IAmYouTube.git
+[submodule "Tweaks/YTHoldForSpeed"]
+	path = Tweaks/YTHoldForSpeed
+	url = https://github.com/arichornloverALT/YTHoldForSpeed.git
 [submodule "Tweaks/MrBeastify"]
 	path = Tweaks/MrBeastify
 	url = https://github.com/arichornloverALT/MrBeastify.git
 	branch = main
-[submodule "Tweaks/FLEXing"]
-	path = Tweaks/FLEXing
-	url = https://github.com/PoomSmart/FLEXing
-[submodule "Tweaks/YTHoldForSpeed"]
-	path = Tweaks/YTHoldForSpeed
-	url = https://github.com/arichornloverALT/YTHoldForSpeed.git
 [submodule "Tweaks/uYouLocalization"]
 	path = Tweaks/uYouLocalization
 	url = https://github.com/dayanch96/uYouLocalization.git
