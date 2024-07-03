@@ -378,9 +378,10 @@ See [arichornlover - Wiki](https://github.com/arichornlover/uYouEnhanced/wiki/) 
 
 <details>
     <summary>Read more</summary><br>
-- Change from uYouEnhanced to YTLitePlus (optional)
 
-Hello, this is here to showcase this tweak. I have been seeing the YTLitePlus tweak on Reddit for quite some time now and decided to join in. Before you download the tweak, you should take a look at the pros and cons below to learn more about the tweak.
+# Switch from uYouEnhanced to YTLitePlus (optional)
+
+Hello, this is here to showcase this tweak. I have been seeing the posts about the YTLitePlus tweak on Reddit for quite some time now and decided to add it here. Before you download or check out the tweak, you should take a look at the pros and cons below to learn more about YTLitePlus.
 
 https://github.com/YTLitePlus/YTLitePlus/releases
 
