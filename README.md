@@ -287,7 +287,9 @@
 - **Compatibility:** Requires iOS/iPadOS 15.0 or later.
 - For AltStore user: 
 
-  - My official AltStore repo: https://therealfoxster.github.io/altsource-viewer/view/?source=https://raw.githubusercontent.com/arichornlover/arichornlover.github.io/main/apps.json
+  - My official AltStore repo (uYouEnhanced - iOS 15+): https://therealfoxster.github.io/altsource-viewer/view/?source=https://raw.githubusercontent.com/arichornloverALT/arichornloverALT.github.io/main/apps.json
+
+  - My alternative AltStore repo (uYouEnhanced - iOS 14+ - mainly for Trollstore users): https://therealfoxster.github.io/altsource-viewer/view/?source=https://raw.githubusercontent.com/arichornloverALT/arichornloverALT.github.io/main/apps-legacy.json - not sure if i can update this ipa. this IPA will be locked in YouTube Version **19.20.2**
 
   - [Open in AltStore (v19.21.2-3.0.4)](https://tinyurl.com/2wea84xd) - It will take a while to install because AltStore needs to download the IPA first.
 
