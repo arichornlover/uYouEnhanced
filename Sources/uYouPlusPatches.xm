@@ -12,16 +12,6 @@
 }
 %end
 
-// Workaround for MiRO92/uYou-for-YouTube#12, qnblackcat/uYouPlus#263
-%hook YTDataUtils
-+ (NSMutableDictionary *)spamSignalsDictionary {
-    return nil;
-}
-+ (NSMutableDictionary *)spamSignalsDictionaryWithoutIDFA {
-    return nil;
-}
-%end
-
 %hook YTHotConfig
 - (BOOL)disableAfmaIdfaCollection { return NO; }
 %end
@@ -151,8 +141,12 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity) {
 /*
 %hook YTShareRequestViewController
 - (id)initWithService:(id)_service parentResponder:(id)_parentResponder {
-    // disable the default share sheet behavior and force the app to call [YTAccountScopedCommandRouter handleCommand]
-    return NULL;
+    id result = %orig;
+    // disable the default share sheet behavior and force the app to call [YTAccountScopedCommandRouter handleCommand] if available
+    if ([_parentResponder respondsToSelector:@selector(handleCommand:entry:fromView:sender:completionBlock:)]) {
+        [_parentResponder handleCommand:nil entry:nil fromView:nil sender:nil completionBlock:nil];
+    }
+    return result;
 }
 %end
 */
@@ -170,7 +164,6 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity) {
     return TRUE;
 }
 %end
-
 
 /* ------------------- iPhone Layout ------------------- */
 
@@ -347,4 +340,7 @@ static void refreshUYouAppearance() {
 
     // Disable uYou's playback speed controls (prevent crash on video playback https://github.com/therealFoxster/uYouPlus/issues/2#issuecomment-1894912963)
     // [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"showPlaybackRate"];
+    
+    // Disable uYou's adblock
+    [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"removeYouTubeAds"];
 }

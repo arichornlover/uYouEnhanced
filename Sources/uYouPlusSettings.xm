@@ -201,21 +201,19 @@ extern NSBundle *uYouPlusBundle();
         selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
             if (IS_ENABLED(@"replaceCopyandPasteButtons_enabled")) {
                 // Export Settings functionality
-                NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+                NSURL *tempFileURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:@"exported_settings.txt"]];
                 NSMutableString *settingsString = [NSMutableString string];
                 for (NSString *key in copyKeys) {
-                    if ([userDefaults objectForKey:key]) {
-                        NSString *value = [userDefaults objectForKey:key];
+                    id value = [[NSUserDefaults standardUserDefaults] objectForKey:key];
+                    if (value) {
                         [settingsString appendFormat:@"%@: %@\n", key, value];
                     }
                 }
-            if (settingsString.length > 0) {
-                UIDocumentPickerViewController *documentPicker = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:@[@"public.text"] inMode:UIDocumentPickerModeExportToService];
+                [settingsString writeToURL:tempFileURL atomically:YES encoding:NSUTF8StringEncoding error:nil];
+                UIDocumentPickerViewController *documentPicker = [[UIDocumentPickerViewController alloc] initWithURL:tempFileURL inMode:UIDocumentPickerModeExportToService];
                 documentPicker.delegate = (id<UIDocumentPickerDelegate>)self;
                 documentPicker.allowsMultipleSelection = NO;
-                [UIApplication.sharedApplication.keyWindow.rootViewController presentViewController:documentPicker animated:YES completion:nil];
-            }
-            return YES;
+                [settingsViewController presentViewController:documentPicker animated:YES completion:nil];
             } else {
                 // Copy Settings functionality (default behavior)
                 NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
@@ -245,7 +243,7 @@ extern NSBundle *uYouPlusBundle();
                 UIDocumentPickerViewController *documentPicker = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:@[@"public.text"] inMode:UIDocumentPickerModeImport];
                 documentPicker.delegate = (id<UIDocumentPickerDelegate>)self;
                 documentPicker.allowsMultipleSelection = NO;
-                [UIApplication.sharedApplication.keyWindow.rootViewController presentViewController:documentPicker animated:YES completion:nil];
+                [settingsViewController presentViewController:documentPicker animated:YES completion:nil];
                 return YES;
             } else {
                 // Paste Settings functionality (default behavior)
@@ -262,7 +260,7 @@ extern NSBundle *uYouPlusBundle();
                                 NSString *value = components[1];
                                 [[NSUserDefaults standardUserDefaults] setObject:value forKey:key];
                             }
-                        }
+                        }                 
                         [settingsViewController reloadData];
                         SHOW_RELAUNCH_YT_SNACKBAR;
                     }
@@ -1395,18 +1393,23 @@ extern NSBundle *uYouPlusBundle();
         [settingsViewController setSectionItems:sectionItems forCategory:uYouPlusSection title:@"uYouEnhanced" titleDescription:LOC(@"TITLE DESCRIPTION") headerHidden:YES];
 }
 
-// File Manager (Paste Settings)
+// File Manager (Import Settings .txt)
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     if (urls.count > 0) {
-        NSString *fileContents = [NSString stringWithContentsOfURL:urls.firstObject encoding:NSUTF8StringEncoding error:nil];
-        NSArray *lines = [fileContents componentsSeparatedByString:@"\n"];
-        for (NSString *line in lines) {
-            NSArray *components = [line componentsSeparatedByString:@": "];
-            if (components.count == 2) {
-                NSString *key = components[0];
-                NSString *value = components[1];
-                [[NSUserDefaults standardUserDefaults] setObject:value forKey:key];
+        NSURL *fileURL = urls.firstObject;
+        NSString *fileContents = [NSString stringWithContentsOfURL:fileURL encoding:NSUTF8StringEncoding error:nil];
+        if (fileContents.length > 0) {
+            NSArray *lines = [fileContents componentsSeparatedByString:@"\n"];
+            for (NSString *line in lines) {
+                NSArray *components = [line componentsSeparatedByString:@": "];
+                if (components.count == 2) {
+                    NSString *key = components[0];
+                    NSString *value = components[1];
+                    [[NSUserDefaults standardUserDefaults] setObject:value forKey:key];
+                }
             }
+            YTSettingsViewController *settingsViewController = [self valueForKey:@"_settingsViewControllerDelegate"];
+            [settingsViewController reloadData];
         }
     }
 }

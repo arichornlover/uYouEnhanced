@@ -664,15 +664,29 @@ static int contrastMode() {
 - (BOOL)cxClientEnableModernizedActionSheet { return NO; }
 - (BOOL)enableClientShortsSheetsModernization { return NO; }
 - (BOOL)enableTimestampModernizationForNative { return NO; }
-- (BOOL)modernizeElementsTextColor { return NO; }
-- (BOOL)modernizeElementsBgColor { return NO; }
+- (BOOL)mainAppCoreClientEnableModernIaFeedStretchBottom { return NO; }
+- (BOOL)mainAppCoreClientEnableModernIaFrostedBottomBar { return NO; }
+- (BOOL)mainAppCoreClientEnableModernIaFrostedPivotBar { return NO; }
+- (BOOL)mainAppCoreClientEnableModernIaFrostedPivotBarUpdatedBackdrop { return NO; }
+- (BOOL)mainAppCoreClientEnableModernIaFrostedTopBar { return NO; }
+- (BOOL)mainAppCoreClientEnableModernIaOpacityPivotBar { return NO; }
+- (BOOL)mainAppCoreClientEnableModernIaTopAndBottomBarIconRefresh { return NO; }
+- (BOOL)mainAppCoreClientEnableModernizedBedtimeReminderU18DefaultSettings { return NO; }
+- (BOOL)modernizeCameoNavbar { return NO; }
 - (BOOL)modernizeCollectionLockups { return NO; }
+- (BOOL)modernizeCollectionLockupsShowVideoCount { return NO; }
+- (BOOL)modernizeElementsBgColor { return NO; }
+- (BOOL)modernizeElementsTextColor { return NO; }
+- (BOOL)postsCreatorClientEnableModernButtonsUi { return NO; }
+- (BOOL)pullToFullModernEdu { return NO; }
+- (BOOL)showModernMiniplayerRedesign { return NO; }
 - (BOOL)uiSystemsClientGlobalConfigEnableModernButtonsForNative { return NO; }
 - (BOOL)uiSystemsClientGlobalConfigIosEnableModernTabsForNative { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigIosEnableEpUxUpdates { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigIosEnableSheetsUxUpdates { return NO; }
 - (BOOL)uiSystemsClientGlobalConfigIosEnableSnackbarModernization { return NO; }
+- (BOOL)uiSystemsClientGlobalConfigModernizeNativeBgColor { return NO; }
+- (BOOL)uiSystemsClientGlobalConfigModernizeNativeTextColor { return NO; }
 // Disable Rounded Content
+- (BOOL)enableIosFloatingMiniplayerRoundedCornerRadius { return YES; }
 - (BOOL)iosDownloadsPageRoundedThumbs { return NO; }
 - (BOOL)iosRoundedSearchBarSuggestZeroPadding { return NO; }
 - (BOOL)uiSystemsClientGlobalConfigEnableRoundedDialogForNative { return NO; }
@@ -1025,8 +1039,9 @@ static int contrastMode() {
 }
 %end
 
+/*
 // LEGACY VERSION ⚠️
-// Hide Fullscreen Button - @arichornlover - PoomSmart's Newer Version of the *YouQuality* tweak breaks when enabling this
+// Hide Fullscreen Button - @arichornlover - PoomSmart's 1.2.0+ Versions of the *YouQuality* tweak makes the button invisible when enabling this
 %hook YTInlinePlayerBarContainerView
 - (void)layoutSubviews {
     %orig; 
@@ -1043,15 +1058,18 @@ static int contrastMode() {
     }
 }
 %end
+*/
 
 // NEW VERSION
-// Hide Fullscreen Button - @arichornlover - UNTESTED!
-// %hook YTInlinePlayerBarContainerView
-// - (BOOL)fullscreenButtonDisabled { return YES; }
-// - (BOOL)canShowFullscreenButton { return NO; }
-// - (BOOL)canShowFullscreenButtonExperimental { return NO; }
-// - (void)setFullscreenButtonDisabled:(BOOL) // this line should remain disabled for now.
-// %end
+// Hide Fullscreen Button - @arichornlover
+%group gHideFullscreenButton
+%hook YTInlinePlayerBarContainerView
+- (BOOL)fullscreenButtonDisabled { return YES; }
+- (BOOL)canShowFullscreenButton { return NO; }
+- (BOOL)canShowFullscreenButtonExperimental { return NO; }
+// - (void)setFullscreenButtonDisabled:(BOOL) // Uncomment and might implement this if needed - @arichornlover
+%end
+%end
 
 // Hide HUD Messages
 %hook YTHUDMessageView
@@ -1657,6 +1675,9 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
     }
     if (IS_ENABLED(@"portraitFullscreen_enabled")) {
         %init(gPortraitFullscreen);
+    }
+    if (IS_ENABLED(@"disableFullscreenButton_enabled")) {
+        %init(gHideFullscreenButton);
     }
     if (IS_ENABLED(@"hideFullscreenActions_enabled")) {
         %init(hideFullscreenActions);
