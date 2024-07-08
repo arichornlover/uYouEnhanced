@@ -1,53 +1,48 @@
 #import <UIKit/UIKit.h>
-#import <LocalAuthentication/LocalAuthentication.h>
-#import <CaptainHook/CaptainHook.h>
 #import <Foundation/Foundation.h>
-#import <objc/runtime.h>
+#import <CaptainHook/CaptainHook.h>
 #import <dlfcn.h>
-#import <sys/utsname.h>
-#import <substrate.h>
+#import <LocalAuthentication/LocalAuthentication.h>
+#import <objc/runtime.h>
 #import <rootless.h>
-
-#import "uYouPlusThemes.h" // Hide "Buy Super Thanks" banner (_ASDisplayView)
-#import <YouTubeHeader/YTAppDelegate.h> // Activate FLEX
-#import <YouTubeHeader/YTIMenuConditionalServiceItemRenderer.h>
-#import <YouTubeHeader/YTIPlayerBarDecorationModel.h>
-#import <YouTubeHeader/YTPlayerBarRectangleDecorationView.h>
-#import <YouTubeHeader/YTVideoQualitySwitchOriginalController.h>
-#import <YouTubeHeader/YTIGuideResponse.h>
-#import <YouTubeHeader/YTIGuideResponseSupportedRenderers.h>
-#import <YouTubeHeader/YTIPivotBarSupportedRenderers.h>
-#import <YouTubeHeader/YTIPivotBarItemRenderer.h>
+#import <substrate.h>
+#import <sys/utsname.h>
+#import <YouTubeHeader/ASCollectionElement.h>
+#import <YouTubeHeader/ASCollectionView.h>
+#import <YouTubeHeader/ELMCellNode.h>
+#import <YouTubeHeader/ELMNodeController.h>
+#import <YouTubeHeader/GPBMessage.h>
+#import <YouTubeHeader/YTAppDelegate.h>
+#import <YouTubeHeader/YTCollectionViewCell.h>
 #import <YouTubeHeader/YTIBrowseRequest.h>
 #import <YouTubeHeader/YTIButtonRenderer.h>
 #import <YouTubeHeader/YTIElementRenderer.h>
-#import <YouTubeHeader/YTISectionListRenderer.h>
-#import <YouTubeHeader/YTWatchNextResultsViewController.h>
-#import <YouTubeHeader/YTPlayerOverlay.h>
-#import <YouTubeHeader/YTPlayerOverlayProvider.h>
-#import <YouTubeHeader/YTMainAppVideoPlayerOverlayView.h>
-#import <YouTubeHeader/YTMainAppVideoPlayerOverlayViewController.h>
-#import <YouTubeHeader/YTReelWatchPlaybackOverlayView.h>
-#import <YouTubeHeader/YTInlinePlayerBarContainerView.h>
-#import <YouTubeHeader/YTInnerTubeCollectionViewController.h>
-#import <YouTubeHeader/YTPivotBarItemView.h>
-#import <YouTubeHeader/YTCollectionViewCell.h>
 #import <YouTubeHeader/YTIFormattedString.h>
-#import <YouTubeHeader/GPBMessage.h>
-#import <YouTubeHeader/YTIStringRun.h>
-#import <YouTubeHeader/YTWatchViewController.h>
+#import <YouTubeHeader/YTIGuideResponse.h>
+#import <YouTubeHeader/YTIGuideResponseSupportedRenderers.h>
+#import <YouTubeHeader/YTIMenuConditionalServiceItemRenderer.h>
+#import <YouTubeHeader/YTInnerTubeCollectionViewController.h>
+#import <YouTubeHeader/YTInlinePlayerBarContainerView.h>
+#import <YouTubeHeader/YTIPivotBarItemRenderer.h>
 #import <YouTubeHeader/YTIPivotBarRenderer.h>
-#import <YouTubeHeader/YTPlayerOverlayManager.h> // Fixes uYou crash when trying to play video (#1422)
-
-// Hide buttons under the video player by @PoomSmart
-#import <YouTubeHeader/ASCollectionElement.h>
-#import <YouTubeHeader/ASCollectionView.h>
-#import <YouTubeHeader/ELMNodeController.h>
-
-// YouTube-X
+#import <YouTubeHeader/YTIPivotBarSupportedRenderers.h>
+#import <YouTubeHeader/YTIPlayerBarDecorationModel.h>
+#import <YouTubeHeader/YTIStringRun.h>
+#import <YouTubeHeader/YTMainAppVideoPlayerOverlayViewController.h>
+#import <YouTubeHeader/YTMainAppVideoPlayerOverlayView.h>
+#import <YouTubeHeader/YTPlayerBarController.h>
+#import <YouTubeHeader/YTPlayerBarRectangleDecorationView.h>
+#import <YouTubeHeader/YTPlayerOverlay.h>
+#import <YouTubeHeader/YTPlayerOverlayManager.h>
 #import <YouTubeHeader/YTReelModel.h>
+#import <YouTubeHeader/YTReelWatchPlaybackOverlayView.h>
+#import <YouTubeHeader/YTResponder.h>
+#import <YouTubeHeader/YTVideoQualitySwitchOriginalController.h>
 #import <YouTubeHeader/YTVideoWithContextNode.h>
-#import <YouTubeHeader/ELMCellNode.h>
+#import <YouTubeHeader/YTWatchNextResultsViewController.h>
+#import <YouTubeHeader/YTWatchPullToFullController.h>
+#import <YouTubeHeader/YTWatchViewController.h>
+#import "uYouPlusThemes.h" // uYouPlus Themes
 
 #define LOC(x) [tweakBundle localizedStringForKey:x value:nil table:nil]
 #define IS_ENABLED(k) [[NSUserDefaults standardUserDefaults] boolForKey:k]
@@ -58,12 +53,8 @@
 #define LOWCONTRASTMODE_CUTOFF_VERSION @"17.38.10" // LowContrastMode (v17.33.2-17.38.10)
 
 // Always show remaining time in video player - @bhackel
-@interface YTPlayerBarController : NSObject
-@property(nonatomic, strong) YTInlinePlayerBarContainerView *playerBar;
-@end
-@interface YTInlinePlayerBarContainerView (uYouEnhanced)
-@property(nonatomic, assign) BOOL shouldDisplayTimeRemaining;
-@end
+// Header has been moved to https://github.com/PoomSmart/YouTubeHeader/blob/main/YTPlayerBarController.h
+// Header has been moved to https://github.com/PoomSmart/YouTubeHeader/blob/main/YTInlinePlayerBarContainerView.h
 
 // IAmYouTube
 @interface SSOConfiguration : NSObject
@@ -90,7 +81,7 @@
 @end
 
 // YTTapToSeek - https://github.com/bhackel/YTTapToSeek
-// Header has been moved to https://github.com/arichornlover/YouTubeHeader/blob/main/YTMainAppVideoPlayerOverlayViewController.h
+// Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTMainAppVideoPlayerOverlayViewController.h
 
 // Enable Premium logo - @bhackel
 @interface YTITopbarLogoRenderer : NSObject
@@ -136,13 +127,10 @@
 @end
 
 // Disable Pull to Full for landscape videos - @bhackel
-@interface YTWatchPullToFullController : NSObject
-@property(nonatomic, strong) YTWatchViewController *playerViewSource;
-@end
-@interface YTWatchViewController (uYouEnhanced)
-@property(nonatomic, strong) YTWatchPullToFullController *pullToFullController;
-- (NSUInteger) allowedFullScreenOrientations;
+// Header has been moved to https://github.com/PoomSmart/YouTubeHeader/blob/main/YTWatchPullToFullController.h
+
 // Fullscreen to the Right (uYouEnhanced Version) - @arichornlover
+@interface YTWatchViewController (uYouEnhanced)
 - (UIInterfaceOrientationMask) supportedInterfaceOrientations;
 - (UIInterfaceOrientation) preferredInterfaceOrientationForPresentation;
 - (void)forceRightFullscreenOrientation;
