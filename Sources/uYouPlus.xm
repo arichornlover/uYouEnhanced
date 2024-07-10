@@ -233,9 +233,10 @@ static __strong NSData *cellDividerData;
 %end
 %end
 
-%group gCenterYouTubeLogo
+// Center YouTube Logo - @arichornlover
+%group gCenterYouTubeLogo // BROKEN 
 %hook YTNavigationBarTitleView
-- (void)setShouldCenterNavBarTitleView:(BOOL)center {
+- (void)setShouldCenterNavBarTitleView:(BOOL)center { // Doesn't do anything?
     %orig(YES);
 }
 - (BOOL)shouldCenterNavBarTitleView {
@@ -301,7 +302,7 @@ static __strong NSData *cellDividerData;
 - (BOOL)enableModularPlayerBarController { return NO; } // fixes some of the iSponorBlock problems
 - (BOOL)mainAppCoreClientEnableCairoSettings { return IS_ENABLED(@"newSettingsUI_enabled"); } // New grouped settings UI
 - (BOOL)enableIosFloatingMiniplayer { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer
-- (BOOL)enableIosFloatingMiniplayerSwipeUpToExpand { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer - Fix Swipe Up Animation
+- (BOOL)enableIosFloatingMiniplayerSwipeUpToExpand { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer
 - (BOOL)enableIosFloatingMiniplayerRepositioning { return IS_ENABLED(@"floatingMiniplayer2_enabled"); } // Floating Miniplayer (Repositioning Support, Removes Swiping Up Gesture)
 %end
 
@@ -578,7 +579,7 @@ static __strong NSData *cellDividerData;
 }
 %end
 
-// Classic Video Player - 17.33.2+ (Restores the functionality from the YT v16.xx.x Video Player) - @arichornlover
+// Classic Video Player (Restores the v16.xx.x Video Player Functionality) - @arichornlover
 // To-do: disabling "Precise Video Scrubbing" https://9to5google.com/2022/06/29/youtube-precise-video-scrubbing/
 %group gClassicVideoPlayer
 %hook YTColdConfig
@@ -766,7 +767,7 @@ static int contrastMode() {
 %end
 
 // YTTapToSeek - https://github.com/bhackel/YTTapToSeek
-%group YTTTS_Tweak
+%group gYTTapToSeek
     %hook YTInlinePlayerBarContainerView
     - (void)didPressScrubber:(id)arg1 {
         %orig;
@@ -847,6 +848,32 @@ static int contrastMode() {
 %hook YTWatchViewController
 - (unsigned long long)allowedFullScreenOrientations {
     return UIInterfaceOrientationMaskAllButUpsideDown;
+}
+%end
+%end
+
+// Fullscreen to the Right (iPhone-exclusive) - @arichornlover
+// NOTE: Please turn off the “Portrait Fullscreen” Option while the code below is active
+%group gFullscreenToTheRight
+%hook YTWatchViewController
+- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
+    if ([self isFullscreen] && UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone) {
+        return UIInterfaceOrientationLandscapeRight;
+    }
+    return %orig;
+}
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+    if ([self isFullscreen] && UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone) {
+        return UIInterfaceOrientationMaskLandscape;
+    }
+    return %orig;
+}
+%new
+- (void)forceRightFullscreenOrientation { // custom void
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone) {
+        NSNumber *value = [NSNumber numberWithInt:UIInterfaceOrientationLandscapeRight];
+        [[UIDevice currentDevice] setValue:value forKey:@"orientation"];
+    }
 }
 %end
 %end
@@ -968,7 +995,7 @@ static int contrastMode() {
 %hook YTWatchPullToFullController
 - (BOOL)shouldRecognizeOverscrollEventsFromWatchOverscrollController:(id)arg1 {
     // Get the current player orientation
-    YTWatchViewController *watchViewController = self.playerViewSource;
+    YTWatchViewController *watchViewController = (YTWatchViewController *)self.playerViewSource;
     NSUInteger allowedFullScreenOrientations = [watchViewController allowedFullScreenOrientations];
     // Check if the current player orientation is portrait
     if (allowedFullScreenOrientations == UIInterfaceOrientationMaskAllButUpsideDown
@@ -1334,7 +1361,7 @@ static int contrastMode() {
 static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *identifiers) {
     for (id child in [nodeController children]) {
         if ([child isKindOfClass:%c(ELMNodeController)]) {
-            NSArray <ELMComponent *> *elmChildren = [(ELMNodeController *)child children];
+            NSArray <ELMComponent *> *elmChildren = [(ELMNodeController  * _Nullable)child children];
             for (ELMComponent *elmChild in elmChildren) {
                 for (NSString *identifier in identifiers) {
                     if ([[elmChild description] containsString:identifier])
@@ -1344,8 +1371,8 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
         }
 
         if ([child isKindOfClass:%c(ASNodeController)]) {
-            ASDisplayNode *childNode = ((ASNodeController *)child).node; // ELMContainerNode
-            NSArray *yogaChildren = childNode.yogaChildren;
+            ASDisplayNode *childNode = ((ASNodeController  * _Nullable)child).node; // ELMContainerNode
+            NSArray<id> *yogaChildren = childNode.yogaChildren;
             for (ASDisplayNode *displayNode in yogaChildren) {
                 if ([identifiers containsObject:displayNode.accessibilityIdentifier])
                     return YES;
@@ -1361,7 +1388,7 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
 
 %hook ASCollectionView // This stopped working on May 14th 2024 due to a Server-Side Change from YouTube.
 
-- (CGSize)sizeForElement:(ASCollectionElement *)element {
+- (CGSize)sizeForElement:(ASCollectionElement  * _Nullable)element {
     if ([self.accessibilityIdentifier isEqualToString:@"id.video.scrollable_action_bar"]) {
         ASCellNode *node = [element node];
         ASNodeController *nodeController = [node controller];
@@ -1676,6 +1703,9 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
     if (IS_ENABLED(@"portraitFullscreen_enabled")) {
         %init(gPortraitFullscreen);
     }
+    if (IS_ENABLED(@"fullscreenToTheRight_enabled")) {
+        %init(gFullscreenToTheRight);
+    }
     if (IS_ENABLED(@"disableFullscreenButton_enabled")) {
         %init(gHideFullscreenButton);
     }
@@ -1743,7 +1773,7 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
         %init(gDisableLiveChatSection);
     }
     if (IS_ENABLED(@"YTTapToSeek_enabled")) {
-        %init(YTTTS_Tweak);
+        %init(gYTTapToSeek);
     }
     if (IS_ENABLED(@"hidePremiumPromos_enabled")) {
         %init(gHidePremiumPromos);

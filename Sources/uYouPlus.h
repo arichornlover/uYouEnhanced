@@ -12,10 +12,15 @@
 #import <YouTubeHeader/ELMCellNode.h>
 #import <YouTubeHeader/ELMNodeController.h>
 #import <YouTubeHeader/GPBMessage.h>
+#import <YouTubeHeader/MLPlayerStickySettings.h>
 #import <YouTubeHeader/YTAppDelegate.h>
 #import <YouTubeHeader/YTCollectionViewCell.h>
 #import <YouTubeHeader/YTIBrowseRequest.h>
 #import <YouTubeHeader/YTIButtonRenderer.h>
+#import <YouTubeHeader/YTICompactLinkRenderer.h>
+#import <YouTubeHeader/YTICompactListItemRenderer.h>
+#import <YouTubeHeader/YTICompactListItemThumbnailSupportedRenderers.h>
+#import <YouTubeHeader/YTIIconThumbnailRenderer.h>
 #import <YouTubeHeader/YTIElementRenderer.h>
 #import <YouTubeHeader/YTIFormattedString.h>
 #import <YouTubeHeader/YTIGuideResponse.h>
@@ -34,6 +39,7 @@
 #import <YouTubeHeader/YTPlayerBarController.h>
 #import <YouTubeHeader/YTPlayerBarRectangleDecorationView.h>
 #import <YouTubeHeader/YTPlayerOverlay.h>
+#import <YouTubeHeader/YTPlayerOverlayProvider.h>
 #import <YouTubeHeader/YTPlayerOverlayManager.h>
 #import <YouTubeHeader/YTReelModel.h>
 #import <YouTubeHeader/YTReelWatchPlaybackOverlayView.h>
@@ -41,6 +47,7 @@
 #import <YouTubeHeader/YTVideoQualitySwitchOriginalController.h>
 #import <YouTubeHeader/YTVideoWithContextNode.h>
 #import <YouTubeHeader/YTWatchNextResultsViewController.h>
+#import <YouTubeHeader/YTWatchPlayerViewLayoutSource.h>
 #import <YouTubeHeader/YTWatchPullToFullController.h>
 #import <YouTubeHeader/YTWatchViewController.h>
 #import "uYouPlusThemes.h" // uYouPlus Themes
@@ -88,30 +95,11 @@
 @end
 
 // Hide Premium Promo in You tab - @bhackel
-@interface YTIIconThumbnailRenderer : GPBMessage
-@property (nonatomic, strong) YTIIcon *icon;
-- (BOOL)hasIcon;
-@end
-@interface YTICompactListItemThumbnailSupportedRenderers : GPBMessage
-@property (nonatomic, strong) YTIIconThumbnailRenderer *iconThumbnailRenderer;
-- (BOOL)hasIconThumbnailRenderer;
-@end
-@interface YTICompactListItemRenderer : GPBMessage
-@property (nonatomic, strong) YTICompactListItemThumbnailSupportedRenderers *thumbnail;
-@property (nonatomic, strong) YTIFormattedString *title;
-- (BOOL)hasThumbnail;
-- (BOOL)hasTitle;
-@end
-@interface YTIIcon (uYouEnhanced)
-- (BOOL)hasIconType;
-@end
-@interface YTICompactLinkRenderer : GPBMessage
-@property (nonatomic, strong) YTIIcon *icon;
-@property (nonatomic, strong) YTIFormattedString *title;
-@property (nonatomic, strong) YTICompactListItemThumbnailSupportedRenderers *thumbnail;
-- (BOOL)hasIcon;
-- (BOOL)hasThumbnail;
-@end
+// YTIIconThumbnailRenderer Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTIIconThumbnailRenderer.h
+// YTICompactListItemThumbnailSupportedRenderers Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTICompactListItemThumbnailSupportedRenderers.h
+// YTICompactListItemRenderer Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTICompactListItemRenderer.h
+// YTIIcon Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTIIcon.h
+// YTICompactLinkRenderer Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTICompactLinkRenderer.h
 // YTIItemSectionSupportedRenderers Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTIItemSectionSupportedRenderers.h
 @interface YTAppCollectionViewController : YTInnerTubeCollectionViewController
 - (void)uYouEnhancedFakePremiumModel:(YTISectionListRenderer *)model;
@@ -201,9 +189,7 @@
 - (void)internalSetRate;
 @end
 
-@interface MLPlayerStickySettings (uYouPlus)
-- (void)setRate:(float)rate;
-@end
+// MLPlayerStickySettings Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/MLPlayerStickySettings.h
 
 @interface MLPlayerEventCenter : NSObject
 - (void)broadcastRateChange:(float)rate;
