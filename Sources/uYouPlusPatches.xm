@@ -146,12 +146,16 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity) {
 
     UIViewController *topViewController = [%c(YTUIUtils) topViewControllerForPresenting];
 
-    if ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad) {
+    if (activityViewController.popoverPresentationController) {
         activityViewController.popoverPresentationController.sourceView = topViewController.view;
+
+        CGFloat screenWidth = [UIScreen mainScreen].bounds.size.width;
+        CGFloat screenHeight = [UIScreen mainScreen].bounds.size.height;
+
+        activityViewController.popoverPresentationController.sourceRect = CGRectMake(screenWidth / 2.0, screenHeight, 0, 0);
+        activityViewController.popoverPresentationController.permittedArrowDirections = UIPopoverArrowDirectionAny;
     }
-
     [topViewController presentViewController:activityViewController animated:YES completion:nil];
-
     return YES;
 }
 
@@ -347,7 +351,6 @@ static void refreshUYouAppearance() {
 
     // Disable uYou's playback speed controls (prevent crash on video playback https://github.com/therealFoxster/uYouPlus/issues/2#issuecomment-1894912963)
     // [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"showPlaybackRate"];
-
     // Disable uYou's adblock
     [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"removeYouTubeAds"];
 }
