@@ -1,4 +1,5 @@
 #import <UIKit/UIKit.h>
+#import <HBLog.h>
 #import <Foundation/Foundation.h>
 #import <CaptainHook/CaptainHook.h>
 #import <dlfcn.h>
