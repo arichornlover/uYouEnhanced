@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.1.4
+        uses: actions/checkout@v4.1.7
 
       - name: Set up Git
         run: |
@@ -20,11 +20,11 @@ jobs:
 
       - name: Add uYouEnhanced submodules
         run: |
-#         git submodule add https://github.com/PoomSmart/FLEXing.git Tweaks/FLEXing
           git submodule add https://github.com/dayanch96/uYouLocalization.git Tweaks/uYouLocalization
-          git submodule add https://github.com/arichornlover/YTHoldForSpeed.git Tweaks/YTHoldForSpeed
-          git submodule add https://github.com/arichornlover/YouGroupSettings.git Tweaks/YouGroupSettings
-          git submodule add https://github.com/arichornlover/YouTimeStamp.git Tweaks/YouTimeStamp
+          git submodule add https://github.com/arichornloverALT/YTHoldForSpeed.git Tweaks/YTHoldForSpeed
+          git submodule add https://github.com/arichornloverALT/YouGroupSettings.git Tweaks/YouGroupSettings
+          git submodule add https://github.com/arichornloverALT/YouTimeStamp.git Tweaks/YouTimeStamp
+          git submodule add https://github.com/protocolbuffers/protobuf.git Tweaks/protobuf
           git add .
           git commit -m "added uYouEnhanced submodules"
           git push origin
@@ -84,7 +84,6 @@ jobs:
       - name: Make .bundle files
         run: |
           cd Bundles
-          ln -s ../Tweaks/MrBeastify/layout/Library/Application\ Support/MrBeastify.bundle MrBeastify.bundle
           ln -s ../Tweaks/uYouLocalization/layout/Library/Application\ Support/uYouLocalization.bundle uYouLocalization.bundle
           ln -s ../Tweaks/YTHoldForSpeed/layout/Library/Application\ Support/YTHoldForSpeed.bundle YTHoldForSpeed.bundle
           ln -s ../Tweaks/YouGroupSettings/layout/Library/Application\ Support/YouGroupSettings.bundle YouGroupSettings.bundle
@@ -98,7 +97,6 @@ jobs:
 #     - name: Delete .bundle files
 #       run: |
 #         cd Bundles
-#         rm -f MrBeastify.bundle
 #         rm -f uYouLocalization.bundle
 #         rm -f YTHoldForSpeed.bundle
 #         rm -f YouGroupSettings.bundle
