@@ -53,6 +53,23 @@ NSBundle *tweakBundle = uYouPlusBundle();
 }
 %end
 
+// Fix App Group Directory by move it to document directory
+%hook NSFileManager
+- (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
+    if (groupIdentifier != nil) {
+        NSArray *paths = [[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask];
+        NSURL *documentsURL = [paths lastObject];
+        return [documentsURL URLByAppendingPathComponent:@"AppGroup"];
+    }
+    return %orig(groupIdentifier);
+}
+%end
+
+// Remove App Rating Prompt in YouTube (for Sideloaded - iOS 14+) - @arichornlover
+%hook SKStoreReviewController
++ (void)requestReview { }
+%end
+
 // Enable Alternate Icons - @arichornlover
 %hook UIApplication
 - (BOOL)supportsAlternateIcons {
@@ -130,6 +147,8 @@ NSBundle *tweakBundle = uYouPlusBundle();
 }
 %end
 NSString *getAdString(NSString *description) {
+    if ([description containsString:@"ad_layout"])
+        return @"ad_layout";
     if ([description containsString:@"brand_promo"])
         return @"brand_promo";
     if ([description containsString:@"carousel_footered_layout"])
@@ -176,12 +195,12 @@ static __strong NSData *cellDividerData;
     }
     if (!cellDividerData) return %orig;
     if ([self respondsToSelector:@selector(hasCompatibilityOptions)] && self.hasCompatibilityOptions && self.compatibilityOptions.hasAdLoggingData) {
-        // HBLogInfo(@"YTX adLogging 1 %@", cellDividerData);
+        HBLogDebug(@"YTX adLogging 1 %@", cellDividerData);
         return cellDividerData;
     }
     NSString *adString = getAdString(description);
     if (adString) {
-        // HBLogInfo(@"YTX getAdString 1 %@ %@", adString, cellDividerData);
+        HBLogDebug(@"YTX getAdString 1 %@ %@", adString, cellDividerData);
         return cellDividerData;
     }
     return %orig;
@@ -198,13 +217,13 @@ static __strong NSData *cellDividerData;
             YTIItemSectionSupportedRenderers *firstObject = [sectionRenderer.contentsArray firstObject];
             YTIElementRenderer *elementRenderer = firstObject.elementRenderer;
             if ([elementRenderer respondsToSelector:@selector(hasCompatibilityOptions)] && elementRenderer.hasCompatibilityOptions && elementRenderer.compatibilityOptions.hasAdLoggingData) {
-                // HBLogInfo(@"YTX adLogging 2 %@", elementRenderer);
+                HBLogDebug(@"YTX adLogging 2 %@", elementRenderer);
                 return YES;
             }
             NSString *description = [elementRenderer description];
             NSString *adString = getAdString(description);
             if (adString) {
-                // HBLogInfo(@"YTX getAdString 2 %@ %@", adString, elementRenderer);
+                HBLogDebug(@"YTX getAdString 2 %@ %@", adString, elementRenderer);
                 return YES;
             }
             return NO;
@@ -233,34 +252,25 @@ static __strong NSData *cellDividerData;
 %end
 %end
 
-%group gCenterYouTubeLogo
+// Center YouTube Logo - @arichornlover
+%group gCenterYouTubeLogo 
 %hook YTNavigationBarTitleView
 - (void)setShouldCenterNavBarTitleView:(BOOL)center {
-    %orig(YES);
+    %orig(center);
+    if (center) {
+        [self alignCustomViewToCenterOfWindow];
+    }
 }
 - (BOOL)shouldCenterNavBarTitleView {
     return YES;
 }
+%new;
 - (void)alignCustomViewToCenterOfWindow {
+    CGRect frame = self.customView.frame;
+    frame.origin.x = (self.window.frame.size.width - frame.size.width) / 2;
+    self.customView.frame = frame;
 }
 %end
-%end
-
-// Fix App Group Directory by move it to document directory
-%hook NSFileManager
-- (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
-    if (groupIdentifier != nil) {
-        NSArray *paths = [[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask];
-        NSURL *documentsURL = [paths lastObject];
-        return [documentsURL URLByAppendingPathComponent:@"AppGroup"];
-    }
-    return %orig(groupIdentifier);
-}
-%end
-
-// Remove App Rating Prompt in YouTube (for Sideloaded - iOS 14+) - @arichornlover
-%hook SKStoreReviewController
-+ (void)requestReview { }
 %end
 
 // YTMiniPlayerEnabler: https://github.com/level3tjg/YTMiniplayerEnabler/
@@ -301,7 +311,7 @@ static __strong NSData *cellDividerData;
 - (BOOL)enableModularPlayerBarController { return NO; } // fixes some of the iSponorBlock problems
 - (BOOL)mainAppCoreClientEnableCairoSettings { return IS_ENABLED(@"newSettingsUI_enabled"); } // New grouped settings UI
 - (BOOL)enableIosFloatingMiniplayer { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer
-- (BOOL)enableIosFloatingMiniplayerSwipeUpToExpand { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer - Fix Swipe Up Animation
+- (BOOL)enableIosFloatingMiniplayerSwipeUpToExpand { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer
 - (BOOL)enableIosFloatingMiniplayerRepositioning { return IS_ENABLED(@"floatingMiniplayer2_enabled"); } // Floating Miniplayer (Repositioning Support, Removes Swiping Up Gesture)
 %end
 
@@ -578,7 +588,7 @@ static __strong NSData *cellDividerData;
 }
 %end
 
-// Classic Video Player - 17.33.2+ (Restores the functionality from the YT v16.xx.x Video Player) - @arichornlover
+// Classic Video Player (Restores the v16.xx.x Video Player Functionality) - @arichornlover
 // To-do: disabling "Precise Video Scrubbing" https://9to5google.com/2022/06/29/youtube-precise-video-scrubbing/
 %group gClassicVideoPlayer
 %hook YTColdConfig
@@ -766,7 +776,7 @@ static int contrastMode() {
 %end
 
 // YTTapToSeek - https://github.com/bhackel/YTTapToSeek
-%group YTTTS_Tweak
+%group gYTTapToSeek
     %hook YTInlinePlayerBarContainerView
     - (void)didPressScrubber:(id)arg1 {
         %orig;
@@ -847,6 +857,17 @@ static int contrastMode() {
 %hook YTWatchViewController
 - (unsigned long long)allowedFullScreenOrientations {
     return UIInterfaceOrientationMaskAllButUpsideDown;
+}
+%end
+%end
+
+// Fullscreen to the Right (iPhone-exclusive) - @arichornlover & @bhackel
+// WARNING: Please turn off the “Portrait Fullscreen” and "iPad Layout" Options while the option "Fullscreen to the Right" is enabled below.
+%group gFullscreenToTheRight
+%hook YTWatchViewController
+- (UIInterfaceOrientationMask)allowedFullScreenOrientations {
+    UIInterfaceOrientationMask orientations = UIInterfaceOrientationMaskLandscapeRight;
+    return orientations;
 }
 %end
 %end
@@ -968,7 +989,7 @@ static int contrastMode() {
 %hook YTWatchPullToFullController
 - (BOOL)shouldRecognizeOverscrollEventsFromWatchOverscrollController:(id)arg1 {
     // Get the current player orientation
-    YTWatchViewController *watchViewController = self.playerViewSource;
+    YTWatchViewController *watchViewController = (YTWatchViewController *)self.playerViewSource;
     NSUInteger allowedFullScreenOrientations = [watchViewController allowedFullScreenOrientations];
     // Check if the current player orientation is portrait
     if (allowedFullScreenOrientations == UIInterfaceOrientationMaskAllButUpsideDown
@@ -1067,7 +1088,16 @@ static int contrastMode() {
 - (BOOL)fullscreenButtonDisabled { return YES; }
 - (BOOL)canShowFullscreenButton { return NO; }
 - (BOOL)canShowFullscreenButtonExperimental { return NO; }
-// - (void)setFullscreenButtonDisabled:(BOOL) // Uncomment and might implement this if needed - @arichornlover
+// - (void)setFullscreenButtonDisabled:(BOOL) // Might implement this if useful - @arichornlover
+- (void)layoutSubviews {
+    %orig;
+    if (self.exitFullscreenButton && !self.exitFullscreenButton.hidden) {
+        self.exitFullscreenButton.hidden = YES;
+    }
+    if (self.enterFullscreenButton && !self.enterFullscreenButton.hidden) {
+        self.enterFullscreenButton.hidden = YES;
+    }
+}
 %end
 %end
 
@@ -1084,7 +1114,6 @@ static int contrastMode() {
     return IS_ENABLED(@"hideChannelWatermark_enabled") ? NO : %orig;
 }
 %end
-// Hide Channel Watermark (for Backwards Compatibility)
 %hook YTAnnotationsViewController
 - (void)loadFeaturedChannelWatermark {
     if (IS_ENABLED(@"hideChannelWatermark_enabled")) {}
@@ -1136,7 +1165,7 @@ static int contrastMode() {
 %end
 %end
 
-// Hide Video Title (in Fullscreen) - @arichornlover
+// Hide Video Title when in Fullscreen - @arichornlover
 %hook YTMainAppControlsOverlayView
 - (BOOL)titleViewHidden {
     return IS_ENABLED(@"hideVideoTitle_enabled") ? YES : %orig;
@@ -1334,7 +1363,7 @@ static int contrastMode() {
 static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *identifiers) {
     for (id child in [nodeController children]) {
         if ([child isKindOfClass:%c(ELMNodeController)]) {
-            NSArray <ELMComponent *> *elmChildren = [(ELMNodeController *)child children];
+            NSArray <ELMComponent *> *elmChildren = [(ELMNodeController  * _Nullable)child children];
             for (ELMComponent *elmChild in elmChildren) {
                 for (NSString *identifier in identifiers) {
                     if ([[elmChild description] containsString:identifier])
@@ -1344,8 +1373,8 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
         }
 
         if ([child isKindOfClass:%c(ASNodeController)]) {
-            ASDisplayNode *childNode = ((ASNodeController *)child).node; // ELMContainerNode
-            NSArray *yogaChildren = childNode.yogaChildren;
+            ASDisplayNode *childNode = ((ASNodeController  * _Nullable)child).node; // ELMContainerNode
+            NSArray<id> *yogaChildren = childNode.yogaChildren;
             for (ASDisplayNode *displayNode in yogaChildren) {
                 if ([identifiers containsObject:displayNode.accessibilityIdentifier])
                     return YES;
@@ -1361,7 +1390,7 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
 
 %hook ASCollectionView // This stopped working on May 14th 2024 due to a Server-Side Change from YouTube.
 
-- (CGSize)sizeForElement:(ASCollectionElement *)element {
+- (CGSize)sizeForElement:(ASCollectionElement  * _Nullable)element {
     if ([self.accessibilityIdentifier isEqualToString:@"id.video.scrollable_action_bar"]) {
         ASCellNode *node = [element node];
         ASNodeController *nodeController = [node controller];
@@ -1570,7 +1599,7 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
 %end
 %end
 
-// Hide Videos in Fullscreen - @arichornlover
+// Hide Videos when in Fullscreen - @arichornlover
 %group gNoVideosInFullscreen
 %hook YTFullScreenEngagementOverlayView
 - (void)setRelatedVideosView:(id)view {
@@ -1594,9 +1623,9 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
 // iPhone Layout - @LillieH1000 & @arichornlover
 %group giPhoneLayout
 %hook UIDevice
-- (long long)userInterfaceIdiom {
-    return NO;
-} 
+- (UIUserInterfaceIdiom)userInterfaceIdiom {
+    return UIUserInterfaceIdiomPhone;
+}
 %end
 %hook UIStatusBarStyleAttributes
 - (long long)idiom {
@@ -1605,12 +1634,20 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
 %end
 %hook UIKBTree
 - (long long)nativeIdiom {
-    return YES;
+    if ([UIApplication sharedApplication].statusBarOrientation == UIInterfaceOrientationPortrait) {
+        return NO;
+    } else {
+        return YES;
+    }
 } 
 %end
 %hook UIKBRenderer
 - (long long)assetIdiom {
-    return NO;
+    if ([UIApplication sharedApplication].statusBarOrientation == UIInterfaceOrientationPortrait) {
+        return NO;
+    } else {
+        return YES;
+    }
 } 
 %end
 %end
@@ -1675,6 +1712,9 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
     }
     if (IS_ENABLED(@"portraitFullscreen_enabled")) {
         %init(gPortraitFullscreen);
+    }
+    if (IS_ENABLED(@"fullscreenToTheRight_enabled")) {
+        %init(gFullscreenToTheRight);
     }
     if (IS_ENABLED(@"disableFullscreenButton_enabled")) {
         %init(gHideFullscreenButton);
@@ -1743,7 +1783,7 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
         %init(gDisableLiveChatSection);
     }
     if (IS_ENABLED(@"YTTapToSeek_enabled")) {
-        %init(YTTTS_Tweak);
+        %init(gYTTapToSeek);
     }
     if (IS_ENABLED(@"hidePremiumPromos_enabled")) {
         %init(gHidePremiumPromos);
