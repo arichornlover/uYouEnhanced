@@ -1,4 +1,5 @@
 #import <UIKit/UIKit.h>
+#import <HBLog.h>
 #import <Foundation/Foundation.h>
 #import <CaptainHook/CaptainHook.h>
 #import <dlfcn.h>
@@ -36,6 +37,7 @@
 #import <YouTubeHeader/YTIStringRun.h>
 #import <YouTubeHeader/YTMainAppVideoPlayerOverlayViewController.h>
 #import <YouTubeHeader/YTMainAppVideoPlayerOverlayView.h>
+#import <YouTubeHeader/YTNavigationBarTitleView.h>
 #import <YouTubeHeader/YTPlayerBarController.h>
 #import <YouTubeHeader/YTPlayerBarRectangleDecorationView.h>
 #import <YouTubeHeader/YTPlayerOverlay.h>
@@ -115,15 +117,17 @@
 @interface YTWatchViewController (uYouEnhanced)
 - (UIInterfaceOrientationMask) supportedInterfaceOrientations;
 - (UIInterfaceOrientation) preferredInterfaceOrientationForPresentation;
-- (void)forceRightFullscreenOrientation;
+@end
+
+// Center YouTube Logo (Custom Version) - @arichornlover
+@interface YTNavigationBarTitleView (uYouEnhanced)
+@property (nonatomic, strong) UIView *customView;
+- (void)alignCustomViewToCenterOfWindow;
 @end
 
 // uYouPlus
 @interface YTHeaderLogoController : UIView
 @property(readonly, nonatomic) long long pageStyle;
-@end
-
-@interface YTNavigationBarTitleView : UIView
 @end
 
 @interface YTChipCloudCell : UIView
