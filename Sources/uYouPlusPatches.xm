@@ -2,8 +2,8 @@
 
 # pragma mark - YouTube patches
 
-/*
 // Fix Google Sign in by @PoomSmart and @level3tjg (qnblackcat/uYouPlus#684)
+%group gGoogleSignInPatch
 %hook NSBundle
 - (NSDictionary *)infoDictionary {
     NSMutableDictionary *info = %orig.mutableCopy;
@@ -12,7 +12,7 @@
     return info;
 }
 %end
-*/
+%end
 
 // Workaround for MiRO92/uYou-for-YouTube#12, qnblackcat/uYouPlus#263
 %hook YTDataUtils
@@ -98,6 +98,7 @@ typedef NS_ENUM(NSInteger, ShareEntityType) {
     ShareEntityFieldVideo = 1,
     ShareEntityFieldPlaylist = 2,
     ShareEntityFieldChannel = 3,
+    ShareEntityFieldPost = 6,
     ShareEntityFieldClip = 8
 };
 
@@ -110,6 +111,7 @@ static inline NSString* extractIdWithFormat(GPBUnknownFieldSet *fields, NSIntege
     NSString *id = [[NSString alloc] initWithData:[idField.lengthDelimitedList firstObject] encoding:NSUTF8StringEncoding];
     return [NSString stringWithFormat:format, id];
 }
+
 static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *sourceView) {
     GPBMessage *shareEntity = [%c(GPBMessage) deserializeFromString:serializedShareEntity];
     GPBUnknownFieldSet *fields = shareEntity.unknownFields;
@@ -137,6 +139,9 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 
     if (!shareUrl)
         shareUrl = extractIdWithFormat(fields, ShareEntityFieldVideo, @"https://youtube.com/watch?v=%@");
+
+    if (!shareUrl)
+        shareUrl = extractIdWithFormat(fields, ShareEntityFieldPost, @"https://youtube.com/post/%@");
 
     if (!shareUrl)
         return NO;
@@ -170,6 +175,7 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
         return %orig;
 }
 %end
+
 
 /* ------------------- iPhone Layout ------------------- */
 
@@ -331,6 +337,9 @@ static void refreshUYouAppearance() {
 
 %ctor {
     %init;
+    if (IS_ENABLED(@"googleSignInPatch_enabled")) {
+        %init(gGoogleSignInPatch);
+    }
     // if (@available(iOS 16, *)) {
     //     %init(iOS16);
     // }

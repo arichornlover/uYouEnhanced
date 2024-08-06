@@ -1340,6 +1340,7 @@ extern NSBundle *uYouPlusBundle();
     # pragma mark - Miscellaneous
     SECTION_HEADER(LOC(@"MISCELLANEOUS"));
 
+    SWITCH_ITEM2(LOC(@"YouTube Sign-In Patch"), LOC(@"When enabled, it will allow you to sign in on the YouTube App when sideloaded.\nUnwanted Side Effects: Most Icons in the app will be Invisible & Notifications might not work."), @"googleSignInPatch_enabled");
     SWITCH_ITEM2(LOC(@"ADBLOCK_WORKAROUND_LITE"), LOC(@"ADBLOCK_WORKAROUND_LITE_DESC"), @"uYouAdBlockingWorkaroundLite_enabled");
     SWITCH_ITEM2(LOC(@"ADBLOCK_WORKAROUND"), LOC(@"ADBLOCK_WORKAROUND_DESC"), @"uYouAdBlockingWorkaround_enabled");
     SWITCH_ITEM3(
