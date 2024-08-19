@@ -53,6 +53,23 @@ NSBundle *tweakBundle = uYouPlusBundle();
 }
 %end
 
+// Fix App Group Directory by move it to document directory
+%hook NSFileManager
+- (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
+    if (groupIdentifier != nil) {
+        NSArray *paths = [[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask];
+        NSURL *documentsURL = [paths lastObject];
+        return [documentsURL URLByAppendingPathComponent:@"AppGroup"];
+    }
+    return %orig(groupIdentifier);
+}
+%end
+
+// Remove App Rating Prompt in YouTube (for Sideloaded - iOS 14+) - @arichornlover
+%hook SKStoreReviewController
++ (void)requestReview { }
+%end
+
 // Enable Alternate Icons - @arichornlover
 %hook UIApplication
 - (BOOL)supportsAlternateIcons {
@@ -88,6 +105,14 @@ NSBundle *tweakBundle = uYouPlusBundle();
 - (void)decorateContext:(id)context { %orig(nil); }
 %end
 
+%hook YTLocalPlaybackController
+- (id)createAdsPlaybackCoordinator { return nil; }
+%end
+
+%hook MDXSession
+- (void)adPlaying:(id)ad {}
+%end
+
 %hook YTReelInfinitePlaybackDataSource
 - (void)setReels:(NSMutableOrderedSet <YTReelModel *> *)reels {
     [reels removeObjectsAtIndexes:[reels indexesOfObjectsPassingTest:^BOOL(YTReelModel *obj, NSUInteger idx, BOOL *stop) {
@@ -121,6 +146,12 @@ NSBundle *tweakBundle = uYouPlusBundle();
 %hook YTAccountScopedAdsInnerTubeContextDecorator
 - (void)decorateContext:(id)context { %orig(nil); }
 %end
+%hook YTLocalPlaybackController
+- (id)createAdsPlaybackCoordinator { return nil; }
+%end
+%hook MDXSession
+- (void)adPlaying:(id)ad {}
+%end
 %hook YTReelInfinitePlaybackDataSource
 - (void)setReels:(NSMutableOrderedSet <YTReelModel *> *)reels {
     [reels removeObjectsAtIndexes:[reels indexesOfObjectsPassingTest:^BOOL(YTReelModel *obj, NSUInteger idx, BOOL *stop) {
@@ -152,6 +183,8 @@ NSString *getAdString(NSString *description) {
         return @"product_engagement_panel";
     if ([description containsString:@"product_item"])
         return @"product_item";
+    if ([description containsString:@"shopping_carousel"])
+        return @"shopping_carousel";
     if ([description containsString:@"statement_banner"])
         return @"statement_banner";
     if ([description containsString:@"square_image_layout"])
@@ -166,52 +199,47 @@ NSString *getAdString(NSString *description) {
         return @"video_display_full_buttoned_layout";
     return nil;
 }
-static __strong NSData *cellDividerData;
-%hook YTIElementRenderer
-- (NSData *)elementData {
-    NSString *description = [self description];
-    if ([description containsString:@"cell_divider"]) {
-        if (!cellDividerData) cellDividerData = %orig;
-        return cellDividerData;
+static BOOL isAdRenderer(YTIElementRenderer *elementRenderer, int kind) {
+    if ([elementRenderer respondsToSelector:@selector(hasCompatibilityOptions)] && elementRenderer.hasCompatibilityOptions && elementRenderer.compatibilityOptions.hasAdLoggingData) {
+        HBLogDebug(@"YTX adLogging %d %@", kind, elementRenderer);
+        return YES;
     }
-    if (!cellDividerData) return %orig;
-    if ([self respondsToSelector:@selector(hasCompatibilityOptions)] && self.hasCompatibilityOptions && self.compatibilityOptions.hasAdLoggingData) {
-        // HBLogInfo(@"YTX adLogging 1 %@", cellDividerData);
-        return cellDividerData;
-    }
+    NSString *description = [elementRenderer description];
     NSString *adString = getAdString(description);
     if (adString) {
-        // HBLogInfo(@"YTX getAdString 1 %@ %@", adString, cellDividerData);
-        return cellDividerData;
+        HBLogDebug(@"YTX getAdString %d %@ %@", kind, adString, elementRenderer);
+        return YES;
     }
-    return %orig;
+    return NO;
 }
-%end
-%hook YTInnerTubeCollectionViewController
-- (void)loadWithModel:(YTISectionListRenderer *)model {
-    if ([model isKindOfClass:%c(YTISectionListRenderer)]) {
-        NSMutableArray <YTISectionListSupportedRenderers *> *contentsArray = model.contentsArray;
-        NSIndexSet *removeIndexes = [contentsArray indexesOfObjectsPassingTest:^BOOL(YTISectionListSupportedRenderers *renderers, NSUInteger idx, BOOL *stop) {
-            if (![renderers isKindOfClass:%c(YTISectionListSupportedRenderers)])
-                return NO;
-            YTIItemSectionRenderer *sectionRenderer = renderers.itemSectionRenderer;
-            YTIItemSectionSupportedRenderers *firstObject = [sectionRenderer.contentsArray firstObject];
-            YTIElementRenderer *elementRenderer = firstObject.elementRenderer;
-            if ([elementRenderer respondsToSelector:@selector(hasCompatibilityOptions)] && elementRenderer.hasCompatibilityOptions && elementRenderer.compatibilityOptions.hasAdLoggingData) {
-                // HBLogInfo(@"YTX adLogging 2 %@", elementRenderer);
-                return YES;
-            }
-            NSString *description = [elementRenderer description];
-            NSString *adString = getAdString(description);
-            if (adString) {
-                // HBLogInfo(@"YTX getAdString 2 %@ %@", adString, elementRenderer);
-                return YES;
-            }
+static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItemSectionRenderer *> *array) {
+    NSMutableArray <YTIItemSectionRenderer *> *newArray = [array mutableCopy];
+    NSIndexSet *removeIndexes = [newArray indexesOfObjectsPassingTest:^BOOL(YTIItemSectionRenderer *sectionRenderer, NSUInteger idx, BOOL *stop) {
+        if (![sectionRenderer isKindOfClass:%c(YTIItemSectionRenderer)])
             return NO;
-        }];
-        [contentsArray removeObjectsAtIndexes:removeIndexes];
-    }
+        NSMutableArray <YTIItemSectionSupportedRenderers *> *contentsArray = sectionRenderer.contentsArray;
+        if (contentsArray.count > 1) {
+            NSIndexSet *removeContentsArrayIndexes = [contentsArray indexesOfObjectsPassingTest:^BOOL(YTIItemSectionSupportedRenderers *sectionSupportedRenderers, NSUInteger idx2, BOOL *stop2) {
+                YTIElementRenderer *elementRenderer = sectionSupportedRenderers.elementRenderer;
+                return isAdRenderer(elementRenderer, 3);
+            }];
+            [contentsArray removeObjectsAtIndexes:removeContentsArrayIndexes];
+        }
+        YTIItemSectionSupportedRenderers *firstObject = [contentsArray firstObject];
+        YTIElementRenderer *elementRenderer = firstObject.elementRenderer;
+        return isAdRenderer(elementRenderer, 2);
+    }];
+    [newArray removeObjectsAtIndexes:removeIndexes];
+    return newArray;
+}
+%hook YTInnerTubeCollectionViewController
+- (void)displaySectionsWithReloadingSectionControllerByRenderer:(id)renderer {
+    NSMutableArray *sectionRenderers = [self valueForKey:@"_sectionRenderers"];
+    [self setValue:filteredArray(sectionRenderers) forKey:@"_sectionRenderers"];
     %orig;
+}
+- (void)addSectionsFromArray:(NSArray <YTIItemSectionRenderer *> *)array {
+    %orig(filteredArray(array));
 }
 %end
 %end
@@ -234,34 +262,24 @@ static __strong NSData *cellDividerData;
 %end
 
 // Center YouTube Logo - @arichornlover
-%group gCenterYouTubeLogo // BROKEN 
+%group gCenterYouTubeLogo 
 %hook YTNavigationBarTitleView
-- (void)setShouldCenterNavBarTitleView:(BOOL)center { // Doesn't do anything?
-    %orig(YES);
+- (void)setShouldCenterNavBarTitleView:(BOOL)center {
+    %orig(center);
+    if (center) {
+        [self alignCustomViewToCenterOfWindow];
+    }
 }
 - (BOOL)shouldCenterNavBarTitleView {
     return YES;
 }
+%new;
 - (void)alignCustomViewToCenterOfWindow {
+    CGRect frame = self.customView.frame;
+    frame.origin.x = (self.window.frame.size.width - frame.size.width) / 2;
+    self.customView.frame = frame;
 }
 %end
-%end
-
-// Fix App Group Directory by move it to document directory
-%hook NSFileManager
-- (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
-    if (groupIdentifier != nil) {
-        NSArray *paths = [[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask];
-        NSURL *documentsURL = [paths lastObject];
-        return [documentsURL URLByAppendingPathComponent:@"AppGroup"];
-    }
-    return %orig(groupIdentifier);
-}
-%end
-
-// Remove App Rating Prompt in YouTube (for Sideloaded - iOS 14+) - @arichornlover
-%hook SKStoreReviewController
-+ (void)requestReview { }
 %end
 
 // YTMiniPlayerEnabler: https://github.com/level3tjg/YTMiniplayerEnabler/
@@ -852,28 +870,13 @@ static int contrastMode() {
 %end
 %end
 
-// Fullscreen to the Right (iPhone-exclusive) - @arichornlover
-// NOTE: Please turn off the “Portrait Fullscreen” Option while the code below is active
+// Fullscreen to the Right (iPhone-exclusive) - @arichornlover & @bhackel
+// WARNING: Please turn off the “Portrait Fullscreen” and "iPad Layout" Options while the option "Fullscreen to the Right" is enabled below.
 %group gFullscreenToTheRight
 %hook YTWatchViewController
-- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
-    if ([self isFullscreen] && UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone) {
-        return UIInterfaceOrientationLandscapeRight;
-    }
-    return %orig;
-}
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
-    if ([self isFullscreen] && UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone) {
-        return UIInterfaceOrientationMaskLandscape;
-    }
-    return %orig;
-}
-%new
-- (void)forceRightFullscreenOrientation { // custom void
-    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone) {
-        NSNumber *value = [NSNumber numberWithInt:UIInterfaceOrientationLandscapeRight];
-        [[UIDevice currentDevice] setValue:value forKey:@"orientation"];
-    }
+- (UIInterfaceOrientationMask)allowedFullScreenOrientations {
+    UIInterfaceOrientationMask orientations = UIInterfaceOrientationMaskLandscapeRight;
+    return orientations;
 }
 %end
 %end
@@ -1094,7 +1097,16 @@ static int contrastMode() {
 - (BOOL)fullscreenButtonDisabled { return YES; }
 - (BOOL)canShowFullscreenButton { return NO; }
 - (BOOL)canShowFullscreenButtonExperimental { return NO; }
-// - (void)setFullscreenButtonDisabled:(BOOL) // Uncomment and might implement this if needed - @arichornlover
+// - (void)setFullscreenButtonDisabled:(BOOL) // Might implement this if useful - @arichornlover
+- (void)layoutSubviews {
+    %orig;
+    if (self.exitFullscreenButton && !self.exitFullscreenButton.hidden) {
+        self.exitFullscreenButton.hidden = YES;
+    }
+    if (self.enterFullscreenButton && !self.enterFullscreenButton.hidden) {
+        self.enterFullscreenButton.hidden = YES;
+    }
+}
 %end
 %end
 
@@ -1111,7 +1123,6 @@ static int contrastMode() {
     return IS_ENABLED(@"hideChannelWatermark_enabled") ? NO : %orig;
 }
 %end
-// Hide Channel Watermark (for Backwards Compatibility)
 %hook YTAnnotationsViewController
 - (void)loadFeaturedChannelWatermark {
     if (IS_ENABLED(@"hideChannelWatermark_enabled")) {}
@@ -1163,7 +1174,7 @@ static int contrastMode() {
 %end
 %end
 
-// Hide Video Title (in Fullscreen) - @arichornlover
+// Hide Video Title when in Fullscreen - @arichornlover
 %hook YTMainAppControlsOverlayView
 - (BOOL)titleViewHidden {
     return IS_ENABLED(@"hideVideoTitle_enabled") ? YES : %orig;
@@ -1597,7 +1608,7 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
 %end
 %end
 
-// Hide Videos in Fullscreen - @arichornlover
+// Hide Videos when in Fullscreen - @arichornlover
 %group gNoVideosInFullscreen
 %hook YTFullScreenEngagementOverlayView
 - (void)setRelatedVideosView:(id)view {
@@ -1621,9 +1632,9 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
 // iPhone Layout - @LillieH1000 & @arichornlover
 %group giPhoneLayout
 %hook UIDevice
-- (long long)userInterfaceIdiom {
-    return NO;
-} 
+- (UIUserInterfaceIdiom)userInterfaceIdiom {
+    return UIUserInterfaceIdiomPhone;
+}
 %end
 %hook UIStatusBarStyleAttributes
 - (long long)idiom {
@@ -1632,12 +1643,20 @@ static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *ide
 %end
 %hook UIKBTree
 - (long long)nativeIdiom {
-    return YES;
+    if ([UIApplication sharedApplication].statusBarOrientation == UIInterfaceOrientationPortrait) {
+        return NO;
+    } else {
+        return YES;
+    }
 } 
 %end
 %hook UIKBRenderer
 - (long long)assetIdiom {
-    return NO;
+    if ([UIApplication sharedApplication].statusBarOrientation == UIInterfaceOrientationPortrait) {
+        return NO;
+    } else {
+        return YES;
+    }
 } 
 %end
 %end
