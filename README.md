@@ -380,34 +380,3 @@ See [Installation - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/Installati
 # Wiki
 
 See [arichornlover - Wiki](https://github.com/arichornlover/uYouEnhanced/wiki/) or [qnblackcat - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/)
-
-
-## Lightweight Alternative - YTLitePlus
-
-<details>
-    <summary>Read more</summary><br>
-
-# Switch from uYouEnhanced to YTLitePlus (optional)
-
-Hello, this is here to showcase this tweak. I have been seeing the posts about the YTLitePlus tweak on Reddit for quite some time now and decided to add it here. Before you download or check out the tweak, you should take a look at the pros and cons below to learn more about YTLitePlus.
-
-https://github.com/YTLitePlus/YTLitePlus/releases
-
-**Pros**
-
-- YTLitePlus is stable and more customizable than uYouPlus/uYouEnhanced.
-
-- YTLitePlus provides more features in YTLite & YTLitePlus Sections in Settings that uYouPlus/uYouEnhanced may not have.
-
-- YTLitePlus includes a lightweight and simplified version of the App Version Spoofer, making it easier to use.
-
-- YTLitePlus does not cause your device to overheat, unlike uYouPlus/uYouEnhanced.
-
-- YTLitePlus provides faster video & audio downloading than uYouPlus/uYouEnhanced.
-
-**Cons**
-
-- Video quality on WiFi option is not available in YTLitePlus.
-
-- Reordering the pivot bar tabs such as `Home`, `Shorts`, `Explore`, `Trending`, `Create`, `Subscriptions` & `You` is not available in YTLitePlus.
-</details>
