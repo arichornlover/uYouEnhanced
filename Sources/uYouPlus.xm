@@ -183,6 +183,8 @@ NSString *getAdString(NSString *description) {
         return @"product_engagement_panel";
     if ([description containsString:@"product_item"])
         return @"product_item";
+    if ([description containsString:@"shopping_carousel"])
+        return @"shopping_carousel";
     if ([description containsString:@"statement_banner"])
         return @"statement_banner";
     if ([description containsString:@"square_image_layout"])
