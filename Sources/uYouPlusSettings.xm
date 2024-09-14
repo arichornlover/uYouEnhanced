@@ -609,6 +609,12 @@ extern NSBundle *uYouPlusBundle();
                     [alert addAction:okAction];
                     [settingsViewController presentViewController:alert animated:YES completion:nil];
                     return NO;
+            } else if (UIScreen.mainScreen.traitCollection.userInterfaceStyle != UIUserInterfaceStyleDark) {
+                UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Light Mode Detected" message:@"LowContrastMode is only available in Dark Mode. Please switch to Dark Mode to be able to use LowContrastMode." preferredStyle:UIAlertControllerStyleAlert];
+                UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil];
+                [alert addAction:okAction];
+                [settingsViewController presentViewController:alert animated:YES completion:nil];
+                return NO;
                 }
             }
             [[NSUserDefaults standardUserDefaults] setBool:enable forKey:@"lowContrastMode_enabled"];
