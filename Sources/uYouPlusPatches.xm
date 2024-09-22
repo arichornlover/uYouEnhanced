@@ -102,27 +102,27 @@ typedef NS_ENUM(NSInteger, ShareEntityType) {
     ShareEntityFieldClip = 8
 };
 
-static inline NSString* extractIdWithFormat(GPBUnknownFieldSet *fields, NSInteger fieldNumber, NSString *format) {
-    if (![fields hasField:fieldNumber])
+static inline NSString* extractIdWithFormat(GPBUnknownFields *fields, NSInteger fieldNumber, NSString *format) {
+    NSArray<GPBUnknownField*> *fieldArray = [fields fields:fieldNumber];
+    if (!fieldArray)
         return nil;
-    GPBUnknownField *idField = [fields getField:fieldNumber];
-    if ([idField.lengthDelimitedList count] != 1)
+    if ([fieldArray count] != 1)
         return nil;
-    NSString *id = [[NSString alloc] initWithData:[idField.lengthDelimitedList firstObject] encoding:NSUTF8StringEncoding];
+    NSString *id = [[NSString alloc] initWithData:[fieldArray firstObject].lengthDelimited encoding:NSUTF8StringEncoding];
     return [NSString stringWithFormat:format, id];
 }
 
 static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *sourceView) {
     GPBMessage *shareEntity = [%c(GPBMessage) deserializeFromString:serializedShareEntity];
-    GPBUnknownFieldSet *fields = shareEntity.unknownFields;
+    GPBUnknownFields *fields = [[%c(GPBUnknownFields) alloc] initFromMessage:shareEntity];
     NSString *shareUrl;
 
-    if ([fields hasField:ShareEntityFieldClip]) {
-        GPBUnknownField *shareEntityClip = [fields getField:ShareEntityFieldClip];
-        if ([shareEntityClip.lengthDelimitedList count] != 1)
+    NSArray<GPBUnknownField*> *shareEntityClip = [fields fields:ShareEntityFieldClip];
+    if (shareEntityClip) {
+        if ([shareEntityClip count] != 1)
             return NO;
-        GPBMessage *clipMessage = [%c(GPBMessage) parseFromData:[shareEntityClip.lengthDelimitedList firstObject] error:nil];
-        shareUrl = extractIdWithFormat(clipMessage.unknownFields, 1, @"https://youtube.com/clip/%@");
+        GPBMessage *clipMessage = [%c(GPBMessage) parseFromData:[shareEntityClip firstObject].lengthDelimited error:nil];
+        shareUrl = extractIdWithFormat([[%c(GPBUnknownFields) alloc] initFromMessage:clipMessage], 1, @"https://youtube.com/clip/%@");
     }
 
     if (!shareUrl)
@@ -163,7 +163,7 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 
 /* -------------------- iPad Layout -------------------- */
 
-%group gYouTubeNativeShare // YouTube Native Share Option - 0.2.3 - Supports YouTube v17.33.2-v19.34.2
+// %group gYouTubeNativeShare // YouTube Native Share Option - 0.2.3 - Supports YouTube v17.33.2-v19.34.2
 %hook YTAccountScopedCommandResponderEvent
 - (void)send {
     GPBExtensionDescriptor *shareEntityEndpointDescriptor = [%c(YTIShareEntityEndpoint) shareEntityEndpoint];
@@ -198,7 +198,7 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
         return %orig;
 }
 %end
-%end
+// %end
 
 //
 
@@ -395,9 +395,11 @@ static void refreshUYouAppearance() {
     if (IS_ENABLED(@"googleSignInPatch_enabled")) {
         %init(gGoogleSignInPatch);
     }
+/*
     if (IS_ENABLED(@"youtubeNativeShare_enabled")) {
         %init(gYouTubeNativeShare);
     }
+*/
     // if (@available(iOS 16, *)) {
     //     %init(iOS16);
     // }

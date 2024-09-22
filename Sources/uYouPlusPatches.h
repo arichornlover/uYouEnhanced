@@ -6,7 +6,7 @@
 #import <YouTubeHeader/GOODialogView.h>
 #import "Tweaks/protobuf/objectivec/GPBDescriptor.h"
 #import "Tweaks/protobuf/objectivec/GPBUnknownField.h"
-#import "Tweaks/protobuf/objectivec/GPBUnknownFieldSet.h"
+#import "Tweaks/protobuf/objectivec/GPBUnknownFields.h"
 #import "uYouPlus.h"
 
 @interface PlayerManager : NSObject
