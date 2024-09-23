@@ -24,13 +24,9 @@ jobs:
           git add .
           git submodule update --init --recursive --remote Tweaks/DontEatMyContent
           git add .
-          git submodule update --init --recursive --remote Tweaks/IAmYouTube
-          git add .
           git submodule update --init --recursive --remote Tweaks/YTHoldForSpeed
           git add .
           git submodule update --init --recursive --remote Tweaks/YTSpeed
-          git add .
-          git submodule update --init --recursive --remote Tweaks/MrBeastify
           git add .
           git submodule update --init --recursive --remote Tweaks/Return-YouTube-Dislikes
           git add .
@@ -57,6 +53,8 @@ jobs:
           git submodule update --init --recursive --remote Tweaks/YouTubeHeader
           git add .
           git submodule update --init --recursive --remote Tweaks/iSponsorBlock
+          git add .
+          git submodule update --init --recursive --remote Tweaks/protobuf
           git add .
           git submodule update --init --recursive
           git commit -m "updated submodules"
