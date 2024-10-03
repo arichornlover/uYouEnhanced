@@ -26,14 +26,14 @@ body:
 - type: input
   attributes:
     label: iOS/iPadOS version
-    placeholder: iOS 17.5.1
+    placeholder: iOS 18.0.0
   validations:
     required: true
 
 - type: input
   attributes:
     label: Device model
-    placeholder: iPhone 15 Pro Max
+    placeholder: iPhone 16 Pro Max
   validations:
     required: true
 
@@ -111,10 +111,12 @@ body:
 
 - type: checkboxes
   attributes:
-    label: Select the configuration used for building the uYouEnhanced ipa. (Optional)
+    label: Select the configuration used for building or obtaining the uYouEnhanced ipa. (Optional)
     options:
       - label: "buildapp.yml (GitHub Actions — build method as suggested by [Wiki - Building](https://github.com/arichornlover/uYouEnhanced/wiki/Building))"
       - label: "build.sh (Shell script)"
+      - label: "AltStore Source (obtained from https://raw.githubusercontent.com/arichornlover/arichornlover.github.io/main/apps.json)"
+      - label: "Other (obtained from untrusted or potentially unsafe sources such as phishing sites, unknown individuals, or unofficial channels.)"
 
 - type: textarea
   attributes:

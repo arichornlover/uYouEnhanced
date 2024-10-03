@@ -66,8 +66,8 @@
 "HIDE_AUTOPLAY_SWITCH" = "Ocultar interruptor de Reproducir automáticamente";
 "HIDE_AUTOPLAY_SWITCH_DESC" = "Ocultar el interruptor de Reproducir automáticamente en los botones superpuestos.";
 
-"HIDE_YTMUSIC_BUTTON" = "Hide Youtube Music button";
-"HIDE_YTMUSIC_BUTTON_DESC" = "Hides Youtube Music button that appears with Premium";
+"HIDE_YTMUSIC_BUTTON" = "Ocultar botón de Youtube Music";
+"HIDE_YTMUSIC_BUTTON_DESC" = "Oculta el botón de Youtube Music que aparece con Premium.";
 
 "HIDE_SUBTITLES_BUTTON" = "Ocultar botón de Subtítulos";
 "HIDE_SUBTITLES_BUTTON_DESC" = "Ocultar el botón de Subtítulos en los botones superpuestos.";
@@ -76,22 +76,22 @@
 "HIDE_HUD_MESSAGES_DESC" = "Ejemplo: CC está activado/desactivado, Vídeo en bucle está activado,...";
 
 "HIDE_PAID_PROMOTION_CARDS" = "Ocultar banner de contenido promocional";
-"HIDE_PAID_PROMOTION_CARDS_DESC" = "Ocultar el banner de 'Incluye contenido promocional' en algunos vídeos.";
+"HIDE_PAID_PROMOTION_CARDS_DESC" = "Oculta el banner de 'Incluye contenido promocional' en algunos vídeos.";
 
 "HIDE_CHANNEL_WATERMARK" = "Ocultar marca de agua del canal";
-"HIDE_CHANNEL_WATERMARK_DESC" = "Ocultar la marca de agua del canal en la superposición de controles de vídeo. Es necesario reiniciar la aplicación.";
+"HIDE_CHANNEL_WATERMARK_DESC" = "Oculta la marca de agua del canal en la superposición de controles de vídeo. Es necesario reiniciar la aplicación.";
 
 "HIDE_PREVIOUS_AND_NEXT_BUTTON" = "Ocultar el botón de Anterior y Siguiente";
-"HIDE_PREVIOUS_AND_NEXT_BUTTON_DESC" = "Ocultar el botón de Anterior y Siguiente en los botones superpuestos.";
+"HIDE_PREVIOUS_AND_NEXT_BUTTON_DESC" = "Oculta el botón de Anterior y Siguiente en los botones superpuestos.";
 
-"REPLACE_PREVIOUS_NEXT_BUTTON" = "Reemplazar botón anterior y siguiente";
-"REPLACE_PREVIOUS_NEXT_BUTTON_DESC" = "Reemplace el botón Anterior y Siguiente con el botón Avance rápido y Rebobinado. Es necesario reiniciar la aplicación.";
+"REPLACE_PREVIOUS_NEXT_BUTTON" = "Remplazar botón anterior y siguiente";
+"REPLACE_PREVIOUS_NEXT_BUTTON_DESC" = "Remplaza el botón Anterior y Siguiente con el botón Avance rápido y Rebobinado. Es necesario reiniciar la aplicación.";
 
 "RED_PROGRESS_BAR" = "Barra de progreso roja";
 "RED_PROGRESS_BAR_DESC" = "Recupera la barra de progreso roja. Es necesario reiniciar la aplicación.";
 
 "HIDE_HOVER_CARD" = "Ocultar tarjetas flotantes en las pantallas finales (YTNoHoverCards)";
-"HIDE_HOVER_CARD_DESC" = "Ocultar tarjetas flotantes del creador (miniaturas) al final de los vídeos.";
+"HIDE_HOVER_CARD_DESC" = "Oculta las tarjetas flotantes del creador (miniaturas) al final de los vídeos.";
 
 "HIDE_RIGHT_PANEL" = "Ocultar el panel derecho en modo pantalla completa";
 "HIDE_RIGHT_PANEL_DESC" = "Es necesario reiniciar la aplicación.";
@@ -100,10 +100,10 @@
 "SHORTS_CONTROLS_OVERLAY_OPTIONS" = "💥 Configurar superposición de Shorts";
 
 "HIDE_SUPER_THANKS" = "Ocultar banner 'Comprar Supergracias";
-"HIDE_SUPER_THANKS_DESC" = "Ocultar el banner 'Comprar Supergracias' en Shorts.";
+"HIDE_SUPER_THANKS_DESC" = "Oculta el banner 'Comprar Supergracias' en Shorts.";
 
 "HIDE_SUBCRIPTIONS" = "Ocultar el botón de suscripción";
-"HIDE_SUBCRIPTIONS_DESC" = "";
+"HIDE_SUBCRIPTIONS_DESC" = "Oculta el botón de suscripción del Reproductor.";
 
 "DISABLE_RESUME_TO_SHORTS" = "Desactivar reanudación a Shorts";
 "DISABLE_RESUME_TO_SHORTS_DESC" = "Si cierras YouTube mientras ves Shorts, éstos no se reproducirán automáticamente la próxima vez que inicies YouTube.";
@@ -115,7 +115,7 @@
 "HIDE_ISPONSORBLOCK" = "Ocultar botón iSponsorBlock";
 
 "CAST_CONFIRM" = "Alerta de confirmación antes de Enviar contenido (YTCastConfirm)";
-"CAST_CONFIRM_DESC" = "Mostrar una alerta de confirmación antes de Enviar contenido para prevenir el secuestro accidental del TV.";
+"CAST_CONFIRM_DESC" = "Muestra una alerta de confirmación antes de Enviar contenido para prevenir el secuestro accidental del TV.";
 "CASTING" = "Enviar contenido";
 "MSG_ARE_YOU_SURE" = "¿Estás seguro de que deseas Enviar contenido?";
 "MSG_YES" = "Sí";
@@ -124,11 +124,11 @@
 "DISABLE_HINTS" = "Desactivar sugerencias";
 "DISABLE_HINTS_DESC" = "Desactiva las sugerencias de YouTube que suelen aparecer cuando la aplicación está recién instalada.";
 
-"ENABLE_YT_STARTUP_ANIMATION" = "Activar la animación de inicio de YouTube";
-"ENABLE_YT_STARTUP_ANIMATION_DESC" = "";
+"ENABLE_YT_STARTUP_ANIMATION" = "Activar animación de inicio de YouTube";
+"ENABLE_YT_STARTUP_ANIMATION_DESC" = "Activa la animación al iniciar Youtube";
 
-"HIDE_CHIP_BAR" = "Ocultar la barra superior";
-"HIDE_CHIP_BAR_DESC" = "Ocultar la barra superior de las fuentes de inicio (Tendencias, Música, Juegos...) y de suscripción (Todos los vídeos, Seguir viendo...). Es necesario reiniciar la aplicación.";
+"HIDE_CHIP_BAR" = "Ocultar barra superiorm";
+"HIDE_CHIP_BAR_DESC" = "Oculta la barra superior de las fuentes de inicio (Tendencias, Música, Juegos...) y de suscripción (Todos los vídeos, Seguir viendo...). Es necesario reiniciar la aplicación.";
 
 "HIDE_PLAY_NEXT_IN_QUEUE" = "Ocultar \"Reproducir siguiente en cola\"";
 "HIDE_PLAY_NEXT_IN_QUEUE_DESC" = "";
@@ -149,105 +149,105 @@
 "FIX_GOOGLE_SIGNIN_DESC" = "Active esta opción solo cuando no pueda iniciar sesión con su cuenta de Google y la aplicación se instaló a través de TrollStore. Si puede iniciar sesión normalmente, manténgala desactivada. Es necesario reiniciar la aplicación.";
 
 // uYouEnhanced Localization ➕
-"SUPPORT_THE_DEVELOPERS" = "Support the Developers";
-"COPY_SETTINGS" = "Copy Settings";
-"COPY_SETTINGS_DESC" = "Copy all current settings to the clipboard";
-"PASTE_SETTINGS" = "Paste Settings";
-"PASTE_SETTINGS_DESC" = "Paste settings from clipboard and apply";
-"EXPORT_SETTINGS" = "Export Settings";
-"EXPORT_SETTINGS_DESC" = "Exports all current settings into a .txt file";
-"IMPORT_SETTINGS" = "Import Settings";
-"IMPORT_SETTINGS_DESC" = "Press to import settings (.txt)";
-"REPLACE_COPY_AND_PASTE_BUTTONS" = "Replace 'Copy Settings' & 'Paste Settings' Buttons";
-"REPLACE_COPY_AND_PASTE_BUTTONS_DESC" = "Replaces the Buttons to 'Export Settings' and 'Import Settings'";
+"SUPPORT_THE_DEVELOPERS" = "Apoya a los desarrolladores";
+"COPY_SETTINGS" = "Copiar Ajustes";
+"COPY_SETTINGS_DESC" = "Copiar Ajustes actuales al Portapapeles";
+"PASTE_SETTINGS" = "Pegar Ajustes";
+"PASTE_SETTINGS_DESC" = "Pegar Ajustes desde el Portapapeles y aplicar";
+"EXPORT_SETTINGS" = "Exportar Ajustes";
+"EXPORT_SETTINGS_DESC" = "Exporta todos los Ajustes actuales en un archivo .txt";
+"IMPORT_SETTINGS" = "Importar Ajustes";
+"IMPORT_SETTINGS_DESC" = "Pulsa para importar Ajustes (.txt)";
+"REPLACE_COPY_AND_PASTE_BUTTONS" = "Remplaza los botones 'Copiar Ajustes' y 'Pegar Ajustes'";
+"REPLACE_COPY_AND_PASTE_BUTTONS_DESC" = "Remplaza los botones a 'Exportar Ajustes' e 'Importar Ajustes'";
 
-"UYOUENHANCED_ESSENTIAL_MENU" = "uYouEnhanced Essential Menu";
-"CHANGE_APP_ICON" = "Change App Icon";
-"CLEAR_NOTIFICATIONS" = "Clear Notifications";
-"CLEAR_NOTIFICATIONS_DESC" = "Force clear all app notifications (Recommended when Sideloaded)";
+"UYOUENHANCED_ESSENTIAL_MENU" = "Menú Esencial de uYouEnhanced";
+"CHANGE_APP_ICON" = "Cambiar Icono de Aplicación";
+"CLEAR_NOTIFICATIONS" = "Borrar Notificaciones";
+"CLEAR_NOTIFICATIONS_DESC" = "Forzar borrado de todas las notificaciones de la app (Recomendado para Sideload)";
 
-"CUSTOM_DARK_THEME" = "Custom Dark Theme";
+"CUSTOM_DARK_THEME" = "Tema Oscuro Personalizado";
 
-"ENABLE_PORTRAIT_FULLSCREEN" = "Enable Portrait Fullscreen";
-"ENABLE_PORTRAIT_FULLSCREEN_DESC" = "Enables Portrait Fullscreen on the YouTube App. App restart is required.";
-"ENABLE_TAP_TO_SEEK" = "Enable Tap To Seek";
-"ENABLE_TAP_TO_SEEK_DESC" = "Jump to anywhere in a video by single-tapping the seek bar";
-"DISABLE_PULL_TO_FULLSCREEN_GESTURE" = "Disable pull-to-fullscreen gesture";
-"DISABLE_PULL_TO_FULLSCREEN_GESTURE_DESC" = "Disable the drag gesture to enter vertical fullscreen. Only applies to landscape videos.";
-"DISABLE_DOUBLE_TAP_TO_SKIP_CHAPTER" = "Disable Double tap to skip chapter";
-"DISABLE_DOUBLE_TAP_TO_SKIP_CHAPTER_DESC" = "Disable the 2-finger double tap gesture that skips forward/backward by a chapter.";
-"ALWAYS_USE_REMAINING_TIME" = "Always use remaining time";
-"ALWAYS_USE_REMAINING_TIME_DESC" = "Change the default to show time remaining in the player bar.";
-"DISABLE_TOGGLE_TIME_REMAINING" = "Disable toggle time remaining";
-"DISABLE_TOGGLE_TIME_REMAINING_DESC" = "Disables changing time elapsed to time remaining. Use with other setting to always show remaining time.";
+"ENABLE_PORTRAIT_FULLSCREEN" = "Habilitar Modo Retrato a Pantalla Completa";
+"ENABLE_PORTRAIT_FULLSCREEN_DESC" = "Habilita Modo Retrato a Pantalla Completa en la aplicación de YouTube. Se requiere el reicio de la app.";
+"ENABLE_TAP_TO_SEEK" = "Habilitar toque para buscar";
+"ENABLE_TAP_TO_SEEK_DESC" = "Salta a cualquier parte de un vídeo con un simple toque en la barra de búsqueda";
+"DISABLE_PULL_TO_FULLSCREEN_GESTURE" = "Deshabilitar gesto arrastrar para Pantalla Completa";
+"DISABLE_PULL_TO_FULLSCREEN_GESTURE_DESC" = "Deshabilita el gesto de arrastrar para entrar en Pantalla Completa vertical. Sólo se aplica a vídeos en modo apaisado.";
+"DISABLE_DOUBLE_TAP_TO_SKIP_CHAPTER" = "Deshabilitar Doble toque para saltar capítulo";
+"DISABLE_DOUBLE_TAP_TO_SKIP_CHAPTER_DESC" = "Deshabilita el gesto de doble toque con 2 dedos para saltar adelante/atrás en un capítulo.";
+"ALWAYS_USE_REMAINING_TIME" = "Usar siempre tiempo restante";
+"ALWAYS_USE_REMAINING_TIME_DESC" = "Cambiar el tiempo restante por defecto en la barra del reproductor.";
+"DISABLE_TOGGLE_TIME_REMAINING" = "Deshabilitar el selector de tiempo restante";
+"DISABLE_TOGGLE_TIME_REMAINING_DESC" = "Deshabilita el cambio de tiempo transcurrido a tiempo restante. Usar junto con otros ajustes para mostrar siempre el tiempo restante.";
 
-"ENABLE_SHARE_BUTTON" = "Enable Share Button";
-"ENABLE_SHARE_BUTTON_DESC" = "Enable the Share Button in video controls overlay.";
-"ENABLE_SAVE_TO_PLAYLIST_BUTTON" = "Enable Save To Playlist Button";
-"ENABLE_SAVE_TO_PLAYLIST_BUTTON_DESC" = "Enable the Save To Playlist Button in video controls overlay.";
-"HIDE_YTMUSIC_BUTTON" = "Hide Youtube Music button";
-"HIDE_YTMUSIC_BUTTON_DESC" = "Hides Youtube Music button that appears with Premium";
-"HIDE_VIDEO_TITLE_IN_FULLSCREEN" = "Hide Video Title in Fullscreen";
-"HIDE_VIDEO_TITLE_IN_FULLSCREEN_DESC" = "Hides the Video Title along with the functionality in the Top Left of the Fullscreen Video Player.";
-"HIDE_COLLAPSE_BUTTON" = "Hide Collapse Button";
-"HIDE_COLLAPSE_BUTTON_DESC" = "Hides the Arrow Collapse Button that was shown in the Top Left of the Video Player.";
-"HIDE_FULLSCREEN_BUTTON" = "Hide Fullscreen Button";
-"HIDE_FULLSCREEN_BUTTON_DESC" = "Hides the Fullscreen Button that was shown at the Bottom Right of the Video Player.";
-"HIDE_SHADOW_OVERLAY_BUTTONS" = "Hide Shadow Overlay Buttons";
-"HIDE_SHADOW_OVERLAY_BUTTONS_DESC" = "Hide the Shadow Overlay on the Play/Pause, Previous, Next, Forward & Rewind Buttons.";
-"HIDE_FULLSCREEN_ACTION_BUTTONS" = "Hide Fullscreen Action Buttons";
-"HIDE_FULLSCREEN_ACTION_BUTTONS_DESC" = "Hides the buttons at the bottom of the screen when in landscape.";
-"HIDE_SUGGESTED_VIDEO" = "Hide Suggested Video";
-"HIDE_SUGGESTED_VIDEO_DESC" = "Remove the suggested video popup when finishing a video. Note that this will prevent autoplay from working.";
-"HIDE_HEATWAVES_BAR" = "Hide Heatwaves Bar";
-"HIDE_HEATWAVES_BAR_DESC" = "Hides the Heatwaves Bar that is originally shown in the Progress Bar by Default in the video player. App restart is required.";
-"HIDE_DOUBLE_TAP_TO_SEEK_OVERLAY" = "Hide Double Tap to Seek Overlay";
-"HIDE_DOUBLE_TAP_TO_SEEK_OVERLAY_DESC" = "This hides the animated double tap to seek overlay in the video player. App restart is required.";
-"HIDE_DARK_OVERLAY_BACKGROUND" = "Hide Dark Overlay Background";
-"HIDE_DARK_OVERLAY_BACKGROUND_DESC" = "Hide the Dark Overlay Background in the video player. App restart is required.";
-"HIDE_AMBIENT_MODE_IN_FULLSCREEN" = "Hide Ambient Mode in Fullscreen";
-"HIDE_AMBIENT_MODE_IN_FULLSCREEN_DESC" = "Hides and Prevents Ambient Mode from being used in the Video Player when in Fullscreen. App restart is required.";
-"HIDE_SUGGESTED_VIDEOS_IN_FULLSCREEN" = "Hide Suggested Videos in Fullscreen";
-"HIDE_SUGGESTED_VIDEOS_IN_FULLSCREEN_DESC" = "Hide the suggested videos whenever in the Fullscreen Video Player. App restart is required.";
-"HIDE_ALL_VIDEOS_UNDER_PLAYER" = "Hide all videos under player";
-"HIDE_ALL_VIDEOS_UNDER_PLAYER_DESC" = "Remove all videos under the video player. Depends on which Device Orientation.";
+"ENABLE_SHARE_BUTTON" = "Habilitar Botón de Compartir";
+"ENABLE_SHARE_BUTTON_DESC" = "Habilita el Botón de Compartir en los controles de vídeo superpuestos.";
+"ENABLE_SAVE_TO_PLAYLIST_BUTTON" = "Habilitar Botón Guardar en Lista de Reproducción";
+"ENABLE_SAVE_TO_PLAYLIST_BUTTON_DESC" = "Habilita el Botón de Guardar en la Lista de Reproducción en los controles de vídeo superpuestos.";
+"HIDE_YTMUSIC_BUTTON" = "Ocultar botón de Youtube Music";
+"HIDE_YTMUSIC_BUTTON_DESC" = "Oculta el botón de Youtube Music que aparece con Premium";
+"HIDE_VIDEO_TITLE_IN_FULLSCREEN" = "Ocultar Título de Vídeo en Pantalla Completa";
+"HIDE_VIDEO_TITLE_IN_FULLSCREEN_DESC" = "Oculta el Título del Vídeo que aparece funcionalmente en la esquina superior izquierda del reproductor a Pantalla Completa.";
+"HIDE_COLLAPSE_BUTTON" = "Ocultar Botón de Colapso";
+"HIDE_COLLAPSE_BUTTON_DESC" = "Oculta el Botón de Colapso en Flecha que se encuentra en la parte superior izquierda del Reproductor de Vídeo.";
+"HIDE_FULLSCREEN_BUTTON" = "Ocultar Botón de Pantalla Completa";
+"HIDE_FULLSCREEN_BUTTON_DESC" = "Oculta el Botón de Pantalla Completa que se encuentra en la parte inferior derecha del Reproductor de Vídeo.";
+"HIDE_SHADOW_OVERLAY_BUTTONS" = "Ocultar Botones de Superposición de Sombra";
+"HIDE_SHADOW_OVERLAY_BUTTONS_DESC" = "Oculta la Superposición de Sombra en los Botones Reproducir/Pausa, Anterior, Siguiente, Adelatar y Retrasar.";
+"HIDE_FULLSCREEN_ACTION_BUTTONS" = "Ocultar Botones de Acción en Pantalla Completa";
+"HIDE_FULLSCREEN_ACTION_BUTTONS_DESC" = "Oculta los botones de la pantalla en modo apaisado.";
+"HIDE_SUGGESTED_VIDEO" = "Ocultar Vídeos Sugeridos";
+"HIDE_SUGGESTED_VIDEO_DESC" = "Elimina la ventana emergente de vídeos sugeridos al final de un vídeo. Esto impide que la reproducción automática fucione.";
+"HIDE_HEATWAVES_BAR" = "Ocultar Barra de Momentos Destacados";
+"HIDE_HEATWAVES_BAR_DESC" = "Oculta la Barra de Momentos Destacados que se muestra originalmente por defecto en la Barra de Progreso del Reproductor. Se requiere reiniciar la App.";
+"HIDE_DOUBLE_TAP_TO_SEEK_OVERLAY" = "Ocultar Doble Toque para Superposición de Búsqueda";
+"HIDE_DOUBLE_TAP_TO_SEEK_OVERLAY_DESC" = "Esto oculta el doble toque animado para la superposición de búsqueda del reproductor de vídeo. Se requiere reiniciar la App.";
+"HIDE_DARK_OVERLAY_BACKGROUND" = "Ocultar Superposición de Fondo Oscuro";
+"HIDE_DARK_OVERLAY_BACKGROUND_DESC" = "Oculta la Superposición de Fondo Oscuro en el reproductor de vídeo. Se requiere reiniciar la App.";
+"HIDE_AMBIENT_MODE_IN_FULLSCREEN" = "Ocultar Modo Ambiente en Pantalla Completa";
+"HIDE_AMBIENT_MODE_IN_FULLSCREEN_DESC" = "Oculta y Previene el uso del Modo Ambiente del Reproductor de Vídeo en Pantalla Completa. Se requiere reiniciar la App.";
+"HIDE_SUGGESTED_VIDEOS_IN_FULLSCREEN" = "Ocultar Vídeos Sugeridos en Pantalla Completa";
+"HIDE_SUGGESTED_VIDEOS_IN_FULLSCREEN_DESC" = "Oculta los vídeos sugeridos cuando el Reproductor de Vídeo está en Pantalla Completa. Se requiere reiniciar la App.";
+"HIDE_ALL_VIDEOS_UNDER_PLAYER" = "Ocutar todos los vídeos bajo el reproductor";
+"HIDE_ALL_VIDEOS_UNDER_PLAYER_DESC" = "Elimina todos los vídeos bajo el Reproductor de Vídeo. Depende de la Orientación de Dispositivo.";
 
-"SHORTS_QUALITY_PICKER" = "Shorts Quality Picker";
-"SHORTS_QUALITY_PICKER_DESC" = "Enables the YouTube Shorts Quality Picker";
+"SHORTS_QUALITY_PICKER" = "Selector de Calidad en Shorts";
+"SHORTS_QUALITY_PICKER_DESC" = "Habilita el Selector de Calidad en los Shorts YouTube.";
 
-"VIDEO_PLAYER_BUTTON_OPTIONS" = "Video Player Button Options";
+"VIDEO_PLAYER_BUTTON_OPTIONS" = "Opciones del Reproductor de Vídeo";
 
-"RED_SUBSCRIBE_BUTTON" = "Red Subscribe Button";
-"RED_SUBSCRIBE_BUTTON_DESC" = "Restores the Subscribe Button Color to be Red.";
-"HIDE_BUTTON_CONTAINERS_UNDER_PLAYER" = "Hide Button Containers under player";
-"HIDE_BUTTON_CONTAINERS_UNDER_PLAYER_DESC" = "Hides the Button Containers under the video player.";
-"HIDE_CONNECT_BUTTON" = "Hide the Connect Button under player";
-"HIDE_CONNECT_BUTTON_DESC" = "Hides the Connect Button under the video player.";
-"HIDE_SHARE_BUTTON" = "Hide the Share Button under player";
-"HIDE_SHARE_BUTTON_DESC" = "Hides the Share Button under the video player.";
-"HIDE_THANKS_BUTTON" = "Hide the Thanks Button under player";
-"HIDE_THANKS_BUTTON_DESC" = "Hides the Thanks Button under the video player.";
-"HIDE_SAVE_BUTTON" = "Hide the Save Button under player";
-"HIDE_SAVE_BUTTON_DESC" = "Hides the Save Button under the video player.";
-"HIDE_REPORT_BUTTON" = "Hide the Report Button under player";
-"HIDE_REPORT_BUTTON_DESC" = "Hides the Report Button under the video player.";
-"HIDE_COMMENT_PREVIEWS_UNDER_PLAYER" = "Hide Comment previews under player";
-"HIDE_COMMENT_PREVIEWS_UNDER_PLAYER_DESC" = "Hides the comment previews under the video player.";
-"HIDE_COMMENT_SECTION_BUTTON" = "Hide the comment section under player";
-"HIDE_COMMENT_SECTION_BUTTON_DESC" = "Hides the Comment Section under the video player.";
+"RED_SUBSCRIBE_BUTTON" = "Botón de Suscripción Rojo";
+"RED_SUBSCRIBE_BUTTON_DESC" = "Restaura el color Rojo al Botón de Suscripción.";
+"HIDE_BUTTON_CONTAINERS_UNDER_PLAYER" = "Ocultar Contenedor de Botones bajo Reproductor";
+"HIDE_BUTTON_CONTAINERS_UNDER_PLAYER_DESC" = "Oculta el Cuerpo de los Botones bajo el reproductor de vídeo.";
+"HIDE_CONNECT_BUTTON" = "Ocultar Botón Conectar bajo el reproductor";
+"HIDE_CONNECT_BUTTON_DESC" = "Oculta el Botón de Conectar bajo el reproductor de vídeo.";
+"HIDE_SHARE_BUTTON" = "Ocultar Botón Compartir bajo el reproductor";
+"HIDE_SHARE_BUTTON_DESC" = "Oculta el Botón de Compartir bajo el reproductor de vídeo.";
+"HIDE_THANKS_BUTTON" = "Ocultar Botón Gracias bajo el reproductor";
+"HIDE_THANKS_BUTTON_DESC" = "Oculta el Botón de Gracias bajo el reproductor de vídeo.";
+"HIDE_SAVE_BUTTON" = "Ocultar Botón Guardar bajo el reproductor";
+"HIDE_SAVE_BUTTON_DESC" = "Oculta el Botón de Guardar bajo el reproductor de vídeo.";
+"HIDE_REPORT_BUTTON" = "Ocultar Boton Reportar bajo el reproductor";
+"HIDE_REPORT_BUTTON_DESC" = "Oculta el Botón de Reportarbajo el reproductor de vídeo.";
+"HIDE_COMMENT_PREVIEWS_UNDER_PLAYER" = "Ocultar Previsualización de Comentarios bajo el reproductor";
+"HIDE_COMMENT_PREVIEWS_UNDER_PLAYER_DESC" = "Oculta la Previsualización de Comentariosbajo el reproductor de vídeo.";
+"HIDE_COMMENT_SECTION_BUTTON" = "Ocultar Sección Comentarios bajo el reproductor";
+"HIDE_COMMENT_SECTION_BUTTON_DESC" = "Oculta la Sección de Comentarios bajo el reproductor de vídeo.";
 
-"APP_SETTINGS_OVERLAY_OPTIONS" = "App Settings Overlay Options";
+"APP_SETTINGS_OVERLAY_OPTIONS" = "Opciones de Superposición de Ajustes";
 
-"HIDE_ACCOUNT_SECTION" = "Hide `Account` Section";
-"HIDE_AUTOPLAY_SECTION" = "Hide `Autoplay` Section";
-"HIDE_TRY_NEW_FEATURES_SECTION" = "Hide `Try New Features` Section";
-"HIDE_VIDEO_QUALITY_PREFERENCES_SECTION" = "Hide `Video quality preferences` Section";
-"HIDE_NOTIFICATIONS_SECTION" = "Hide `Notifications` Section";
-"HIDE_MANAGE_ALL_HISTORY_SECTION" = "Hide `Manage all history` Section";
-"HIDE_YOUR_DATA_IN_YOUTUBE_SECTION" = "Hide `Your data in YouTube` Section";
-"HIDE_PRIVACY_SECTION" = "Hide `Privacy` Section";
-"HIDE_LIVE_CHAT_SECTION" = "Hide `Live Chat` Section";
-"HIDE_GET_YOUTUBE_PREMIUM_SECTION" = "Hide `Get Youtube Premium` Section";
+"HIDE_ACCOUNT_SECTION" = "Ocultar Sección `Cuenta`";
+"HIDE_AUTOPLAY_SECTION" = "Ocultar Sección `Autoplay`";
+"HIDE_TRY_NEW_FEATURES_SECTION" = "Ocultar Sección `Prueba las nuevas funciones experimentales`";
+"HIDE_VIDEO_QUALITY_PREFERENCES_SECTION" = "Ocultar Sección `Preferencias de calidad de vídeo`";
+"HIDE_NOTIFICATIONS_SECTION" = "Ocultar Sección `Notificaciones`";
+"HIDE_MANAGE_ALL_HISTORY_SECTION" = "Ocultar Sección `Gestionar todo el historial`";
+"HIDE_YOUR_DATA_IN_YOUTUBE_SECTION" = "Ocultar Sección `Tus datos en YouTube`";
+"HIDE_PRIVACY_SECTION" = "Ocultar Sección `Privacidad`";
+"HIDE_LIVE_CHAT_SECTION" = "Ocultar Sección `Chat en directo`";
+"HIDE_GET_YOUTUBE_PREMIUM_SECTION" = "Ocultar Sección `Consigue Youtube Premium`";
 
 "UI_INTERFACE_OPTIONS" = "UI Interface Options";
 
