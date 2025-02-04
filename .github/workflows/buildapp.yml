@@ -17,7 +17,7 @@ on:
         required: true
         type: string
       decrypted_youtube_url:
-        description: "Direct URL of the decrypted YouTube IPA"
+        description: "https://decrypt.day/app/id544007664/dl/vaMrItbOBi8KVn6n2V83b"
         default: ""
         required: true
         type: string
