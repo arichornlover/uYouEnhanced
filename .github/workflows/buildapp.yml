@@ -17,7 +17,7 @@ on:
         required: true
         type: string
       decrypted_youtube_url:
-        description: "Direct URL of the decrypted YouTube IPA"
+        description: "https://und3fy-my.sharepoint.com/personal/4decrypt_und3fy_onmicrosoft_com/_layouts/15/download.aspx?share=ESyqpMCgaOtOmSAyOJikdmUBr0IJz9Z0DK0wAApSFiFFeg"
         default: ""
         required: true
         type: string
