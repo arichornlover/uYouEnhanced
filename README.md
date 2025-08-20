@@ -1,134 +1,247 @@
-![IMG_2196](https://user-images.githubusercontent.com/52943116/189822859-8a0952db-9264-4b5b-9cbe-d0a87b2db5a0.PNG)
-***
+## About the future of the uYouEnhanced Project (Updated, June 13, 2025)
+Hey everyone,
+
+Just wanted to give you an update about uYouEnhanced. I’m not 100% leaving or anything, but I won’t be maintaining this tweak much like before. I’ll still drop some github commits now and then to try and improve uYouEnhanced, but there’s just no way I can ever get through and solve the 300+ known existing issues in this github repository.
+
+I do my best to fix stuff when some issues pop up, but it sometimes usually doesn’t work out. I do even suggest workarounds, but they might not work perfectly or might mot even work, especially with the latest YouTube version changes.
+
+But as of writing this, I’d recommend using uYouEnhanced with YouTube version v20.05.4 (the ipa version I actually am still using personally).
+Thanks for understanding!
+
+And thanks to the developers qnblackcat, PoomSmart & other  allowing me to expand this fork from where it is today!
 
 <p align="center">
-    <img src="https://img.shields.io/badge/Platform-iOS%20%7C%20iPadOS%2014.0%2B-yellow" alt="Badge"/>
-    <a href="https://github.com/qnblackcat/uYouPlus/wiki/FAQ"><img src="https://img.shields.io/badge/Question%3F-FAQ-yellow" alt="Badge"></img></a>
-    <a href="https://github.com/qnblackcat/uYouPlus/wiki/FAQ"><img src="https://custom-icon-badges.demolab.com/badge/translate-blue.svg?logo=translate&logoColor=white" alt="Badge"></img></a>
-    
-
-    
+  <a href="https://user-images.githubusercontent.com/78001398/271790092-006e81cc-715a-4fbc-aff6-15832e2da8c4.png">
+    <img src="https://user-images.githubusercontent.com/78001398/271790092-006e81cc-715a-4fbc-aff6-15832e2da8c4.png" alt="UYOUPLUS_LOGO" width="200" height="200">
+  </a>
 </p>
 
 <p align="center">
-    <a href="https://github.com/qnblackcat/uYouPlus/releases/latest"><img src="https://custom-icon-badges.demolab.com/github/v/release/qnblackcat/uYouPlus?color=brightgreen&label=Latest%20release" alt="Badge"></img></a>
-    <a href="https://github.com/qnblackcat/uYouPlus/releases/latest"><img src="https://img.shields.io/github/downloads/qnblackcat/uYouPlus/total?label=Download" alt="Badge"></img></a>
-    <a href="https://github.com/qnblackcat/uYouPlus/commit"><img src="https://custom-icon-badges.demolab.com/github/last-commit/qnblackcat/uYouPlus?logo=history&logoColor=white&label=Last commit" alt="Badge"></img></a>
-    <a href="https://github.com/qnblackcat/uYouPlus/issues"><img src="https://custom-icon-badges.demolab.com/github/issues-raw/qnblackcat/uYouPlus?logo=issue-opened&label=Issues" alt="Badge"></img></a>
-
+  <a href="https://github.com/qnblackcat/uYouPlus/assets/77606385/c1a1c58a-5d4d-48a6-bb98-d00086719ccc">
+    <img src="https://github.com/arichornlover/uYouEnhanced/assets/78001398/10a89169-266a-42a3-a5e9-8839c1dc9e76" alt="UYOUPLUS_SCREENSHOTS">
+  </a>
 </p>
 
 <p align="center">
-   <img src="https://img.shields.io/github/stars/qnblackcat/uYouPlus?style=social" alt="Badge"/>
-   <img src="https://img.shields.io/github/forks/qnblackcat/uYouPlus?style=social" alt="Badge"/>
-   <a href="https://github.com/qnblackcat/uYouPlus#support-the-developers"><img src="https://img.shields.io/badge/-Support-lightgrey?style=social&logo=paypal" alt="Badge"></img></a>
+  <img src="https://img.shields.io/badge/Platform-iOS%20%7C%20iPadOS%2015.0%2B-yellow?logo=apple&logoColor=white" alt="Platform Badge">
 </p>
+
+<p align="center">
+    <a href="https://github.com/arichornlover/uYouEnhanced/releases/latest"><img src="https://img.shields.io/github/v/release/arichornlover/uYouEnhanced?logo=youtube&color=%23e81e8a&label=Latest%20Release" alt="Latest Release Badge"></a>
+    <a href="https://github.com/arichornlover/uYouEnhanced/commit"><img src="https://custom-icon-badges.demolab.com/github/last-commit/arichornlover/uYouEnhanced?logo=history&logoColor=white&color=%23e81e8a&label=Last%20Commit" alt="Last Commit Badge"></a>
+    <a href="https://github.com/arichornlover/uYouEnhanced/issues"><img src="https://custom-icon-badges.demolab.com/github/issues-raw/arichornlover/uYouEnhanced?logo=issue-opened&logoColor=white&color=%23e81e8a&label=Issues" alt="Issues Badge"></a>
+</p>
+
+<p align="center">
+    <a href="https://github.com/arichornlover/uYouEnhanced/stargazers"><img src="https://custom-icon-badges.demolab.com/github/stars/arichornlover/uYouEnhanced?style=flat&logo=star&logoColor=white&color=%23e81e8a&label=Stars" alt="Stars Badge"></img></a>
+<a href="https://github.com/arichornlover/uYouEnhanced/network/members"><img src="https://custom-icon-badges.demolab.com/github/forks/arichornlover/uYouEnhanced?style=flat&logo=github&logoColor=white&color=%23e81e8a&label=Forks"></a>
+</p>
+
+> [!NOTE]
+> uYouEnhanced is a **modified version** of uYou. **Please DO NOT bother MiRO92 with issues unrelated to uYou!**
 
 # Table of Contents
 
-* [Credits](#credits)
-* [Features](#features)
-* [Known issues](#known-issues)
-* [Download](#download)
-* [Installation](#installation)
-* [Support the developers!](#support-the-developers)
-* [FAQ](#faq)
-* [Building](#building-optional)
+  <a href="#credits"><img src="https://img.shields.io/badge/Credits-C6005A?style=for-the-badge&labelColor=C6005A" alt="Credits Badge"></a><br>
+  <a href="#features"><img src="https://img.shields.io/badge/Features-C6005A?style=for-the-badge&labelColor=C6005A" alt="Features Badge"></a><br>
+  <a href="#known-issues"><img src="https://img.shields.io/badge/Known%20Issues-C6005A?style=for-the-badge&labelColor=C6005A" alt="Known Issues Badge"></a><br>
+  <a href="#download"><img src="https://img.shields.io/badge/Download-C6005A?style=for-the-badge&labelColor=C6005A" alt="Download Badge"></a><br>
+  <a href="#building"><img src="https://img.shields.io/badge/Building-C6005A?style=for-the-badge&labelColor=C6005A" alt="Building Badge"></a><br>
+  <a href="#installation"><img src="https://img.shields.io/badge/Installation-C6005A?style=for-the-badge&labelColor=C6005A" alt="Installation Badge"></a><br>
+  <a href="#support-the-developers"><img src="https://img.shields.io/badge/Support%20the%20Developers-C6005A?style=for-the-badge&labelColor=C6005A" alt="Support the Developers Badge"></a><br>
+  <a href="#wiki"><img src="https://img.shields.io/badge/Wiki-C6005A?style=for-the-badge&labelColor=C6005A" alt="Wiki Badge"></a>
 
 # Credits
-- Special thanks to all the developers who have contributed to uYouPlus! 
-
 <table id='credit'>
 <tr>
-<td id='miro92'>
+
+<MiRO92>
+<td align="center">
 <a href='https://github.com/MiRO92'>
-<img src='https://github.com/MiRO92.png' width='140px;'>
+<img src='https://user-images.githubusercontent.com/78001398/271811861-da79accc-095c-4cb3-b7b4-8d48b1449259.png' width='110px'>
 </a>
-<h4 align='center'><a href='https://twitter.com/miro92'>MiRO92</a></h4>
+<br>
+<a href='https://twitter.com/miro92'><img src="https://img.shields.io/badge/Twitter-MiRO92-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="MiRO92"></a>
 </td>
-<td id='poomsmart'>
+
+<qnblackcat>
+<td align="center">
+<a href='https://github.com/qnblackcat'>
+<img src='https://user-images.githubusercontent.com/78001398/271812521-e52ebf96-7272-4ec0-a149-8e721c053508.png' width='110px'>
+</a>
+<br>
+<a href='https://twitter.com/qnblackcat'><img src="https://img.shields.io/badge/Twitter-qnblackcat-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="qnblackcat"></a>
+</td>
+
+<PoomSmart>
+<td align="center">
 <a href='https://github.com/PoomSmart'>
-<img src='https://github.com/PoomSmart.png' width='140px;'>
+<img src='https://user-images.githubusercontent.com/78001398/271811615-96093202-4aec-4e50-a750-8c7b83f3862c.png' width='110px'>
 </a>
-<h4 align='center'><a href='https://twitter.com/poomsmart'>PoomSmart</a></h4>
+<br>
+<a href='https://twitter.com/poomsmart'><img src="https://img.shields.io/badge/Twitter-PoomSmart-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="PoomSmart"></a>
 </td>
-<td id='level3tjg'>
+
+<level3tjg>
+<td align="center">
 <a href='https://github.com/level3tjg'>
-<img src='https://github.com/level3tjg.png' width='140px;'>
+<img src='https://user-images.githubusercontent.com/78001398/271812596-7854996a-3825-4971-a9ff-1001b4d153cb.png' width='110px'>
 </a>
-<h4 align='center'><a href='https://twitter.com/level3tjg'>level3tjg</a></h4>
+<br>
+<a href='https://twitter.com/level3tjg'><img src="https://img.shields.io/badge/Twitter-level3tjg-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="level3tjg"></a>
 </td>
-<td id='bandarHL'>
+
+<BandarHL>
+<td align="center">
 <a href='https://github.com/BandarHL'>
-<img src='https://github.com/BandarHL.png' width='140px;'>
+<img src='https://user-images.githubusercontent.com/78001398/271812729-2bb63da0-5239-43a4-aa3e-e1daa67e8dc2.png' width='110px'>
 </a>
-<h4 align='center'><a href='https://twitter.com/bandarhl'>BandarHelal</a></h4>
+<br>
+<a href='https://twitter.com/bandarhl'><img src="https://img.shields.io/badge/Twitter-BandarHL-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="BandarHL"></a>
 </td>
-<td id='galactic-dev'>
+
+<Galactic-Dev>
+<td align="center">
 <a href='https://github.com/Galactic-Dev'>
-<img src='https://github.com/Galactic-Dev.png' width='140px;'>
+<img src='https://user-images.githubusercontent.com/78001398/271812231-5b7d5d9f-6d19-4174-8478-8f07379ee1ca.png' width='110px'>
 </a>
-<h4 align='center'><a href='https://twitter.com/dev_galactic'>galactic</a></h4>
+<br>
+<a href='https://twitter.com/dev_galactic'><img src="https://img.shields.io/badge/Twitter-dev_galactic-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="dev_galactic"></a>
 </td>
 </tr>
-  
+
 <tr>
-<td id='julioverne'>
+
+<julioverne>
+<td align="center">
 <a href='https://github.com/julioverne'>
-<img src='https://github.com/julioverne.png' width='140px;'>
+<img src='https://user-images.githubusercontent.com/78001398/271812914-bf26d603-2d94-49f4-9702-f5e66af3f44a.png' width='110px'>
 </a>
-<h4 align='center'><a href='https://twitter.com/ijulioverne'>julioverne</a></h4>
+<br>
+<a href='https://twitter.com/ijulioverne'><img src="https://img.shields.io/badge/Twitter-ijulioverne-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="ijulioverne"></a>
 </td>
-<td id='hbang'>
+
+<hbang>
+<td align="center">
 <a href='https://github.com/hbang'>
-<img src='https://github.com/hbang.png' width='140px;'>
+<img src='https://user-images.githubusercontent.com/78001398/271813035-2e168ee5-fc47-43a6-9307-0fc20c7fca60.png' width='110px'>
 </a>
-<h4 align='center'><a href='https://twitter.com/hashbang'>HASHBANG</a></h4>
+<br>
+<a href='https://twitter.com/hashbang'><img src="https://img.shields.io/badge/Twitter-hashbang-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="hashbang"></a>
 </td>
-<td id='lyvendia'>
+
+<Lyvendia>
+<td align="center">
 <a href='https://github.com/Lyvendia'>
-<img src='https://github.com/Lyvendia.png' width='140px;'>
+<img src='https://user-images.githubusercontent.com/78001398/271812187-1c0d5b24-caba-4616-b875-4c458d10ca55.png' width='110px'>
 </a>
-<h4 align='center'><a href='https://github.com/Lyvendia'>Lyvendia</a></h4>
+<br>
+<a href='https://github.com/Lyvendia'><img src="https://img.shields.io/badge/GitHub-Lyvendia-181717?style=for-the-badge&logo=github&logoColor=white" alt="Lyvendia"></a>
 </td>
-<td id='foxster'>
+
+<therealFoxster>
+<td align="center">
 <a href='https://github.com/therealFoxster'>
-<img src='https://github.com/therealFoxster.png' width='140px;'>
+<img src='https://user-images.githubusercontent.com/78001398/271812075-923038a7-5ffa-4ea4-9de4-fdf4e5d556c2.png' width='110px'>
 </a>
-<h4 align='center'><a href='https://twitter.com/therealFoxster'>Foxster</a></h4>
+<br>
+<a href='https://twitter.com/therealFoxster'><img src="https://img.shields.io/badge/Twitter-therealFoxster-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="therealFoxster"></a>
 </td>
-<td id='ichitaso'>
+
+<ichitaso>
+<td align="center">
 <a href='https://github.com/ichitaso'>
-<img src='https://github.com/ichitaso.png' width='140px;'>
+<img src='https://user-images.githubusercontent.com/78001398/271812398-c7e40fa3-4e0b-4be2-aa51-900444d59abd.png' width='110px'>
 </a>
-<h4 align='center'><a href='https://twitter.com/ichitaso'>ichitaso</a></h4>
+<br>
+<a href='https://twitter.com/ichitaso'><img src="https://img.shields.io/badge/Twitter-ichitaso-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="ichitaso"></a>
+</td>
+
+<AhmedBafkir>
+<td align="center">
+<a href='https://github.com/AhmedBafkir'>
+<img src='https://user-images.githubusercontent.com/78001398/271813114-dcb005f7-b83b-40e6-a9cb-9b661dd6b33b.png' width='110px'>
+</a>
+<br>
+<a href='https://twitter.com/Peaceful_0'><img src="https://img.shields.io/badge/Twitter-AhmedBafkir-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="Peaceful_0"></a>
 </td>
 </tr>
-  
+
 <tr>
-<td id='ahmed-bafkir'>
-<a href='https://github.com/AhmedBafkir'>
-<img src='https://github.com/AhmedBafkir.png' width='140px;'>
-</a>
-<h4 align='center'><a href='https://twitter.com/Peaceful_0'>Ahmed Bafkir</a></h4>
-</td>
-<td id='cokepokes'>
+
+<CokePokes>
+<td align="center">
 <a href='https://github.com/CokePokes'>
-<img src='https://github.com/CokePokes.png' width='140px;'>
+<img src='https://user-images.githubusercontent.com/78001398/271813228-d28471b4-cb67-442c-bd63-276f1641a14e.png' width='110px'>
 </a>
-<h4 align='center'><a href='https://twitter.com/cokepokes'>CokePokes</a></h4>
+<br>
+<a href='https://twitter.com/cokepokes'><img src="https://img.shields.io/badge/Twitter-cokepokes-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="cokepokes"></a>
 </td>
-<td id='isnackable'>
+
+<ISnackable>
+<td align="center">
 <a href='https://github.com/ISnackable'>
-<img src='https://github.com/ISnackable.png' width='140px;'>
+<img src='https://user-images.githubusercontent.com/78001398/271813311-2027a8de-a08d-4f1b-97a4-167f4bcef497.png' width='110px'>
 </a>
-<h4 align='center'><a href='https://isnackable.me/'>Tommy Teo</a></h4>
+<br>
+<a href='https://isnackable.me/'><img src="https://img.shields.io/badge/Website-isnackable-000000?style=for-the-badge&logo=internet-explorer&logoColor=white" alt="isnackable"></a>
 </td>
-<td id='theos-team'>
-<a href='https://github.com/theos/theos'>
-<img src='https://github.com/theos.png' width='140px;'>
+
+<dayanch96>
+<td align="center">
+<a href='https://github.com/dayanch96'>
+<img src='https://user-images.githubusercontent.com/78001398/271853514-129334b3-498f-4804-aceb-392bf5e373e6.png' width='110px;'>
 </a>
-<h4 align='center'><a href='https://theos.dev'>theos</a></h4>
+<br>
+<a href='https://github.com/dayanch96'><img src="https://img.shields.io/badge/GitHub-dayanch96-181717?style=for-the-badge&logo=github&logoColor=white" alt="dayanch96"></a>
+</td>
+
+<ssuesskind>
+<td align="center">
+<a href='https://github.com/ssuesskind'>
+<img src='https://user-images.githubusercontent.com/78001398/271853585-77271641-b825-43b1-af57-d9f5b12fe8ff.png' width='110px;'>
+</a>
+<br>
+<a href='https://github.com/ssuesskind'><img src="https://img.shields.io/badge/GitHub-ssuesskind-181717?style=for-the-badge&logo=github&logoColor=white" alt="ssuesskind"></a>
+</td>
+
+<balackburn>
+<td align="center">
+<a href='https://github.com/balackburn'>
+<img src='https://user-images.githubusercontent.com/78001398/271853318-3005deb3-b484-4b2b-a093-44c2af79b9af.png' width='110px;'>
+</a>
+<br>
+<a href='https://github.com/balackburn'><img src="https://img.shields.io/badge/GitHub-balackburn-181717?style=for-the-badge&logo=github&logoColor=white" alt="balackburn"></a>
+</td>
+
+<dodieboy>
+<td align="center">
+<a href='https://github.com/dodieboy'>
+<img src='https://github.com/arichornlover/YouTubeRebornPlus/assets/78001398/0d43912b-e561-4865-8312-5e241d34bf72' width='110px;'>
+</a>
+<br>
+<a href='https://github.com/dodieboy'><img src="https://img.shields.io/badge/GitHub-dodieboy-181717?style=for-the-badge&logo=github&logoColor=white" alt="dodieboy"></a>
+</td>
+</tr>
+
+<tr>
+
+<bhackel>
+<td align="center">
+<a href='https://github.com/bhackel'>
+<img src='https://github.com/arichornlover/uYouEnhanced/assets/78001398/d1d46f69-d7b9-4e6a-82b6-e5629d26667b' width='110px;'>
+</a>
+<br>
+<a href='https://github.com/bhackel'><img src="https://img.shields.io/badge/GitHub-bhackel-181717?style=for-the-badge&logo=github&logoColor=white" alt="bhackel"></a>
+</td>
+
+<theos>
+<td align="center">
+<a href='https://github.com/theos/theos'>
+<img src='https://user-images.githubusercontent.com/78001398/271813393-56a63730-a56d-41ba-b473-4d37761526c9.png' width='110px'>
+</a>
+<br>
+<a href='https://theos.dev'><img src="https://img.shields.io/badge/Website-theos-000000?style=for-the-badge&logo=internet-explorer&logoColor=white" alt="theos"></a>
 </td>
 </tr>
 </table>
@@ -146,87 +259,170 @@
 <details>
   <summary>And many more...!</summary>
 
-5. **YTClassicVideoQuality:** since YouTube v16.xx, you need one more step to change the video quality. YTClassicVideoQuality brings back the old video quality selector, which is a lot better than the new one.
+5. **YTClassicVideoQuality:** Since YouTube v16.xx, changing video quality requires an extra step. YTClassicVideoQuality brings back the old video quality selector, which is more user-friendly than the new one.
 
-6. **YTNoHoverCards:** offer an option to enable/disable the annoying suggested videos show up at the end of the videos.
+6. **YTNoHoverCards:** This tweak offers the option to enable or disable the annoying suggested videos that appear at the end of YouTube videos.
 
-7. **YouRememberCaption**: make YouTube remember your video caption setting (if not already).
+7. **YouRememberCaption:** YouRememberCaption makes YouTube remember your video caption setting (if not already).
 
-8. **NoYTPremium**: remove YouTube Premium upsells.
+8. **NoYTPremium:** NoYTPremium removes YouTube Premium upsells, preventing the ads and promotions for YouTube Premium from appearing.
 
-9. **YTSpeed**: add 2.25, 2.5, 2.75, and 3x playback speed
+9. **YTSpeed:** YTSpeed adds additional playback speed options of 2.25x, 2.5x, 2.75x, 3x and more to the YouTube app, providing more flexibility in video playback speed.
 
-10. **YTMiniplayerEnabler**: enable Miniplayer for all YouTube videos.
+10. **YTMiniplayerEnabler:** YTMiniplayerEnabler enables the Miniplayer feature for all YouTube videos.
 
-11. **DontEatMyContent**: prevent the notch/Dynamic Island from munching on 2:1 video content in YouTube.
+11. **DontEatMyContent:** This tweak prevents the notch or Dynamic Island from obstructing 2:1 video content on YouTube, ensuring a better viewing experience.
 
-12. **YTABConfig**: allow user to control over YouTube A/B testing flags.
+12. **YTABConfig:** This tweak gives users control over YouTube's A/B testing flags, allowing them to enable or disable experimental features.
+
+13. **YouMute:** YouMute provides a button to mute YouTube videos in the video player, offering a convenient way to toggle the audio on and off.
+
+14. **YouQuality:** YouQuality provides a button to change the video quality of YouTube videos in the video player, allowing quick access to different quality options.
+
+15. **YouTimeStamp:** YouTimeStamp provides a button to copy the video url with the timestamp of whatever part of the video you are currently on.
+
+16. **YTVideoOverlay:** YTVideoOverlay adds buttons to overlay the video, providing quick access to features like captions, speed control, and quality settings.
+
+17. **NotificationsTab:** This tweak recreates the Notifications Tab that was removed from the YouTube App back in 2020, also the tweak includes customization for the tab if you are feeling nostalgic.
+
+18. **YTAppVersionSpoofer:** This tweak allows users to spoof the version of the YouTube app they are using, this is designed to spoof to older YouTube App versions. This can be useful for bypassing certain version checks or retaining features that may have been removed/disabled in newer updates. **<-- uYouEnhanced Exclusive Feature (subject to change)**
+
+19. **LowContrastMode (17.33.2-18.34.5 OUTDATED):** LowContrastMode is a tweak that allows users to darken the text in the YouTube app, making it easier to read. which sadly suffers from incompatibility issues and doesn't work right now as of March 19th 2025. **<-- uYouEnhanced Exclusive Feature (subject to change)**
 
 </details>
 
-# Known issues 
+# Known issues
 
-- **uYou**: all the known-issues of uYou are listed [here](https://github.com/MiRO92/uYou-for-YouTube/issues). Make sure you take a look at it before reporting any bugs! ***Also, keep in mind that uYou+ is a modified version of uYou, DO NOT bother MiRO92 with problems unrelated to uYou!!!***
+- **uYou**: Issues related to uYou are listed [here](https://github.com/MiRO92/uYou-for-YouTube/issues). Because uYou is not being updated frequently, we recommended creating bug reports on this repo.
 
-- Issues that related to **uYouPlus** are [here](https://github.com/qnblackcat/uYouPlus/issues/)
+- Issues related to **uYouEnhanced** can be found [here](https://github.com/arichornlover/uYouEnhanced/issues/).
 
-# Download
+## Download
 
-- **uYouPlus** (or you can call it uYou+) requires iOS or iPadOS 14.0 or later. The latest version of **uYouPlus** can be found in the [Release tab](https://github.com/qnblackcat/uYouPlus/releases/latest).
-
+- The latest version of **uYouEnhanced** can be found under [Releases](https://github.com/arichornlover/uYouEnhanced/releases/latest).
+- **Compatibility:** Requires iOS/iPadOS 15.0 or later.
 - For AltStore user: 
 
-  - My official AltStore repo: https://qnblackcat.github.io/AltStore/
+  - My official AltStore repo (uYouEnhanced - **iOS 15+**): https://therealfoxster.github.io/altsource-viewer/view/?source=https://raw.githubusercontent.com/arichornlover/arichornlover.github.io/main/apps.json
 
-  - [Open in AltStore (v18.14.1-3.0)](https://tinyurl.com/yv6wrxjz) - It will take a while to install because AltStore needs to download the IPA first.
+  - My alternative AltStore repo (uYouEnhanced - **iOS 14+ - mainly for Trollstore users**): https://therealfoxster.github.io/altsource-viewer/view/?source=https://raw.githubusercontent.com/arichornlover/arichornlover.github.io/main/apps-legacy.json - not sure if i can update this ipa. this IPA will be locked in YouTube Version **19.20.2**
 
-- Version info: _(last update: Apr 28)_
+  - [Open in AltStore (v20.05.4-3.0.4)](https://tinyurl.com/33wr56zm) - It will take a while to install because AltStore needs to download the IPA first.
+  - NEWS - Nov 27 2024: Please be aware that some of the **uYou** features aren't working in newer versions of YouTube.
 
 <details>
-  <summary>Expand ℹ️</summary>
+  <summary>Version information (last updated: June 13, 2025)</summary>
 
 | **Tweaks/App** | **Developer** | **Version** | **Open source** |
 | - | - | :-: | :-:  |
-| **YouTube** | Google Inc | 18.14.1 | ✖︎ |
-| [uYou](https://github.com/MiRO92/uYou-for-YouTube) | [MiRO92](https://twitter.com/miro92) | 3.0 | ✖︎ |
-| **Open in YouTube** | [CokePokes](https://github.com/CokePokes) | 1.2 | [✔︎](https://github.com/CokePokes/YoutubeExtensions) |
-| **iSponsorBlock** | [Galactic-Dev](https://github.com/Galactic-Dev) | 1.0-15 | [✔︎](https://github.com/Galactic-Dev/iSponsorBlock) |
+| **YouTube** | Google Inc | 20.23.3 | ✖︎ |
+| [uYou](https://github.com/MiRO92/uYou-for-YouTube) | [MiRO92](https://twitter.com/miro92) | 3.0.4 | ✖︎ |
+| **OpenYoutubeAndShorts** | [CrossiDev-Studio](https://github.com/CrossiDev-Studio) | 1.0 | [✔︎](https://github.com/CrossiDev-Studio/OpenYoutubeAndShorts) |
+| **iSponsorBlock** | [Galactic-Dev](https://github.com/Galactic-Dev) | 1.2.9 | [✔︎](https://github.com/Galactic-Dev/iSponsorBlock) |
 | **BigYTMiniPlayer** | [Galactic-Dev](https://github.com/Galactic-Dev) | 1.0-1 | [✔︎](https://github.com/Galactic-Dev/BigYTMiniPlayer) |
 | **YTNoHoverCards** | [level3tjg](https://twitter.com/level3tjg) | 0.0.3 | [✔︎](https://github.com/level3tjg/YTNoHoverCards) |
 | **YTMiniplayerEnabler** | [level3tjg](https://twitter.com/level3tjg) | 0.0.2 | [✔︎](https://github.com/level3tjg/YTMiniplayerEnabler) |
-| **DontEatMyContent** | [therealFoxster](https://github.com/therealFoxster) | 1.0.6 | [✔︎](https://github.com/therealFoxster/DontEatMyContent) |
+| **DontEatMyContent** | [therealFoxster](https://github.com/therealFoxster) | 1.1.8 | [✔︎](https://github.com/therealFoxster/DontEatMyContent) |
 | **YTSpeed** | [Lyvendia](https://github.com/Lyvendia) | 1.0.1 | [✔︎](https://github.com/Lyvendia/YTSpeed) |
-| **YTCastConfirm** | [JamieBerghmans](https://github.com/JamieBerghmans) | 1.0.0 | [✔︎](https://github.com/JamieBerghmans/YTCastConfirm) |
-| **Alderis Color Picker** | [HASHBANG Productions](https://github.com/hbang) | 1.2| [✔︎](https://github.com/hbang/Alderis) |
-| **YTUHD** | [PoomSmart](https://twitter.com/poomsmart) | 1.3.5-1 | [✔︎](https://github.com/PoomSmart/YTUHD) |
-| **YouPiP** | [PoomSmart](https://twitter.com/poomsmart) | 1.7.19-1 | [✔︎](https://github.com/PoomSmart/YouPiP) |
-| **IAmYouTube** | [PoomSmart](https://twitter.com/poomsmart) | 1.2.0 | [✔︎](https://github.com/PoomSmart/IAmYouTube) |
-| **YTABConfig** | [PoomSmart](https://twitter.com/poomsmart) | 1.5.0 | [✔︎](https://github.com/PoomSmart/YTABConfig) |
+| **Alderis Color Picker** | [HASHBANG Productions](https://github.com/hbang) | 1.2 | [✔︎](https://github.com/hbang/Alderis) |
+| **YTUHD** | [PoomSmart](https://twitter.com/poomsmart) | 1.6.0 | [✔︎](https://github.com/PoomSmart/YTUHD) |
+| **YouLoop** | [bhackel](https://github.com/bhackel) | 1.0.0 | [✔︎](https://github.com/bhackel/YouLoop) |
+| **YouMute** | [PoomSmart](https://twitter.com/poomsmart) | 1.2.3 | [✔︎](https://github.com/PoomSmart/YouMute) |
+| **YouPiP** | [PoomSmart](https://twitter.com/poomsmart) | 1.12.7 | [✔︎](https://github.com/PoomSmart/YouPiP) |
+| **YouQuality** | [PoomSmart](https://twitter.com/poomsmart) | 1.3.5 | [✔︎](https://github.com/PoomSmart/YouQuality) |
+| **YouSpeed** | [PoomSmart](https://twitter.com/poomsmart) | 1.0.1 | [✔︎](https://github.com/PoomSmart/YouSpeed) |
+| **YouTimeStamp** | [arichornlover](https://github.com/arichornlover) | 1.0.2 | [✔︎](https://github.com/arichornlover/YouTimeStamp) |
+| **IAmYouTube** | [PoomSmart](https://twitter.com/poomsmart) | 1.3.0 | [✔︎](https://github.com/PoomSmart/IAmYouTube) |
+| **YTABConfig** | [PoomSmart](https://twitter.com/poomsmart) | 1.7.3 | [✔︎](https://github.com/PoomSmart/YTABConfig) |
+| **YTIcons** | [PoomSmart](https://twitter.com/poomsmart) | 1.0.0 | [✔︎](https://github.com/PoomSmart/YTIcons) |
 | **YTReExplore** | [PoomSmart](https://twitter.com/poomsmart) | 1.0.2 | [✔︎](https://github.com/PoomSmart/YTReExplore) |
 | **NoYTPremium** | [PoomSmart](https://twitter.com/poomsmart) | 1.0.4 | [✔︎](https://github.com/PoomSmart/NoYTPremium) |
 | **YTNoPaidPromo** | [PoomSmart](https://twitter.com/poomsmart) | 1.0.0 | [✔︎](https://github.com/PoomSmart/YTNoPaidPromo) |
 | **YouRememberCaption** | [PoomSmart](https://twitter.com/poomsmart) | 1.0.0 | [✔︎](https://poomsmart.github.io/repo/depictions/youremembercaption.html) |
-| **Return YouTube Dislike** | [PoomSmart](https://twitter.com/poomsmart) | 1.11.3 | [✔︎](https://github.com/PoomSmart/Return-YouTube-Dislikes) |
+| **Return YouTube Dislike** | [PoomSmart](https://twitter.com/poomsmart) | 1.13.3 | [✔︎](https://github.com/PoomSmart/Return-YouTube-Dislikes) |
+| **YouTube-X** | [PoomSmart](https://twitter.com/poomsmart) | 1.7.11 | [✔︎](https://github.com/PoomSmart/YouTube-X) |
+| **YTVideoOverlay** | [PoomSmart](https://twitter.com/poomsmart) | 1.3.0 | [✔︎](https://github.com/PoomSmart/YTVideoOverlay) |
+| **YouGroupSettings** | [PoomSmart](https://twitter.com/poomsmart) | 1.0.3 | [✔︎](https://github.com/PoomSmart/YouGroupSettings) |
+| **YTHoldForSpeed** | [joshuaseltzer](https://github.com/joshuaseltzer) | 1.2.3 | [✔︎](https://github.com/joshuaseltzer/YTHoldForSpeed) |
+| **LowContrastMode (Broken Tweak)** | [arichornlover](https://github.com/arichornlover) | 1.5.2 | [✔︎](https://github.com/arichornlover/YTLowContrastMode) |
 
 </details>
 
+# uYou Tweak Compatibility List
+
+| Developer | Tweak Name and Version | App Version Compatibility | iOS Version Compatibility |
+|-----------|-----------------------|--------------------------|--------------------------|
+| MiRO92 | uYou 2.1 / 2.3~1 | ~v16.42.3~ ~v17.33.2 - 18.01.6~ | iOS 13.0 - iOS 15.8.3 |
+| MiRO92 | uYou 3.0 | ~v18.06.6 - v18.18.2~ | iOS 14.0 - iOS 15.8.3 |
+| MiRO92 | uYou 3.0.1 | ~v18.19.1 - v18.41.5~ | iOS 14.0 - iOS 18.5.0 |
+| MiRO92 | uYou 3.0.2 / 3.0.3 | v19.06.2 - v19.15.1 | iOS 15.0 - iOS 18.5.0 |
+| MiRO92 | uYou 3.0.4 | v19.20.2 - v19.22.6 | iOS 15.0 - iOS 18.5.0 |
+
+# Building
+
+See [arichornlover/Building - Wiki](https://github.com/arichornlover/uYouEnhanced/wiki/Building)
+or [qnblackcat/Building - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/Building).
+
 # Installation
+
 See [Installation - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/Installation).
 
 # Support the developers
-- [**MiRO92**](https://twitter.com/miro92): https://github.com/MiRO92/uYou-for-YouTube#support
-- [**Poomsmart**](https://twitter.com/poomsmart): https://poomsmart.github.io
-- [**level3tjg**](https://twitter.com/level3tjg): https://ko-fi.com/level3tjg
-- [**BandarHL**](https://twitter.com/bandarhl): https://www.paypal.com/paypalme/BandarHL
-- [**julioverne**](https://twitter.com/ijulioverne): https://www.patreon.com/julioverne
-- [**Galactic-dev**](https://twitter.com/dev_galactic):   
-  - Paypal: https://www.paypal.com/paypalme/DBrett684 
-  - Venmo: https://venmo.com/u/DavidBrett
+<a href="https://buymeacoffee.com/dayanch96"><img src="https://github.com/YTLitePlus/Assets/blob/main/Github/Buttons/Donations/Dayanch96(buymeacoffee).png" width="200"></a>
+&nbsp;
+<a href="https://github.com/sponsors/dayanch96"><img src="https://github.com/YTLitePlus/Assets/blob/main/Github/Buttons/Donations/Dayanch96(Github).png" width="200"></a>
 
-# FAQ
+<a href="https://ko-fi.com/dayanch966"><img src="https://github.com/YTLitePlus/Assets/blob/main/Github/Buttons/Donations/Dayanch96(ko-fi).png" width="200"></a>
+&nbsp;
+<a href="https://www.paypal.com/paypalme/poomsmart"><img src="https://github.com/YTLitePlus/Assets/blob/main/Github/Buttons/Donations/Poomsmart.png" width="200"></a>
 
-See [FAQ - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/FAQ).
+<a href="https://www.paypal.com/paypalme/DBrett684"><img src="https://github.com/YTLitePlus/Assets/blob/main/Github/Buttons/Donations/Galactic-dev(Paypal).png" width="200"></a>
+&nbsp;
+<a href="https://venmo.com/u/DavidBrett"><img src="https://github.com/YTLitePlus/Assets/blob/main/Github/Buttons/Donations/Galactic-dev(Venmo).png?raw=true" width="200"></a>
 
-# Building (optional)
 
-See [Building - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/Building).
+<a href="https://github.com/MiRO92/uYou-for-YouTube#support"><img src="https://raw.githubusercontent.com/YTLitePlus/Assets/main/Github/Buttons/Donations/MIRO92.png" width="200"></a>
+&nbsp;
+
+<a href="https://www.paypal.com/paypalme/BandarHL"><img src="https://github.com/YTLitePlus/Assets/blob/main/Github/Buttons/Donations/BandarHL.png" width="200"></a>
+&nbsp;
+
+<a href="https://ko-fi.com/level3tjg"><img src="https://github.com/YTLitePlus/Assets/blob/main/Github/Buttons/Donations/level3tjg.png?raw=true" width="200"></a>
+&nbsp;
+
+<a href="https://www.patreon.com/julioverne"><img src="https://github.com/YTLitePlus/Assets/blob/main/Github/Buttons/Donations/julioverne.png?raw=true" width="200"></a>
+
+# Wiki
+
+See [arichornlover - Wiki](https://github.com/arichornlover/uYouEnhanced/wiki/) or [qnblackcat - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/)
+
+
+## Lightweight Alternative - YTLitePlus
+
+<details>
+    <summary>Read more</summary><br>
+
+# Switch from uYouEnhanced to YTLite or YTLitePlus (optional)
+
+Hello, this is here to showcase this tweak. I have been seeing the posts about the YTLitePlus tweak on Reddit for quite some time now and decided to add it here. Before you download or check out the tweak, you should take a look at the pros and cons below to learn more about YTLitePlus.
+
+https://github.com/YTLitePlus/YTLitePlus/releases
+
+**Pros**
+
+- YTLitePlus is stable and more customizable than uYouPlus/uYouEnhanced.
+
+- YTLitePlus provides more features in YTLite & YTLitePlus Sections in Settings that uYouPlus/uYouEnhanced may not have.
+
+- YTLitePlus includes a lightweight and simplified version of the App Version Spoofer, making it easier to use.
+
+- YTLitePlus does not cause your device to overheat, unlike uYouPlus/uYouEnhanced.
+
+- YTLitePlus provides faster video & audio downloading than uYouPlus/uYouEnhanced.
+
+**Cons**
+
+- Video quality on WiFi option is not available in YTLitePlus.
+
+- Reordering the pivot bar tabs such as `Home`, `Shorts`, `Explore`, `Trending`, `Create`, `Subscriptions` & `You` is not available in YTLitePlus.
+</details>
