@@ -527,7 +527,7 @@ static inline BOOL customContrastMode() {
 %hook NSAttributedString
 - (instancetype)initWithString:(NSString *)str attributes:(NSDictionary<NSAttributedStringKey, id> *)attrs {
     if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
-        MutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attrs];
+        NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attrs];
         modifiedAttributes[NSForegroundColorAttributeName] = kDefaultTextColor;
         return %orig(str, modifiedAttributes);
     }
