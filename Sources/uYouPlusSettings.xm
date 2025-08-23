@@ -565,12 +565,26 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
         kLowContrastMode,
         ({
             if (enable) {
+                if (@available(iOS 16.0, *)) {
+                } else {
+                    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Outdated iOS Version" message:@"LowContrastMode is designed for iOS 16 or higher. You are running an older iOS version. Enable anyway?" preferredStyle:UIAlertControllerStyleAlert];
+                    UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"Enable" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+                        [[NSUserDefaults standardUserDefaults] setBool:enable forKey:kLowContrastMode];
+                        [settingsViewController reloadData];
+                        SHOW_RELAUNCH_YT_SNACKBAR;
+                    }];
+                    UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil];
+                    [alert addAction:okAction];
+                    [alert addAction:cancelAction];
+                    [settingsViewController presentViewController:alert animated:YES completion:nil];
+                    return NO;
+                }
                 Class YTVersionUtilsClass = %c(YTVersionUtils);
                 NSString *appVersion = [YTVersionUtilsClass performSelector:@selector(appVersion)];
-                NSComparisonResult result1 = [appVersion compare:@"17.33.2" options:NSNumericSearch];
-                NSComparisonResult result2 = [appVersion compare:@"17.38.10" options:NSNumericSearch];
+                NSComparisonResult result1 = [appVersion compare:@"19.01.1" options:NSNumericSearch];
+                NSComparisonResult result2 = [appVersion compare:@"20.33.2" options:NSNumericSearch];
                 if (result1 == NSOrderedAscending) {
-                    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Discontinued Version" message:[NSString stringWithFormat:@"You are using v%@, a discontinued version of YouTube that may not work with LowContrastMode. Supported versions are v17.33.2-v17.38.10. Enable anyway?", appVersion] preferredStyle:UIAlertControllerStyleAlert];
+                    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Discontinued YouTube Version" message:[NSString stringWithFormat:@"You are using v%@, a discontinued version of YouTube that may not work with LowContrastMode. Supported versions are v19.01.1-v20.33.2. Enable anyway?", appVersion] preferredStyle:UIAlertControllerStyleAlert];
                     UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"Enable" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
                         [[NSUserDefaults standardUserDefaults] setBool:enable forKey:kLowContrastMode];
                         [settingsViewController reloadData];
@@ -582,7 +596,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
                     [settingsViewController presentViewController:alert animated:YES completion:nil];
                     return NO;
                 } else if (result2 == NSOrderedDescending) {
-                    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Incompatible Version" message:[NSString stringWithFormat:@"LowContrastMode is only available for app versions v17.33.2-v17.38.10. You are using v%@. Enable anyway?", appVersion] preferredStyle:UIAlertControllerStyleAlert];
+                    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Incompatible YouTube Version" message:[NSString stringWithFormat:@"LowContrastMode is only available for app versions v19.01.1-v20.33.2. You are using v%@. Enable anyway?", appVersion] preferredStyle:UIAlertControllerStyleAlert];
                     UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"Enable" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
                         [[NSUserDefaults standardUserDefaults] setBool:enable forKey:kLowContrastMode];
                         [settingsViewController reloadData];
@@ -594,7 +608,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
                     [settingsViewController presentViewController:alert animated:YES completion:nil];
                     return NO;
                 } else if (UIScreen.mainScreen.traitCollection.userInterfaceStyle != UIUserInterfaceStyleDark) {
-                    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Light Mode Detected" message:@"LowContrastMode is only available in Dark Mode. Please switch to Dark Mode to be able to use LowContrastMode." preferredStyle:UIAlertControllerStyleAlert];
+                    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Light Mode Detected" message:@"LowContrastMode is only designed for Dark Mode in mind. Please enable Dark Mode to be able to use LowContrastMode." preferredStyle:UIAlertControllerStyleAlert];
                     UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil];
                     [alert addAction:okAction];
                     [settingsViewController presentViewController:alert animated:YES completion:nil];
@@ -625,7 +639,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
                 Class YTVersionUtilsClass = %c(YTVersionUtils);
                 NSString *appVersion = [YTVersionUtilsClass performSelector:@selector(appVersion)];
                 // Alert the user that they need to enable the fix
-                UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Incompatibile" message:[NSString stringWithFormat:@"LowContrastMode is only available for app versions v17.33.2-v17.38.10. \nYou are currently using v%@. \n\nWorkaround: if you want to use this then I recommend enabling \"Fix LowContrastMode\" Option.", appVersion] preferredStyle:UIAlertControllerStyleAlert];
+                UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Incompatible YouTube Version" message:[NSString stringWithFormat:@"LowContrastMode is only available for app versions v19.01.1-v20.33.2. You are using v%@. Enable anyway?", appVersion] preferredStyle:UIAlertControllerStyleAlert];
                 UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil];
                 [alert addAction:okAction];
                 [settingsViewController presentViewController:alert animated:YES completion:nil];
@@ -642,7 +656,6 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
                         [settingsViewController reloadData];
                         return YES;
                     }]
-
                 ];
                 YTSettingsPickerViewController *picker = [[%c(YTSettingsPickerViewController) alloc] initWithNavTitle:LOC(@"Low Contrast Mode Selector") pickerSectionTitle:nil rows:rows selectedItemIndex:contrastMode() parentResponder:[self parentResponder]];
                 [settingsViewController pushViewController:picker];
