@@ -18,11 +18,7 @@ static inline BOOL customContrastMode() {
     return IS_ENABLED(@"lowContrastMode_enabled") && contrastMode() == 1;
 }
 
-// static inline UIColor *activeColor() {
-//     return customContrastMode() && lcmHexColor ? lcmHexColor : kLowContrastColor;
-// }
-
-// Low Contrast Mode v1.7.1.1 (Compatible with only YouTube v19.01.1-v20.21.6)
+// Low Contrast Mode v1.7.2 (Compatible with YouTube v19.01.1-v20.33.2)
 %group gLowContrastMode
 %hook UIColor
 + (UIColor *)colorNamed:(NSString *)name {
@@ -41,41 +37,64 @@ static inline BOOL customContrastMode() {
 %end
 
 %hook YTCommonColorPalette
++ (id)darkPalette {
+    id palette = %orig;
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        [palette setValue:kLowContrastColor forKey:@"textPrimary"];
+        [palette setValue:kLowContrastColor forKey:@"textSecondary"];
+        [palette setValue:kLowContrastColor forKey:@"overlayTextPrimary"];
+        [palette setValue:kLowContrastColor forKey:@"overlayTextSecondary"];
+        [palette setValue:kLowContrastColor forKey:@"iconActive"];
+        [palette setValue:kLowContrastColor forKey:@"iconActiveOther"];
+        [palette setValue:kLowContrastColor forKey:@"brandIconActive"];
+        [palette setValue:kLowContrastColor forKey:@"staticBrandWhite"];
+        [palette setValue:kLowContrastColor forKey:@"overlayIconActiveOther"];
+        [palette setValue:[kLowContrastColor colorWithAlphaComponent:0.7] forKey:@"overlayIconInactive"];
+        [palette setValue:[kLowContrastColor colorWithAlphaComponent:0.3] forKey:@"overlayIconDisabled"];
+        [palette setValue:[kLowContrastColor colorWithAlphaComponent:0.2] forKey:@"overlayFilledButtonActive"];
+    }
+    return palette;
+}
+
++ (id)lightPalette {
+    return %orig;
+}
+
 - (UIColor *)textPrimary {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kLowContrastColor : %orig;
 }
 - (UIColor *)textSecondary {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kLowContrastColor : %orig;
 }
 - (UIColor *)overlayTextPrimary {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kLowContrastColor : %orig;
 }
 - (UIColor *)overlayTextSecondary {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kLowContrastColor : %orig;
 }
 - (UIColor *)iconActive {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kLowContrastColor : %orig;
 }
 - (UIColor *)iconActiveOther {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kLowContrastColor : %orig;
 }
 - (UIColor *)brandIconActive {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kLowContrastColor : %orig;
 }
 - (UIColor *)staticBrandWhite {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kLowContrastColor : %orig;
 }
 - (UIColor *)overlayIconActiveOther {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kLowContrastColor : %orig;
 }
 - (UIColor *)overlayIconInactive {
-    return self.pageStyle == 1 ? [kDefaultTextColor colorWithAlphaComponent:0.7] : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? [kLowContrastColor colorWithAlphaComponent:0.7] : %orig;
 }
 - (UIColor *)overlayIconDisabled {
-    return self.pageStyle == 1 ? [kDefaultTextColor colorWithAlphaComponent:0.3] : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? [kLowContrastColor colorWithAlphaComponent:0.3] : %orig;
 }
 - (UIColor *)overlayFilledButtonActive {
-    return self.pageStyle == 1 ? [kDefaultTextColor colorWithAlphaComponent:0.2] : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? [kLowContrastColor colorWithAlphaComponent:0.2] : %orig;
 }
 %end
 
@@ -93,9 +112,9 @@ static inline BOOL customContrastMode() {
 %hook _ASDisplayView
 - (void)layoutSubviews {
     %orig;
-    NSArray<NSString *> *targetLabels = @[@"connect account", @"Thanks", @"Save to playlist", @"Report"];
+    NSArray<NSString *> *targetLabels = @[@"connect account", @"Thanks", @"Save to playlist", @"Report", @"Share", @"Like", @"Dislike"];
     for (UIView *subview in self.subviews) {
-        if ([targetLabels containsObject:subview.accessibilityLabel]) {
+        if ([targetLabels containsObject:subview.accessibilityLabel] && UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
             subview.backgroundColor = kLowContrastColor;
             if ([subview isKindOfClass:[UILabel class]]) {
                 ((UILabel *)subview).textColor = [UIColor blackColor];
@@ -128,9 +147,13 @@ static inline BOOL customContrastMode() {
 
 %hook YTQTMButton
 - (void)setImage:(UIImage *)image {
-    UIImage *tintedImage = [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    [self setTintColor:kDefaultTextColor];
-    %orig(tintedImage);
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        UIImage *tintedImage = [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+        [self setTintColor:kDefaultTextColor];
+        %orig(tintedImage);
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -160,97 +183,117 @@ static inline BOOL customContrastMode() {
 
 %hook UILabel
 + (void)load {
-    [[UILabel appearance] setTextColor:kDefaultTextColor];
+    if (@available(iOS 16.0, *)) {
+        [[UILabel appearance] setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+        [[UILabel appearance] setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    }
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        [[UILabel appearance] setTextColor:kDefaultTextColor];
+    }
 }
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook UITextField
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook UITextView
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook UISearchBar
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook UISegmentedControl
 - (void)setTitleTextAttributes:(NSDictionary *)attributes forState:(UIControlState)state {
-    NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attributes];
-    modifiedAttributes[NSForegroundColorAttributeName] = kDefaultTextColor;
-    %orig(modifiedAttributes, state);
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attributes];
+        modifiedAttributes[NSForegroundColorAttributeName] = kDefaultTextColor;
+        %orig(modifiedAttributes, state);
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook UIButton
 - (void)setTitleColor:(UIColor *)color forState:(UIControlState)state {
-    %orig(kDefaultTextColor, state);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : color, state);
 }
 %end
 
 %hook UIBarButtonItem
 - (void)setTitleTextAttributes:(NSDictionary *)attributes forState:(UIControlState)state {
-    NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attributes];
-    modifiedAttributes[NSForegroundColorAttributeName] = kDefaultTextColor;
-    %orig(modifiedAttributes, state);
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attributes];
+        modifiedAttributes[NSForegroundColorAttributeName] = kDefaultTextColor;
+        %orig(modifiedAttributes, state);
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook NSAttributedString
 - (instancetype)initWithString:(NSString *)str attributes:(NSDictionary<NSAttributedStringKey, id> *)attrs {
-    NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attrs];
-    modifiedAttributes[NSForegroundColorAttributeName] = kDefaultTextColor;
-    return %orig(str, modifiedAttributes);
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attrs];
+        modifiedAttributes[NSForegroundColorAttributeName] = kDefaultTextColor;
+        return %orig(str, modifiedAttributes);
+    }
+    return %orig;
 }
 %end
 
 %hook CATextLayer
 - (void)setTextColor:(CGColorRef)textColor {
-    %orig(kDefaultTextColor.CGColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor.CGColor : textColor);
 }
 %end
 
 %hook ASTextNode
 - (NSAttributedString *)attributedString {
     NSAttributedString *original = %orig;
-    NSMutableAttributedString *modified = [original mutableCopy];
-    [modified addAttribute:NSForegroundColorAttributeName value:kDefaultTextColor range:NSMakeRange(0, modified.length)];
-    return modified;
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        NSMutableAttributedString *modified = [original mutableCopy];
+        [modified addAttribute:NSForegroundColorAttributeName value:kDefaultTextColor range:NSMakeRange(0, modified.length)];
+        return modified;
+    }
+    return original;
 }
 %end
 
 %hook ASTextFieldNode
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook ASTextView
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook ASButtonNode
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook UIControl
 - (UIColor *)backgroundColor {
-    return [UIColor blackColor];
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? [UIColor blackColor] : %orig;
 }
 %end
 %end
@@ -274,41 +317,64 @@ static inline BOOL customContrastMode() {
 %end
 
 %hook YTCommonColorPalette
++ (id)darkPalette {
+    id palette = %orig;
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        [palette setValue:lcmHexColor forKey:@"textPrimary"];
+        [palette setValue:lcmHexColor forKey:@"textSecondary"];
+        [palette setValue:lcmHexColor forKey:@"overlayTextPrimary"];
+        [palette setValue:lcmHexColor forKey:@"overlayTextSecondary"];
+        [palette setValue:lcmHexColor forKey:@"iconActive"];
+        [palette setValue:lcmHexColor forKey:@"iconActiveOther"];
+        [palette setValue:lcmHexColor forKey:@"brandIconActive"];
+        [palette setValue:lcmHexColor forKey:@"staticBrandWhite"];
+        [palette setValue:lcmHexColor forKey:@"overlayIconActiveOther"];
+        [palette setValue:[lcmHexColor colorWithAlphaComponent:0.7] forKey:@"overlayIconInactive"];
+        [palette setValue:[lcmHexColor colorWithAlphaComponent:0.3] forKey:@"overlayIconDisabled"];
+        [palette setValue:[lcmHexColor colorWithAlphaComponent:0.2] forKey:@"overlayFilledButtonActive"];
+    }
+    return palette;
+}
+
++ (id)lightPalette {
+    return %orig; // No changes for Light Mode
+}
+
 - (UIColor *)textPrimary {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? lcmHexColor : %orig;
 }
 - (UIColor *)textSecondary {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? lcmHexColor : %orig;
 }
 - (UIColor *)overlayTextPrimary {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? lcmHexColor : %orig;
 }
 - (UIColor *)overlayTextSecondary {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? lcmHexColor : %orig;
 }
 - (UIColor *)iconActive {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? lcmHexColor : %orig;
 }
 - (UIColor *)iconActiveOther {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? lcmHexColor : %orig;
 }
 - (UIColor *)brandIconActive {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? lcmHexColor : %orig;
 }
 - (UIColor *)staticBrandWhite {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? lcmHexColor : %orig;
 }
 - (UIColor *)overlayIconActiveOther {
-    return self.pageStyle == 1 ? kDefaultTextColor : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? lcmHexColor : %orig;
 }
 - (UIColor *)overlayIconInactive {
-    return self.pageStyle == 1 ? [kDefaultTextColor colorWithAlphaComponent:0.7] : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? [lcmHexColor colorWithAlphaComponent:0.7] : %orig;
 }
 - (UIColor *)overlayIconDisabled {
-    return self.pageStyle == 1 ? [kDefaultTextColor colorWithAlphaComponent:0.3] : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? [lcmHexColor colorWithAlphaComponent:0.3] : %orig;
 }
 - (UIColor *)overlayFilledButtonActive {
-    return self.pageStyle == 1 ? [kDefaultTextColor colorWithAlphaComponent:0.2] : %orig;
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? [lcmHexColor colorWithAlphaComponent:0.2] : %orig;
 }
 %end
 
@@ -326,9 +392,9 @@ static inline BOOL customContrastMode() {
 %hook _ASDisplayView
 - (void)layoutSubviews {
     %orig;
-    NSArray<NSString *> *targetLabels = @[@"connect account", @"Thanks", @"Save to playlist", @"Report"];
+    NSArray<NSString *> *targetLabels = @[@"connect account", @"Thanks", @"Save to playlist", @"Report", @"Share", @"Like", @"Dislike"];
     for (UIView *subview in self.subviews) {
-        if ([targetLabels containsObject:subview.accessibilityLabel]) {
+        if ([targetLabels containsObject:subview.accessibilityLabel] && UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
             subview.backgroundColor = lcmHexColor;
             if ([subview isKindOfClass:[UILabel class]]) {
                 ((UILabel *)subview).textColor = [UIColor blackColor];
@@ -361,9 +427,13 @@ static inline BOOL customContrastMode() {
 
 %hook YTQTMButton
 - (void)setImage:(UIImage *)image {
-    UIImage *tintedImage = [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-    [self setTintColor:kDefaultTextColor];
-    %orig(tintedImage);
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        UIImage *tintedImage = [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+        [self setTintColor:kDefaultTextColor];
+        %orig(tintedImage);
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -393,97 +463,117 @@ static inline BOOL customContrastMode() {
 
 %hook UILabel
 + (void)load {
-    [[UILabel appearance] setTextColor:kDefaultTextColor];
+    if (@available(iOS 16.0, *)) {
+        [[UILabel appearance] setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+        [[UILabel appearance] setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
+    }
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        [[UILabel appearance] setTextColor:kDefaultTextColor];
+    }
 }
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook UITextField
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook UITextView
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook UISearchBar
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook UISegmentedControl
 - (void)setTitleTextAttributes:(NSDictionary *)attributes forState:(UIControlState)state {
-    NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attributes];
-    modifiedAttributes[NSForegroundColorAttributeName] = kDefaultTextColor;
-    %orig(modifiedAttributes, state);
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attributes];
+        modifiedAttributes[NSForegroundColorAttributeName] = kDefaultTextColor;
+        %orig(modifiedAttributes, state);
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook UIButton
 - (void)setTitleColor:(UIColor *)color forState:(UIControlState)state {
-    %orig(kDefaultTextColor, state);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : color, state);
 }
 %end
 
 %hook UIBarButtonItem
 - (void)setTitleTextAttributes:(NSDictionary *)attributes forState:(UIControlState)state {
-    NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attributes];
-    modifiedAttributes[NSForegroundColorAttributeName] = kDefaultTextColor;
-    %orig(modifiedAttributes, state);
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attributes];
+        modifiedAttributes[NSForegroundColorAttributeName] = kDefaultTextColor;
+        %orig(modifiedAttributes, state);
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook NSAttributedString
 - (instancetype)initWithString:(NSString *)str attributes:(NSDictionary<NSAttributedStringKey, id> *)attrs {
-    NSMutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attrs];
-    modifiedAttributes[NSForegroundColorAttributeName] = kDefaultTextColor;
-    return %orig(str, modifiedAttributes);
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        MutableDictionary *modifiedAttributes = [NSMutableDictionary dictionaryWithDictionary:attrs];
+        modifiedAttributes[NSForegroundColorAttributeName] = kDefaultTextColor;
+        return %orig(str, modifiedAttributes);
+    }
+    return %orig;
 }
 %end
 
 %hook CATextLayer
-- (void)setTextColor:(CGColorRef)color {
-    %orig(kDefaultTextColor.CGColor);
+- (void)setTextColor:(CGColorRef)textColor {
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor.CGColor : textColor);
 }
 %end
 
 %hook ASTextNode
 - (NSAttributedString *)attributedString {
     NSAttributedString *original = %orig;
-    NSMutableAttributedString *modified = [original mutableCopy];
-    [modified addAttribute:NSForegroundColorAttributeName value:kDefaultTextColor range:NSMakeRange(0, modified.length)];
-    return modified;
+    if (UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+        NSMutableAttributedString *modified = [original mutableCopy];
+        [modified addAttribute:NSForegroundColorAttributeName value:kDefaultTextColor range:NSMakeRange(0, modified.length)];
+        return modified;
+    }
+    return original;
 }
 %end
 
 %hook ASTextFieldNode
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook ASTextView
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook ASButtonNode
 - (void)setTextColor:(UIColor *)textColor {
-    %orig(kDefaultTextColor);
+    %orig(UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? kDefaultTextColor : textColor);
 }
 %end
 
 %hook UIControl
 - (UIColor *)backgroundColor {
-    return [UIColor blackColor];
+    return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark ? [UIColor blackColor] : %orig;
 }
 %end
 %end
