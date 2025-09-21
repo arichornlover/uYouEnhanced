@@ -115,8 +115,12 @@ static int getNotificationIconStyle() {
 %end
 %end
 
-// LEGACY VERSION ⚠️
-// Hide the (Connect / Thanks / Save / Report) Buttons under the Video Player - 17.33.2 and up - @arichornlover (inspired by @PoomSmart's version)
+/* LEGACY VERSION ⚠️
+   This method uses UIView accessibilityLabel to hide classic video player buttons.
+   It's less reliable for new YouTube UI and only works for connect/thanks/save/report.
+   Now fully commented out for the NEW VERSION.
+*/
+/*
 %hook _ASDisplayView
 - (void)layoutSubviews {
     %orig;
@@ -138,73 +142,115 @@ static int getNotificationIconStyle() {
     }
 }
 %end
+*/
 
-// UPDATED VERSION
-// Hide the (Connect / Share / Remix / Thanks / Download / Clip / Save / Report) Buttons under the Video Player - 17.33.2 and up - @PoomSmart (inspired by @arichornlover) - METHOD BROKE Server-Side on May 14th 2024
-static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *identifiers) {
-    for (id child in [nodeController children]) {
-        NSLog(@"Child: %@", [child description]);
+// --- NEW VERSION ---
+// This method traverses ASNodeController/ELMNodeController to find and hide modern action bar buttons.
+// It is more robust for YouTube v19+ and node-based UI.
+// Now with crash prevention and robust checks.
 
-        if ([child isKindOfClass:%c(ELMNodeController)]) {
-            NSArray <ELMComponent *> *elmChildren = [(ELMNodeController  * _Nullable)child children];
-            for (ELMComponent *elmChild in elmChildren) {
-                for (NSString *identifier in identifiers) {
-                    if ([[elmChild description] containsString:identifier]) {
-                        NSLog(@"Found identifier: %@", identifier);
-                        return YES;
+static BOOL shouldHideButton(NSString *buttonKey) {
+    if ([buttonKey isEqualToString:@"id.video.share.button"]) return IS_ENABLED(@"hideShareButton_enabled");
+    if ([buttonKey isEqualToString:@"id.video.remix.button"]) return IS_ENABLED(@"hideRemixButton_enabled");
+    if ([buttonKey isEqualToString:@"Thanks"]) return IS_ENABLED(@"hideThanksButton_enabled");
+    if ([buttonKey isEqualToString:@"clip_button.eml"]) return IS_ENABLED(@"hideClipButton_enabled");
+    if ([buttonKey isEqualToString:@"id.ui.add_to.offline.button"]) return IS_ENABLED(@"hideDownloadButton_enabled");
+    if ([buttonKey isEqualToString:@"id.ui.carousel_header"]) return IS_ENABLED(@"hideCommentSection_enabled");
+    // Add more as needed
+    return NO;
+}
+
+static void safeSetHidden(id node, BOOL hidden) {
+    if (!node) return;
+    @try {
+        if ([node respondsToSelector:@selector(setHidden:)]) {
+            [node setHidden:hidden];
+        } else if ([node isKindOfClass:[ASDisplayNode class]]) {
+            ((ASDisplayNode *)node).hidden = hidden;
+        }
+    } @catch (NSException *exception) {
+        NSLog(@"[HidePlayerButtons] Exception hiding node: %@", exception);
+    }
+}
+
+static BOOL findAndHideCell(ASNodeController *nodeController, NSArray<NSString *> *identifiers) {
+    if (!nodeController || ![nodeController respondsToSelector:@selector(children)]) return NO;
+    @try {
+        for (id child in [nodeController children]) {
+            // ELMNodeController
+            if ([child isKindOfClass:%c(ELMNodeController)]) {
+                NSArray <ELMComponent *> *elmChildren = [(ELMNodeController*)child children];
+                for (ELMComponent *elmChild in elmChildren) {
+                    for (NSString *identifier in identifiers) {
+                        if ([[elmChild description] containsString:identifier]) {
+                            if (shouldHideButton(identifier)) {
+                                safeSetHidden(elmChild, YES);
+                                return YES;
+                            }
+                        }
+                    }
+                }
+            }
+            // ASNodeController
+            if ([child isKindOfClass:%c(ASNodeController)]) {
+                ASDisplayNode *childNode = nil;
+                @try {
+                    childNode = ((ASNodeController*)child).node;
+                } @catch (NSException *exception) {
+                    NSLog(@"[HidePlayerButtons] Exception accessing child node: %@", exception);
+                    continue;
+                }
+                if ([childNode respondsToSelector:@selector(yogaChildren)]) {
+                    NSArray<id> *yogaChildren = childNode.yogaChildren;
+                    for (ASDisplayNode *displayNode in yogaChildren) {
+                        if ([displayNode respondsToSelector:@selector(accessibilityIdentifier)]) {
+                            if (shouldHideButton(displayNode.accessibilityIdentifier)) {
+                                safeSetHidden(displayNode, YES);
+                                return YES;
+                            }
+                        }
+                        if (findAndHideCell(child, identifiers)) {
+                            return YES;
+                        }
                     }
                 }
             }
         }
-
-        if ([child isKindOfClass:%c(ASNodeController)]) {
-            ASDisplayNode *childNode = ((ASNodeController  * _Nullable)child).node; // ELMContainerNode
-            NSArray<id> *yogaChildren = childNode.yogaChildren;
-            for (ASDisplayNode *displayNode in yogaChildren) {
-                NSLog(@"Yoga Child: %@", displayNode.accessibilityIdentifier);
-
-                if ([identifiers containsObject:displayNode.accessibilityIdentifier]) {
-                    NSLog(@"Found identifier: %@", displayNode.accessibilityIdentifier);
-                    return YES;
-                }
-
-                if (findCell(child, identifiers)) {
-                    return YES;
-                }
-            }
-        }
+    } @catch (NSException *exception) {
+        NSLog(@"[HidePlayerButtons] Exception traversing nodeController: %@", exception);
     }
     return NO;
 }
 
-%hook ASCollectionView // This stopped working on May 14th 2024 due to a Server-Side Change from YouTube.
-- (CGSize)sizeForElement:(ASCollectionElement  * _Nullable)element {
+%hook ASCollectionView
+- (CGSize)sizeForElement:(ASCollectionElement * _Nullable)element {
+    // Only target the video action bar (player buttons bar)
     if ([self.accessibilityIdentifier isEqualToString:@"id.video.scrollable_action_bar"]) {
-        ASCellNode *node = [element node];
-        ASNodeController *nodeController = [node controller];
-
-        if (IS_ENABLED(@"hideShareButton_enabled") && findCell(nodeController, @[@"id.video.share.button"])) {
-            return CGSizeZero;
+        ASCellNode *node = nil;
+        ASNodeController *nodeController = nil;
+        @try {
+            node = [element node];
+            nodeController = [node controller];
+        } @catch (NSException *exception) {
+            NSLog(@"[HidePlayerButtons] Exception accessing node/controller: %@", exception);
+            return %orig;
         }
-
-        if (IS_ENABLED(@"hideRemixButton_enabled") && findCell(nodeController, @[@"id.video.remix.button"])) {
-            return CGSizeZero;
-        }
-
-        if (IS_ENABLED(@"hideThanksButton_enabled") && findCell(nodeController, @[@"Thanks"])) {
-            return CGSizeZero;
-        }
-
-        if (IS_ENABLED(@"hideClipButton_enabled") && findCell(nodeController, @[@"clip_button.eml"])) {
-            return CGSizeZero;
-        }
-
-        if (IS_ENABLED(@"hideDownloadButton_enabled") && findCell(nodeController, @[@"id.ui.add_to.offline.button"])) {
-            return CGSizeZero;
-        }
-
-        if (IS_ENABLED(@"hideCommentSection_enabled") && findCell(nodeController, @[@"id.ui.carousel_header"])) {
-            return CGSizeZero;
+        NSArray<NSString *> *buttonIdentifiers = @[
+            @"id.video.share.button",
+            @"id.video.remix.button",
+            @"Thanks",
+            @"clip_button.eml",
+            @"id.ui.add_to.offline.button",
+            @"id.ui.carousel_header"
+            // Add/expand with other button keys as needed
+        ];
+        // Traverse and hide
+        findAndHideCell(nodeController, buttonIdentifiers);
+        // Optionally, if you want to remove layout space entirely:
+        for (NSString *identifier in buttonIdentifiers) {
+            if (shouldHideButton(identifier) && findAndHideCell(nodeController, @[identifier])) {
+                return CGSizeZero;
+            }
         }
     }
     return %orig;
