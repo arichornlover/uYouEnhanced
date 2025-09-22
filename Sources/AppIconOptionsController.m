@@ -88,7 +88,7 @@ static NSString *BundlePath(void) {
     }
 
     // 2) Also check installed support folder (/Library/Application Support/...) where package assets may be placed
-    NSString *supportBase = @"/Library/Application Support/uYouEnhanced/Icons";
+    NSString *supportBase = @"/Library/Application Support/uYouEnhanced/AppIcons";
     NSFileManager *fm = [NSFileManager defaultManager];
     BOOL supportIsDir = NO;
     if ([fm fileExistsAtPath:supportBase isDirectory:&supportIsDir] && supportIsDir) {
@@ -118,7 +118,7 @@ static NSString *BundlePath(void) {
     if (self.appIcons.count == 0) {
         // Friendly message if no icons found
         UILabel *lbl = [[UILabel alloc] initWithFrame:CGRectInset(self.view.bounds, 20, 20)];
-        lbl.text = @"No custom icons found. Place icon folders in the tweak bundle under AppIcons/ or in /Library/Application Support/uYouEnhanced/Icons/";
+        lbl.text = @"No custom icons found. Place icon folders in the tweak bundle under AppIcons/ or in /Library/Application Support/uYouEnhanced/AppIcons/";
         lbl.numberOfLines = 0;
         lbl.textAlignment = NSTextAlignmentCenter;
         lbl.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
