@@ -155,23 +155,34 @@ static NSString *BundlePath(void) {
 
         // Attempt preview: check bundle then support folder
         UIImage *preview = nil;
-        // candidate file names
         NSArray<NSString *> *candidates = @[@"AppIcon60x60@3x.png",@"AppIcon60x60@2x.png",@"Icon@3x.png",@"Icon@2x.png",@"Icon.png"];
-        // bundle first
         NSString *bundlePath = BundlePath();
         NSBundle *bundle = [NSBundle bundleWithPath:bundlePath];
+        BOOL foundCandidate = NO;
+
         for (NSString *c in candidates) {
-            if (![c isKindOfClass:[NSString class]]) continue;
-            NSString *rel = [NSString stringWithFormat:@"AppIcons/%@/%@", iconName, c];
-            NSString *full = [bundle pathForResource:rel ofType:nil];
-            if (!full) {
-                full = [@"/Library/Application Support/uYouEnhanced/Icons" stringByAppendingPathComponent:[iconName stringByAppendingPathComponent:c]];
+            NSString *bundleCandidatePath = [NSString stringWithFormat:@"AppIcons/%@/%@", iconName, c];
+            NSString *imagePath = [bundle pathForResource:c ofType:nil inDirectory:[NSString stringWithFormat:@"AppIcons/%@", iconName]];
+            if (imagePath) {
+                preview = [UIImage imageWithContentsOfFile:imagePath];
+                foundCandidate = YES;
+                NSLog(@"[DEBUG] Loaded icon preview from bundle: %@", imagePath);
+                break;
             }
-            if ([[NSFileManager defaultManager] fileExistsAtPath:full]) {
-                preview = [UIImage imageWithContentsOfFile:full];
+
+            // Support folder fallback
+            NSString *supportIconPath = [@"/Library/Application Support/uYouEnhanced/AppIcons" stringByAppendingPathComponent:[iconName stringByAppendingPathComponent:c]];
+            if ([[NSFileManager defaultManager] fileExistsAtPath:supportIconPath]) {
+                preview = [UIImage imageWithContentsOfFile:supportIconPath];
+                foundCandidate = YES;
+                NSLog(@"[DEBUG] Loaded icon preview from support: %@", supportIconPath);
                 break;
             }
         }
+        if (!foundCandidate) {
+            NSLog(@"[WARN] No icon preview found for %@", iconName);
+        }
+
         cell.imageView.image = preview;
         cell.imageView.layer.cornerRadius = 12.0;
         cell.imageView.clipsToBounds = YES;
