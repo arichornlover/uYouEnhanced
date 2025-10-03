@@ -158,21 +158,27 @@ static NSString *BundlePath(void) {
         NSArray<NSString *> *candidates = @[@"AppIcon60x60@3x.png",@"AppIcon60x60@2x.png",@"Icon@3x.png",@"Icon@2x.png",@"Icon.png"];
         NSString *bundlePath = BundlePath();
         NSBundle *bundle = [NSBundle bundleWithPath:bundlePath];
+        NSString *supportBase = @"/Library/Application Support/uYouEnhanced/AppIcons";
+        NSFileManager *fm = [NSFileManager defaultManager];
         BOOL foundCandidate = NO;
 
         for (NSString *c in candidates) {
-            NSString *bundleCandidatePath = [NSString stringWithFormat:@"AppIcons/%@/%@", iconName, c];
-            NSString *imagePath = [bundle pathForResource:c ofType:nil inDirectory:[NSString stringWithFormat:@"AppIcons/%@", iconName]];
-            if (imagePath) {
-                preview = [UIImage imageWithContentsOfFile:imagePath];
-                foundCandidate = YES;
-                NSLog(@"[DEBUG] Loaded icon preview from bundle: %@", imagePath);
-                break;
+            if (![c isKindOfClass:[NSString class]]) continue;
+
+            // Try bundle location using proper inDirectory API (only if bundle is valid)
+            if (bundle) {
+                NSString *imagePath = [bundle pathForResource:c ofType:nil inDirectory:[NSString stringWithFormat:@"AppIcons/%@", iconName]];
+                if (imagePath && [fm fileExistsAtPath:imagePath]) {
+                    preview = [UIImage imageWithContentsOfFile:imagePath];
+                    foundCandidate = YES;
+                    NSLog(@"[DEBUG] Loaded icon preview from bundle: %@", imagePath);
+                    break;
+                }
             }
 
             // Support folder fallback
-            NSString *supportIconPath = [@"/Library/Application Support/uYouEnhanced/AppIcons" stringByAppendingPathComponent:[iconName stringByAppendingPathComponent:c]];
-            if ([[NSFileManager defaultManager] fileExistsAtPath:supportIconPath]) {
+            NSString *supportIconPath = [supportBase stringByAppendingPathComponent:[iconName stringByAppendingPathComponent:c]];
+            if ([fm fileExistsAtPath:supportIconPath]) {
                 preview = [UIImage imageWithContentsOfFile:supportIconPath];
                 foundCandidate = YES;
                 NSLog(@"[DEBUG] Loaded icon preview from support: %@", supportIconPath);
