@@ -2,14 +2,29 @@
 
 # pragma mark - YouTube patches
 
-// Fix Google Sign in by @PoomSmart and @level3tjg (qnblackcat/uYouPlus#684)
+// Fix Google Sign in Patch
 %group gGoogleSignInPatch
 %hook NSBundle
 - (NSDictionary *)infoDictionary {
-    NSMutableDictionary *info = %orig.mutableCopy;
-    if ([self isEqual:NSBundle.mainBundle])
-        info[@"CFBundleIdentifier"] = @"com.google.ios.youtube";
-    return info;
+    NSDictionary *orig = %orig;
+    if ([self isEqual:NSBundle.mainBundle]) {
+        NSArray<NSString *> *stack = [NSThread callStackSymbols];
+        BOOL needsSpoof = NO;
+        for (NSString *frame in stack) {
+            if ([frame containsString:@"GIDSignIn"] ||
+                [frame containsString:@"GTMSessionFetcher"] ||
+                [frame containsString:@"GoogleSignIn"]) {
+                needsSpoof = YES;
+                break;
+            }
+        }
+        if (needsSpoof) {
+            NSMutableDictionary *patched = [orig mutableCopy];
+            patched[@"CFBundleIdentifier"] = @"com.google.ios.youtube";
+            return [patched copy];
+        }
+    }
+    return orig;
 }
 %end
 %end
