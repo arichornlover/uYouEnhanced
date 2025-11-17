@@ -134,6 +134,7 @@ static NSDictionary<NSString *, NSString *> *HideToggleMap(void) {
             @"Download": @"hideDownloadButton_enabled",
             @"Save to playlist": @"hideSaveToPlaylistButton_enabled",
             @"Report": @"hideReportButton_enabled",
+            @"Hype": @"hideHypeButton_enabled",
             @"Thanks": @"hideThanksButton_enabled",
             @"connect account": @"hideConnectButton_enabled",
             @"Like": @"hideLikeButton_enabled",
