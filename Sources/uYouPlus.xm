@@ -123,22 +123,23 @@ static NSDictionary<NSString *, NSString *> *HideToggleMap(void) {
         map = @{
             // identifiers
             @"id.video.share.button": @"hideShareButton_enabled",
+            @"id.ui.add_to.offline.button": @"hideDownloadButton_enabled",
             @"id.video.remix.button": @"hideRemixButton_enabled",
             @"clip_button.eml": @"hideClipButton_enabled",
-            @"id.ui.add_to.offline.button": @"hideDownloadButton_enabled",
             @"id.ui.carousel_header": @"hideCommentSection_enabled",
             // fallbacks
-            @"Share": @"hideShareButton_enabled",
-            @"Remix": @"hideRemixButton_enabled",
-            @"Clip": @"hideClipButton_enabled",
-            @"Download": @"hideDownloadButton_enabled",
-            @"Save to playlist": @"hideSaveToPlaylistButton_enabled",
-            @"Report": @"hideReportButton_enabled",
-            @"Hype": @"hideHypeButton_enabled",
-            @"Thanks": @"hideThanksButton_enabled",
-            @"connect account": @"hideConnectButton_enabled",
-            @"Like": @"hideLikeButton_enabled",
-            @"Dislike": @"hideDislikeButton_enabled"
+            @"Like": @"hideLikeButton_enabled", // unidentified identifier
+            @"Dislike": @"hideDislikeButton_enabled" // unidentified identifier
+            @"Share": @"hideShareButton_enabled", // Share Button
+            @"Ask": @"hideAskButton_enabled", // unidentified identifier
+            @"Download": @"hideDownloadButton_enabled", // Download Button
+            @"Hype": @"hideHypeButton_enabled", // unidentified identifier
+            @"Thanks": @"hideThanksButton_enabled", // unidentified identifier
+            @"Remix": @"hideRemixButton_enabled", // Remix Button
+            @"Clip": @"hideClipButton_enabled", // Clip Button
+            @"Save to playlist": @"hideSaveToPlaylistButton_enabled", // unidentified identifier
+            @"Report": @"hideReportButton_enabled", // unidentified identifier
+            @"connect account": @"hideConnectButton_enabled" // unidentified identifier
         };
     });
     return map;
