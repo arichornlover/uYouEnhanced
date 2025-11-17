@@ -129,7 +129,7 @@ static NSDictionary<NSString *, NSString *> *HideToggleMap(void) {
             @"id.ui.carousel_header": @"hideCommentSection_enabled",
             // fallbacks
             @"Like": @"hideLikeButton_enabled", // unidentified identifier
-            @"Dislike": @"hideDislikeButton_enabled" // unidentified identifier
+            @"Dislike": @"hideDislikeButton_enabled", // unidentified identifier
             @"Share": @"hideShareButton_enabled", // Share Button
             @"Ask": @"hideAskButton_enabled", // unidentified identifier
             @"Download": @"hideDownloadButton_enabled", // Download Button
