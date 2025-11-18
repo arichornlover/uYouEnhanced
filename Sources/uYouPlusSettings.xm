@@ -894,29 +894,29 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
                 case 100:
                     return @"v19.10.5";
                 case 101:
-                    return @"v19.09.4";
+                    return @"v19.09.4 (Deprecated)";
                 case 102:
-                    return @"v19.09.3";
+                    return @"v19.09.3 (Deprecated)";
                 case 103:
-                    return @"v19.08.2";
+                    return @"v19.08.2 (Deprecated)";
                 case 104:
-                    return @"v19.07.5";
+                    return @"v19.07.5 (Deprecated)";
                 case 105:
-                    return @"v19.07.4";
+                    return @"v19.07.4 (Deprecated)";
                 case 106:
-                    return @"v19.06.2";
+                    return @"v19.06.2 (Deprecated)";
                 case 107:
-                    return @"v19.05.5";
+                    return @"v19.05.5 (Deprecated)";
                 case 108:
-                    return @"v19.05.3";
+                    return @"v19.05.3 (Deprecated)";
                 case 109:
-                    return @"v19.04.3";
+                    return @"v19.04.3 (Deprecated)";
                 case 110:
-                    return @"v19.03.2";
+                    return @"v19.03.2 (Deprecated)";
                 case 111:
-                    return @"v19.02.1";
+                    return @"v19.02.1 (Deprecated)";
                 case 112:
-                    return @"v19.01.1";
+                    return @"v19.01.1 (Deprecated)";
                 default:
                     return @"v20.44.2";
             }
