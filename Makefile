@@ -1,3 +1,4 @@
+export TARGET = iphone:clang:26.0:16.0
 export SYSROOT = $(SDK_PATH)
 export ARCHS = arm64
 
