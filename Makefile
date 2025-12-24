@@ -4,7 +4,7 @@ SYSROOT   ?= $(SDK_PATH)
 
 export SYSROOT
 export ARCHS ?= arm64
-export TARGET ?= iphone:clang:$(SDKVERSION):14.0
+export TARGET ?= iphone:clang:$(SDKVERSION):16.0
 
 export libcolorpicker_ARCHS = arm64
 export libFLEX_ARCHS = arm64
