@@ -87,9 +87,6 @@ before-all::
     @if [[ ! -f $(UYOU_DEB) ]]; then \
         rm -rf $(UYOU_PATH)/*; \
         $(PRINT_FORMAT_BLUE) "Downloading uYou"; \
-    fi
-before-all::
-    @if [[ ! -f $(UYOU_DEB) ]]; then \
         curl -s -L "https://www.dropbox.com/scl/fi/01vvu5lm8nkkicrznku9v/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb?rlkey=efgz7po8kqqvha8doplk1s3ky&dl=1" -o $(UYOU_DEB); \
     fi; \
     if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
@@ -98,9 +95,9 @@ before-all::
         if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
             $(PRINT_FORMAT_ERROR) "Failed to extract uYou"; exit 1; \
         fi; \
-    fi;
+    fi
 else
 before-package::
     @mkdir -p $(THEOS_STAGING_DIR)/Library/Application\ Support; \
     cp -r Localizations/uYouPlus.bundle $(THEOS_STAGING_DIR)/Library/Application\ Support/
-endi
+endif
