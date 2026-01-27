@@ -37,20 +37,24 @@ static int getNotificationIconStyle() {
     NSString *imageName;
     UIColor *iconColor;
     switch (getNotificationIconStyle()) {
-        case 1:  // Thin outline style (2020+)
+        case 1:  // Bold outline style (2024+)
+            imageName = isSelected ? @"notifications_selected" : @"notifications_unselected";
+            iconColor = [%c(YTColor) white1];
+            break;
+        case 2:  // Thin outline style (2020+)
             imageName = isSelected ? @"notifications_selected" : @"notifications_24pt";
             iconColor = [%c(YTColor) white1];
             break;
-        case 2:  // Filled style (2018+)
+        case 3:  // Filled style (2018+)
             imageName = @"notifications_selected";
             iconColor = isSelected ? [%c(YTColor) white1] : [UIColor grayColor];
             break;
-        case 3:  // Inbox style (2014+)
+        case 4:  // Inbox style (2014+)
             imageName = @"inbox_selected";
             iconColor = isSelected ? [%c(YTColor) white1] : [UIColor grayColor];
             break;
-        default:  // Default style
-            imageName = isSelected ? @"notifications_selected" : @"notifications_unselected";
+        default:  // Default style (2025+)
+            imageName = isSelected ? @"notifications_selected_2025" : @"notifications_unselected_2025";
             iconColor = [%c(YTColor) white1];
             break;
     }
