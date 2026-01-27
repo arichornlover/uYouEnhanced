@@ -9,12 +9,28 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5
 
       - name: Set up Git
         run: |
            git config --global user.email "actions@github.com"
            git config --global user.name "GitHub Actions"
+
+      - name: Add uYouEnhanced submodules
+        run: |
+          git submodule add https://github.com/opa334/libundirect.git Tweaks/libundirect
+          git submodule add https://github.com/fosterbarnes/YTweaks.git Tweaks/YTweaks
+          git add .
+          git commit -m "added uYouEnhanced submodules"
+          git push origin
+
+      - name: Make .bundle files
+        run: |
+          cd Bundles
+          ln -s ../Tweaks/YTweaks/layout/Library/Application\ Support/YTweaks.bundle YTweaks.bundle
+          git add .
+          git commit -m "Added bundles"
+          git push origin
 
       - name: Update submodules
         run: |
@@ -61,6 +77,8 @@ jobs:
           git submodule update --init --recursive --remote Tweaks/YTUHD
           git add .
           git submodule update --init --recursive --remote Tweaks/YTVideoOverlay
+          git add .
+          git submodule update --init --recursive --remote Tweaks/YTweaks
           git add .
           git submodule update --init --recursive
           git commit -m "updated submodules"
