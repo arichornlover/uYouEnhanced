@@ -952,72 +952,10 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %end
 %end
 
-// Disable Modern/Rounded Buttons (_ASDisplayView Version's not supported) - @arichornlover
-%group gDisableModernButtons 
-%hook YTQTMButton // Disable Modern/Rounded Buttons
-+ (BOOL)buttonModernizationEnabled { return NO; }
-%end
-%end
-
 // Disable Rounded Hints with no Rounded Corners - @arichornlover
 %group gDisableRoundedHints
 %hook YTBubbleHintView // Disable Modern/Rounded Hints
 + (BOOL)modernRoundedCornersEnabled { return NO; }
-%end
-%end
-
-// Disable Modern Flags - @arichornlover
-%group gDisableModernFlags
-%hook YTColdConfig
-// Disable Modern Content
-- (BOOL)creatorClientConfigEnableStudioModernizedMdeThumbnailPickerForClient { return NO; }
-- (BOOL)cxClientEnableModernizedActionSheet { return NO; }
-- (BOOL)enableClientShortsSheetsModernization { return NO; }
-- (BOOL)enableTimestampModernizationForNative { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaFeedStretchBottom { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaFrostedBottomBar { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaFrostedPivotBar { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaFrostedPivotBarUpdatedBackdrop { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaFrostedTopBar { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaOpacityPivotBar { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaTopAndBottomBarIconRefresh { return NO; }
-- (BOOL)mainAppCoreClientEnableModernizedBedtimeReminderU18DefaultSettings { return NO; }
-- (BOOL)modernizeCameoNavbar { return NO; }
-- (BOOL)modernizeCollectionLockups { return NO; }
-- (BOOL)modernizeCollectionLockupsShowVideoCount { return NO; }
-- (BOOL)modernizeElementsBgColor { return NO; }
-- (BOOL)modernizeElementsTextColor { return NO; }
-- (BOOL)postsCreatorClientEnableModernButtonsUi { return NO; }
-- (BOOL)pullToFullModernEdu { return NO; }
-- (BOOL)showModernMiniplayerRedesign { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigEnableModernButtonsForNative { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigIosEnableModernTabsForNative { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigIosEnableSnackbarModernization { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigModernizeNativeBgColor { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigModernizeNativeTextColor { return NO; }
-// Disable Rounded Content
-- (BOOL)enableIosFloatingMiniplayerRoundedCornerRadius { return YES; }
-- (BOOL)iosDownloadsPageRoundedThumbs { return NO; }
-- (BOOL)iosRoundedSearchBarSuggestZeroPadding { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigEnableRoundedDialogForNative { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigEnableRoundedThumbnailsForNative { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigEnableRoundedThumbnailsForNativeLongTail { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigEnableRoundedTimestampForNative { return NO; }
-// Disable Optional Content
-- (BOOL)elementsClientIosElementsEnableLayoutUpdateForIob { return NO; }
-- (BOOL)supportElementsInMenuItemSupportedRenderers { return NO; }
-- (BOOL)isNewRadioButtonStyleEnabled { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigEnableButtonSentenceCasingForNative { return NO; }
-- (BOOL)mainAppCoreClientEnableClientYouTab { return NO; }
-- (BOOL)mainAppCoreClientEnableClientYouLatency { return NO; }
-- (BOOL)mainAppCoreClientEnableClientYouTabTablet { return NO; }
-%end
-
-%hook YTHotConfig
-- (BOOL)liveChatIosUseModernRotationDetection { return NO; } // Disable Modern Content (YTHotConfig)
-- (BOOL)liveChatModernizeClassicElementizeTextMessage { return NO; }
-- (BOOL)iosShouldRepositionChannelBar { return NO; }
-- (BOOL)enableElementRendererOnChannelCreation { return NO; }
 %end
 %end
 
@@ -2022,14 +1960,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     if (IS_ENABLED(kClassicVideoPlayer)) {
         %init(gClassicVideoPlayer);
     }
-    if (IS_ENABLED(kDisableModernButtons)) {
-        %init(gDisableModernButtons);
-    }
     if (IS_ENABLED(kDisableRoundedHints)) {
         %init(gDisableRoundedHints);
-    }
-    if (IS_ENABLED(kDisableModernFlags)) {
-        %init(gDisableModernFlags);
     }
     if (IS_ENABLED(kDisableAmbientMode)) {
         %init(gDisableAmbientMode);
