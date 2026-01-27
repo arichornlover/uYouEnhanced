@@ -92,3 +92,9 @@
 [submodule "Tweaks/uYouLocalization"]
     path = Tweaks/uYouLocalization
     url = https://github.com/dayanch96/uYouLocalization.git
+[submodule "Tweaks/libundirect"]
+	path = Tweaks/libundirect
+	url = https://github.com/opa334/libundirect.git
+[submodule "Tweaks/YTweaks"]
+	path = Tweaks/YTweaks
+	url = https://github.com/fosterbarnes/YTweaks.git
