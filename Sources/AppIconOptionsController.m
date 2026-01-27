@@ -227,7 +227,7 @@ static NSString *BundlePath(void) {
 
     BOOL ok = [prefs writeToFile:[NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", kPrefDomain] atomically:YES];
     if (!ok) {
-        [self.showAlertWithTitle:@"Error" message:@"Failed to save preference"];
+        [self showAlertWithTitle:@"Error" message:@"Failed to save preference"];
         return;
     }
 
