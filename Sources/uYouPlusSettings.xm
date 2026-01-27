@@ -1022,18 +1022,18 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
                 SPOOFER_VERSION(@"v19.10.7", 98),
                 SPOOFER_VERSION(@"v19.10.6", 99),
                 SPOOFER_VERSION(@"v19.10.5", 100),
-                SPOOFER_VERSION(@"v19.09.4", 101),
-                SPOOFER_VERSION(@"v19.09.3", 102),
-                SPOOFER_VERSION(@"v19.08.2", 103),
-                SPOOFER_VERSION(@"v19.07.5", 104),
-                SPOOFER_VERSION(@"v19.07.4", 105),
-                SPOOFER_VERSION(@"v19.06.2", 106),
-                SPOOFER_VERSION(@"v19.05.5", 107),
-                SPOOFER_VERSION(@"v19.05.3", 108),
-                SPOOFER_VERSION(@"v19.04.3", 109),
-                SPOOFER_VERSION(@"v19.03.2", 110),
-                SPOOFER_VERSION(@"v19.02.1", 111),
-                SPOOFER_VERSION(@"v19.01.1", 112)
+                SPOOFER_VERSION(@"v19.09.4 (Deprecated)", 101),
+                SPOOFER_VERSION(@"v19.09.3 (Deprecated)", 102),
+                SPOOFER_VERSION(@"v19.08.2 (Deprecated)", 103),
+                SPOOFER_VERSION(@"v19.07.5 (Deprecated)", 104),
+                SPOOFER_VERSION(@"v19.07.4 (Deprecated)", 105),
+                SPOOFER_VERSION(@"v19.06.2 (Deprecated)", 106),
+                SPOOFER_VERSION(@"v19.05.5 (Deprecated)", 107),
+                SPOOFER_VERSION(@"v19.05.3 (Deprecated)", 108),
+                SPOOFER_VERSION(@"v19.04.3 (Deprecated)", 109),
+                SPOOFER_VERSION(@"v19.03.2 (Deprecated)", 110),
+                SPOOFER_VERSION(@"v19.02.1 (Deprecated)", 111),
+                SPOOFER_VERSION(@"v19.01.1 (Deprecated)", 112)
             ];
             YTSettingsPickerViewController *picker = [[%c(YTSettingsPickerViewController) alloc] initWithNavTitle:LOC(@"VERSION_SPOOFER_SELECTOR") pickerSectionTitle:nil rows:rows selectedItemIndex:appVersionSpoofer() parentResponder:[self parentResponder]];
             [settingsViewController pushViewController:picker];
@@ -1088,35 +1088,42 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
         detailTextBlock:^NSString *() {
             switch (getNotificationIconStyle()) {
                 case 1:
-                    return @"Thin Outline (2020+)";
+                    return @"Bold Outline (2024+)";
                 case 2:
-                    return @"Filled (2018+)";
+                    return @"Thin Outline (2020+)";
                 case 3:
+                    return @"Filled (2018+)";
+                case 4:
                     return @"Classic/Inbox (2014+)";
                 case 0:
                 default:
-                    return @"Default";
+                    return @"Default (2025+)";
             }
         }
         selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
             NSArray <YTSettingsSectionItem *> *rows = @[
-                [YTSettingsSectionItemClass checkmarkItemWithTitle:@"Default" titleDescription:nil selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
+                [YTSettingsSectionItemClass checkmarkItemWithTitle:@"Default (2025+)" titleDescription:nil selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
                     [[NSUserDefaults standardUserDefaults] setInteger:0 forKey:@"notificationIconStyle"];
                     [settingsViewController reloadData];
                     return YES;
                 }],
-                [YTSettingsSectionItemClass checkmarkItemWithTitle:@"Thin Outline (2020+)" titleDescription:nil selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
+                [YTSettingsSectionItemClass checkmarkItemWithTitle:@"Bold Outline (2024+)" titleDescription:nil selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
                     [[NSUserDefaults standardUserDefaults] setInteger:1 forKey:@"notificationIconStyle"];
                     [settingsViewController reloadData];
                     return YES;
                 }],
-                [YTSettingsSectionItemClass checkmarkItemWithTitle:@"Filled (2018+)" titleDescription:nil selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
+                [YTSettingsSectionItemClass checkmarkItemWithTitle:@"Thin Outline (2020+)" titleDescription:nil selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
                     [[NSUserDefaults standardUserDefaults] setInteger:2 forKey:@"notificationIconStyle"];
                     [settingsViewController reloadData];
                     return YES;
                 }],
-                [YTSettingsSectionItemClass checkmarkItemWithTitle:@"Classic/Inbox (2014+)" titleDescription:nil selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
+                [YTSettingsSectionItemClass checkmarkItemWithTitle:@"Filled (2018+)" titleDescription:nil selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
                     [[NSUserDefaults standardUserDefaults] setInteger:3 forKey:@"notificationIconStyle"];
+                    [settingsViewController reloadData];
+                    return YES;
+                }],
+                [YTSettingsSectionItemClass checkmarkItemWithTitle:@"Classic/Inbox (2014+)" titleDescription:nil selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
+                    [[NSUserDefaults standardUserDefaults] setInteger:4 forKey:@"notificationIconStyle"];
                     [settingsViewController reloadData];
                     return YES;
                 }]
