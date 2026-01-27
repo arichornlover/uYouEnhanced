@@ -665,16 +665,14 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     ];
     [sectionItems addObject:lowContrastModeButton];
     SWITCH2(LOC(@"CLASSIC_VIDEO_PLAYER"), LOC(@"CLASSIC_VIDEO_PLAYER_DESC"), kClassicVideoPlayer);
-    SWITCH2(LOC(@"DISABLE_MODERN_BUTTONS"), LOC(@"DISABLE_MODERN_BUTTONS_DESC"), kDisableModernButtons);
     SWITCH2(LOC(@"DISABLE_ROUNDED_CORNERS_ON_HINTS"), LOC(@"DISABLE_ROUNDED_CORNERS_ON_HINTS_DESC"), kDisableRoundedHints);
-    SWITCH2(LOC(@"DISABLE_MODERN_FLAGS"), LOC(@"DISABLE_MODERN_FLAGS_DESC"), kDisableModernFlags);
     SWITCH3(
         LOC(@"YTNOMODERNUI"), 
         LOC(@"YTNOMODERNUI_DESC"), 
         kYTNoModernUI,
         ({
             if (enable) {
-                UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Warning" message:@"This will force-enable other settings on restart. To disable them, you must turn this setting off." preferredStyle:UIAlertControllerStyleAlert];
+                UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Warning" message:@"This will force-enable other settings on restart. To disable them, you must turn this setting off. (YTNoModernUI is Deprecated)" preferredStyle:UIAlertControllerStyleAlert];
                 UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil];
                 [alert addAction:okAction];
                 [settingsViewController presentViewController:alert animated:YES completion:nil];
