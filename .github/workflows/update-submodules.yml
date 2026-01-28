@@ -18,9 +18,9 @@ jobs:
 
       - name: Fix YTweaks Bundle
         run: |
-          git cd Bundles
-          git rm YTWKS.bundle
-          git ln -s ../Tweaks/YTweaks/layout/Library/Application\ Support/YTWKS.bundle YTWKS.bundle
+          cd Bundles
+          rm YTWKS.bundle
+          ln -s ../Tweaks/YTweaks/layout/Library/Application\ Support/YTWKS.bundle YTWKS.bundle
           git commit -m "updated YTweaks bundle"
           git push
         continue-on-error: true
