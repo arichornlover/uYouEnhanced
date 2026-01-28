@@ -85,10 +85,13 @@ static NSString *BundlePath(void) {
                 if ([fm fileExistsAtPath:full isDirectory:&entryIsDir]) {
                     if (entryIsDir) {
                         [iconNames addObject:entry];
-                    } else if ([[entry.pathExtension.lowercaseString ?: @"" ] isEqualToString:@"png"]) {
-                        NSString *name = [entry stringByDeletingPathExtension];
-                        if (name.length > 0) {
-                            [iconNames addObject:name];
+                    } else {
+                        NSString *ext = entry.pathExtension.lowercaseString;
+                        if ([ext isEqualToString:@"png"]) {
+                            NSString *name = [entry stringByDeletingPathExtension];
+                            if (name.length > 0) {
+                                [iconNames addObject:name];
+                            }
                         }
                     }
                 }
@@ -107,10 +110,13 @@ static NSString *BundlePath(void) {
             if ([fm fileExistsAtPath:full isDirectory:&isDir]) {
                 if (isDir) {
                     [iconNames addObject:entry];
-                } else if ([[entry.pathExtension.lowercaseString ?: @""] isEqualToString:@"png"]) {
-                    NSString *name = [entry stringByDeletingPathExtension];
-                    if (name.length > 0) {
-                        [iconNames addObject:name];
+                } else {
+                    NSString *ext = entry.pathExtension.lowercaseString;
+                    if ([ext isEqualToString:@"png"]) {
+                        NSString *name = [entry stringByDeletingPathExtension];
+                        if (name.length > 0) {
+                            [iconNames addObject:name];
+                        }
                     }
                 }
             }
@@ -193,7 +199,8 @@ static NSString *BundlePath(void) {
             if (!found) {
                 NSArray *files = [fm contentsOfDirectoryAtPath:dir error:nil];
                 for (NSString *file in files) {
-                    if ([[file.pathExtension.lowercaseString ?: @""] isEqualToString:@"png"]) {
+                    NSString *ext = file.pathExtension.lowercaseString;
+                    if ([ext isEqualToString:@"png"]) {
                         NSString *path = [dir stringByAppendingPathComponent:file];
                         preview = [UIImage imageWithContentsOfFile:path];
                         found = YES;
@@ -225,7 +232,8 @@ static NSString *BundlePath(void) {
             if (!found) {
                 NSArray *files = [fm contentsOfDirectoryAtPath:dir error:nil];
                 for (NSString *file in files) {
-                    if ([[file.pathExtension.lowercaseString ?: @""] isEqualToString:@"png"]) {
+                    NSString *ext = file.pathExtension.lowercaseString;
+                    if ([ext isEqualToString:@"png"]) {
                         NSString *path = [dir stringByAppendingPathComponent:file];
                         preview = [UIImage imageWithContentsOfFile:path];
                         found = YES;
