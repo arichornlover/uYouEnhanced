@@ -16,7 +16,7 @@ MODULES = jailed
 endif
 
 ifndef YOUTUBE_VERSION
-YOUTUBE_VERSION = 20.50.9
+YOUTUBE_VERSION = 20.44.2
 endif
 ifndef UYOU_VERSION
 UYOU_VERSION = 3.0.4
@@ -33,8 +33,27 @@ $(TWEAK_NAME)_FILES := $(wildcard Sources/*.xm) $(wildcard Sources/*.x) $(wildca
 $(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation AVFoundation AVKit Photos Accelerate CoreMotion GameController VideoToolbox Security
 $(TWEAK_NAME)_LIBRARIES = bz2 c++ iconv z
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-but-set-variable -DTWEAK_VERSION=\"$(PACKAGE_VERSION)\"
-#uYouLocalization $(TWEAK_NAME)_INJECT_DYLIBS = Tweaks/uYou/Library/MobileSubstrate/DynamicLibraries/uYou.dylib $(THEOS_OBJ_DIR)/uYouLocalization.dylib
-$(TWEAK_NAME)_INJECT_DYLIBS = Tweaks/uYou/Library/MobileSubstrate/DynamicLibraries/uYou.dylib $(THEOS_OBJ_DIR)/libFLEX.dylib $(THEOS_OBJ_DIR)/iSponsorBlock.dylib $(THEOS_OBJ_DIR)/YTABConfig.dylib $(THEOS_OBJ_DIR)/YTIcons.dylib $(THEOS_OBJ_DIR)/YouGroupSettings.dylib $(THEOS_OBJ_DIR)/YouLoop.dylib $(THEOS_OBJ_DIR)/YouMute.dylib $(THEOS_OBJ_DIR)/YouPiP.dylib $(THEOS_OBJ_DIR)/YouQuality.dylib $(THEOS_OBJ_DIR)/YouSlider.dylib $(THEOS_OBJ_DIR)/YouSpeed.dylib $(THEOS_OBJ_DIR)/YouTimeStamp.dylib $(THEOS_OBJ_DIR)/YouTubeDislikesReturn.dylib $(THEOS_OBJ_DIR)/DontEatMyContent.dylib $(THEOS_OBJ_DIR)/YTHoldForSpeed.dylib $(THEOS_OBJ_DIR)/YTUHD.dylib $(THEOS_OBJ_DIR)/YTVideoOverlay.dylib
+$(TWEAK_NAME)_INJECT_DYLIBS = \
+    Tweaks/uYou/Library/MobileSubstrate/DynamicLibraries/uYou.dylib \
+    $(THEOS_OBJ_DIR)/libFLEX.dylib \
+    $(THEOS_OBJ_DIR)/iSponsorBlock.dylib \
+    $(THEOS_OBJ_DIR)/YTABConfig.dylib \
+    $(THEOS_OBJ_DIR)/YTIcons.dylib \
+    $(THEOS_OBJ_DIR)/YouGroupSettings.dylib \
+    $(THEOS_OBJ_DIR)/YouLoop.dylib \
+    $(THEOS_OBJ_DIR)/YouMute.dylib \
+    $(THEOS_OBJ_DIR)/YouPiP.dylib \
+    $(THEOS_OBJ_DIR)/YouQuality.dylib \
+    $(THEOS_OBJ_DIR)/YouSlider.dylib \
+    $(THEOS_OBJ_DIR)/YouSpeed.dylib \
+    $(THEOS_OBJ_DIR)/YouTimeStamp.dylib \
+    $(THEOS_OBJ_DIR)/YouTubeDislikesReturn.dylib \
+    $(THEOS_OBJ_DIR)/DontEatMyContent.dylib \
+    $(THEOS_OBJ_DIR)/YTHoldForSpeed.dylib \
+    $(THEOS_OBJ_DIR)/YTUHD.dylib \
+    $(THEOS_OBJ_DIR)/YTVideoOverlay.dylib \
+    $(THEOS_OBJ_DIR)/YTweaks.dylib
+
 $(TWEAK_NAME)_EMBED_LIBRARIES = $(THEOS_OBJ_DIR)/libcolorpicker.dylib
 $(TWEAK_NAME)_EMBED_FRAMEWORKS = $(_THEOS_LOCAL_DATA_DIR)/$(THEOS_OBJ_DIR_NAME)/install_Alderis.xcarchive/Products/var/jb/Library/Frameworks/Alderis.framework
 $(TWEAK_NAME)_EMBED_BUNDLES = $(wildcard Bundles/*.bundle)
@@ -43,7 +62,7 @@ $(TWEAK_NAME)_EMBED_EXTENSIONS = $(wildcard Extensions/*.appex)
 include $(THEOS)/makefiles/common.mk
 ifneq ($(JAILBROKEN),1)
 #uYouLocalization SUBPROJECTS += Tweaks/Alderis Tweaks/uYouLocalization
-SUBPROJECTS += Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing/libflex Tweaks/iSponsorBlock Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouMute Tweaks/YouPiP Tweaks/YouQuality Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTHoldForSpeed Tweaks/YTUHD Tweaks/YTVideoOverlay 
+SUBPROJECTS += Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing/libflex Tweaks/iSponsorBlock Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouMute Tweaks/YouPiP Tweaks/YouQuality Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTHoldForSpeed Tweaks/YTUHD Tweaks/YTVideoOverlay Tweaks/YTweaks
 include $(THEOS_MAKE_PATH)/aggregate.mk
 endif
 include $(THEOS_MAKE_PATH)/tweak.mk
