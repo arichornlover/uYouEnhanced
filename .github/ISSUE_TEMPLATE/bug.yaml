@@ -26,14 +26,14 @@ body:
 - type: input
   attributes:
     label: iOS/iPadOS version
-    placeholder: iOS 18.0.0
+    placeholder: iOS 26.0.0
   validations:
     required: true
 
 - type: input
   attributes:
     label: Device model
-    placeholder: iPhone 16 Pro Max
+    placeholder: iPhone 17 Pro Max
   validations:
     required: true
 
@@ -47,7 +47,7 @@ body:
 - type: input
   attributes:
     label: Tweak version
-    placeholder: uYouEnhanced - v19.xx.x-3.0.4
+    placeholder: uYouEnhanced - v20.xx.x-3.0.4
     description: "**latest or newest is NOT a version number!**"
   validations:
     required: true

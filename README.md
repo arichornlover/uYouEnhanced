@@ -5,7 +5,7 @@ Just wanted to give you an update about uYouEnhanced. I’m not 100% leaving or 
 
 I do my best to fix stuff when some issues pop up, but it sometimes usually doesn’t work out. I do even suggest workarounds, but they might not work perfectly or might mot even work, especially with the latest YouTube version changes.
 
-But as of writing this, I’d recommend using uYouEnhanced with YouTube version v20.05.4 (the ipa version I actually am still using personally).
+But as of writing this, I’d recommend using uYouEnhanced with YouTube version v20.22.1 or higher.
 Thanks for understanding!
 
 And thanks to the developers qnblackcat, PoomSmart & other  allowing me to expand this fork from where it is today!
@@ -287,7 +287,7 @@ And thanks to the developers qnblackcat, PoomSmart & other  allowing me to expan
 
 18. **YTAppVersionSpoofer:** This tweak allows users to spoof the version of the YouTube app they are using, this is designed to spoof to older YouTube App versions. This can be useful for bypassing certain version checks or retaining features that may have been removed/disabled in newer updates. **<-- uYouEnhanced Exclusive Feature (subject to change)**
 
-19. **LowContrastMode (17.33.2-18.34.5 OUTDATED):** LowContrastMode is a tweak that allows users to darken the text in the YouTube app, making it easier to read. which sadly suffers from incompatibility issues and doesn't work right now as of March 19th 2025. **<-- uYouEnhanced Exclusive Feature (subject to change)**
+19. **LowContrastMode:** LowContrastMode is a tweak that allows users to darken the text in the YouTube app, making it easier to read. which sadly suffers from incompatibility issues and doesn't work right now as of March 19th 2025. **<-- uYouEnhanced Exclusive Feature (subject to change)**
 
 </details>
 
@@ -300,22 +300,20 @@ And thanks to the developers qnblackcat, PoomSmart & other  allowing me to expan
 ## Download
 
 - The latest version of **uYouEnhanced** can be found under [Releases](https://github.com/arichornlover/uYouEnhanced/releases/latest).
-- **Compatibility:** Requires iOS/iPadOS 15.0 or later.
+- **Compatibility:** Requires iOS/iPadOS 16.0 or later.
 - For AltStore user: 
 
-  - My official AltStore repo (uYouEnhanced - **iOS 15+**): https://therealfoxster.github.io/altsource-viewer/view/?source=https://raw.githubusercontent.com/arichornlover/arichornlover.github.io/main/apps.json
-
-  - My alternative AltStore repo (uYouEnhanced - **iOS 14+ - mainly for Trollstore users**): https://therealfoxster.github.io/altsource-viewer/view/?source=https://raw.githubusercontent.com/arichornlover/arichornlover.github.io/main/apps-legacy.json - not sure if i can update this ipa. this IPA will be locked in YouTube Version **19.20.2**
+  - My official AltStore repo (uYouEnhanced - **iOS 16+**): https://therealfoxster.github.io/altsource-viewer/view/?source=https://raw.githubusercontent.com/arichornlover/arichornlover.github.io/main/apps.json
 
   - [Open in AltStore (v20.05.4-3.0.4)](https://tinyurl.com/33wr56zm) - It will take a while to install because AltStore needs to download the IPA first.
   - NEWS - Nov 27 2024: Please be aware that some of the **uYou** features aren't working in newer versions of YouTube.
 
 <details>
-  <summary>Version information (last updated: June 13, 2025)</summary>
+  <summary>Version information (last updated: Sep 21, 2025)</summary>
 
 | **Tweaks/App** | **Developer** | **Version** | **Open source** |
 | - | - | :-: | :-:  |
-| **YouTube** | Google Inc | 20.23.3 | ✖︎ |
+| **YouTube** | Google Inc | 20.37.5 | ✖︎ |
 | [uYou](https://github.com/MiRO92/uYou-for-YouTube) | [MiRO92](https://twitter.com/miro92) | 3.0.4 | ✖︎ |
 | **OpenYoutubeAndShorts** | [CrossiDev-Studio](https://github.com/CrossiDev-Studio) | 1.0 | [✔︎](https://github.com/CrossiDev-Studio/OpenYoutubeAndShorts) |
 | **iSponsorBlock** | [Galactic-Dev](https://github.com/Galactic-Dev) | 1.2.9 | [✔︎](https://github.com/Galactic-Dev/iSponsorBlock) |
@@ -344,19 +342,19 @@ And thanks to the developers qnblackcat, PoomSmart & other  allowing me to expan
 | **YTVideoOverlay** | [PoomSmart](https://twitter.com/poomsmart) | 1.3.0 | [✔︎](https://github.com/PoomSmart/YTVideoOverlay) |
 | **YouGroupSettings** | [PoomSmart](https://twitter.com/poomsmart) | 1.0.3 | [✔︎](https://github.com/PoomSmart/YouGroupSettings) |
 | **YTHoldForSpeed** | [joshuaseltzer](https://github.com/joshuaseltzer) | 1.2.3 | [✔︎](https://github.com/joshuaseltzer/YTHoldForSpeed) |
-| **LowContrastMode (Broken Tweak)** | [arichornlover](https://github.com/arichornlover) | 1.5.2 | [✔︎](https://github.com/arichornlover/YTLowContrastMode) |
+| **LowContrastMode** | [arichornlover](https://github.com/arichornlover) | 1.6.0 | [✔︎](https://github.com/arichornlover/YTLowContrastMode) |
 
 </details>
 
-# uYou Tweak Compatibility List
+# uYou Tweak Compatibility List (Deprecated List)
 
-| Developer | Tweak Name and Version | App Version Compatibility | iOS Version Compatibility |
-|-----------|-----------------------|--------------------------|--------------------------|
-| MiRO92 | uYou 2.1 / 2.3~1 | ~v16.42.3~ ~v17.33.2 - 18.01.6~ | iOS 13.0 - iOS 15.8.3 |
-| MiRO92 | uYou 3.0 | ~v18.06.6 - v18.18.2~ | iOS 14.0 - iOS 15.8.3 |
-| MiRO92 | uYou 3.0.1 | ~v18.19.1 - v18.41.5~ | iOS 14.0 - iOS 18.5.0 |
-| MiRO92 | uYou 3.0.2 / 3.0.3 | v19.06.2 - v19.15.1 | iOS 15.0 - iOS 18.5.0 |
-| MiRO92 | uYou 3.0.4 | v19.20.2 - v19.22.6 | iOS 15.0 - iOS 18.5.0 |
+| Developer | Tweak Name and Version | App Version Compatibility | iOS Version Compatibility | List Removal |
+|-----------|-----------------------|--------------------------|--------------------------|--------------------------|
+| MiRO92 | uYou 2.1 / 2.3~1 | ~v16.42.3 - v18.01.6~ | iOS 13.0 - iOS 15.8.5 | Planned for Removal |
+| MiRO92 | uYou 3.0 | ~v18.06.6 - v18.18.2~ | iOS 14.0 - iOS 15.8.5 | Planned for Removal |
+| MiRO92 | uYou 3.0.1 | ~v18.19.1 - v18.41.5~ | iOS 14.0 - iOS 18.7.0 | Planned for Removal |
+| MiRO92 | uYou 3.0.2 / 3.0.3 | v19.06.2 - v19.15.1 | iOS 15.0 - iOS 18.7.0 |
+| MiRO92 | uYou 3.0.4 | v19.20.2 - v19.22.6 | iOS 15.0 - iOS 18.7.0 |
 
 # Building
 
@@ -397,20 +395,20 @@ See [Installation - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/Installati
 See [arichornlover - Wiki](https://github.com/arichornlover/uYouEnhanced/wiki/) or [qnblackcat - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/)
 
 
-## Lightweight Alternative - YTLitePlus
+## Lightweight Alternative - YTLite / YTLitePlus
 
 <details>
     <summary>Read more</summary><br>
 
-# Switch from uYouEnhanced to YTLite or YTLitePlus (optional)
+# Switch from uYouEnhanced to either YTLite or YTLitePlus (optional)
 
 Hello, this is here to showcase this tweak. I have been seeing the posts about the YTLitePlus tweak on Reddit for quite some time now and decided to add it here. Before you download or check out the tweak, you should take a look at the pros and cons below to learn more about YTLitePlus.
 
 https://github.com/YTLitePlus/YTLitePlus/releases
 
-**Pros**
+**YTLitePlus - Pros**
 
-- YTLitePlus is stable and more customizable than uYouPlus/uYouEnhanced.
+- YTLitePlus is stable and more customizable than uYouPlus/uYouEnhanced. (same goes for the regular YTLite, it's stable based on my testing of using it)
 
 - YTLitePlus provides more features in YTLite & YTLitePlus Sections in Settings that uYouPlus/uYouEnhanced may not have.
 
@@ -420,7 +418,7 @@ https://github.com/YTLitePlus/YTLitePlus/releases
 
 - YTLitePlus provides faster video & audio downloading than uYouPlus/uYouEnhanced.
 
-**Cons**
+**YTLitePlus - Cons**
 
 - Video quality on WiFi option is not available in YTLitePlus.
 
