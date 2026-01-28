@@ -37,20 +37,24 @@ static int getNotificationIconStyle() {
     NSString *imageName;
     UIColor *iconColor;
     switch (getNotificationIconStyle()) {
-        case 1:  // Thin outline style (2020+)
+        case 1:  // Bold outline style (2024+)
+            imageName = isSelected ? @"notifications_selected" : @"notifications_unselected";
+            iconColor = [%c(YTColor) white1];
+            break;
+        case 2:  // Thin outline style (2020+)
             imageName = isSelected ? @"notifications_selected" : @"notifications_24pt";
             iconColor = [%c(YTColor) white1];
             break;
-        case 2:  // Filled style (2018+)
+        case 3:  // Filled style (2018+)
             imageName = @"notifications_selected";
             iconColor = isSelected ? [%c(YTColor) white1] : [UIColor grayColor];
             break;
-        case 3:  // Inbox style (2014+)
+        case 4:  // Inbox style (2014+)
             imageName = @"inbox_selected";
             iconColor = isSelected ? [%c(YTColor) white1] : [UIColor grayColor];
             break;
-        default:  // Default style
-            imageName = isSelected ? @"notifications_selected" : @"notifications_unselected";
+        default:  // Default style (2025+)
+            imageName = isSelected ? @"notifications_selected_2025" : @"notifications_unselected_2025";
             iconColor = [%c(YTColor) white1];
             break;
     }
@@ -115,99 +119,178 @@ static int getNotificationIconStyle() {
 %end
 %end
 
-// LEGACY VERSION ⚠️
-// Hide the (Connect / Thanks / Save / Report) Buttons under the Video Player - 17.33.2 and up - @arichornlover (inspired by @PoomSmart's version)
-%hook _ASDisplayView
-- (void)layoutSubviews {
-    %orig;
-    BOOL hideConnectButton = IS_ENABLED(@"hideConnectButton_enabled");
-    BOOL hideThanksButton = IS_ENABLED(@"hideThanksButton_enabled");
-    BOOL hideSaveToPlaylistButton = IS_ENABLED(@"hideSaveToPlaylistButton_enabled");
-    BOOL hideReportButton = IS_ENABLED(@"hideReportButton_enabled");
-
-    for (UIView *subview in self.subviews) {
-        if ([subview.accessibilityLabel isEqualToString:@"connect account"]) {
-            subview.hidden = hideConnectButton;
-        } else if ([subview.accessibilityLabel isEqualToString:@"Thanks"]) {
-            subview.hidden = hideThanksButton;
-        } else if ([subview.accessibilityLabel isEqualToString:@"Save to playlist"]) {
-            subview.hidden = hideSaveToPlaylistButton;
-        } else if ([subview.accessibilityLabel isEqualToString:@"Report"]) {
-            subview.hidden = hideReportButton;
-        }
-    }
+// YTHidePlayerButtons 1.0.0 - made by @aricloverEXTRA
+static NSDictionary<NSString *, NSString *> *HideToggleMap(void) {
+    static NSDictionary<NSString *, NSString *> *map = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        map = @{
+            // identifiers
+            @"id.video.share.button": @"hideShareButton_enabled",
+            @"id.ui.add_to.offline.button": @"hideDownloadButton_enabled",
+            @"id.video.remix.button": @"hideRemixButton_enabled",
+            @"clip_button.eml": @"hideClipButton_enabled",
+            @"id.ui.carousel_header": @"hideCommentSection_enabled",
+            // fallbacks
+            @"Like": @"hideLikeButton_enabled", // unidentified identifier
+            @"Dislike": @"hideDislikeButton_enabled", // unidentified identifier
+            @"Share": @"hideShareButton_enabled", // Share Button
+            @"Ask": @"hideAskButton_enabled", // unidentified identifier
+            @"Download": @"hideDownloadButton_enabled", // Download Button
+            @"Hype": @"hideHypeButton_enabled", // unidentified identifier
+            @"Thanks": @"hideThanksButton_enabled", // unidentified identifier
+            @"Remix": @"hideRemixButton_enabled", // Remix Button
+            @"Clip": @"hideClipButton_enabled", // Clip Button
+            @"Save to playlist": @"hideSaveToPlaylistButton_enabled", // unidentified identifier
+            @"Report": @"hideReportButton_enabled", // unidentified identifier
+            @"connect account": @"hideConnectButton_enabled" // unidentified identifier
+        };
+    });
+    return map;
 }
-%end
-
-// UPDATED VERSION
-// Hide the (Connect / Share / Remix / Thanks / Download / Clip / Save / Report) Buttons under the Video Player - 17.33.2 and up - @PoomSmart (inspired by @arichornlover) - METHOD BROKE Server-Side on May 14th 2024
-static BOOL findCell(ASNodeController *nodeController, NSArray <NSString *> *identifiers) {
-    for (id child in [nodeController children]) {
-        NSLog(@"Child: %@", [child description]);
-
-        if ([child isKindOfClass:%c(ELMNodeController)]) {
-            NSArray <ELMComponent *> *elmChildren = [(ELMNodeController  * _Nullable)child children];
-            for (ELMComponent *elmChild in elmChildren) {
-                for (NSString *identifier in identifiers) {
-                    if ([[elmChild description] containsString:identifier]) {
-                        NSLog(@"Found identifier: %@", identifier);
-                        return YES;
-                    }
+static BOOL shouldHideForKey(NSString *key) {
+    if (!key) return NO;
+    NSString *pref = HideToggleMap()[key];
+    if (!pref) return NO;
+    return IS_ENABLED(pref);
+}
+static void safeHideView(id view) {
+    if (!view) return;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        @try {
+            if ([view respondsToSelector:@selector(setHidden:)]) {
+                [view setHidden:YES];
+                return;
+            }
+            if ([view isKindOfClass:[UIView class]]) {
+                ((UIView *)view).hidden = YES;
+                return;
+            }
+        } @catch (NSException *ex) {
+            NSLog(@"[HidePlayerButtons] safeHideView exception: %@", ex);
+        }
+    });
+}
+static BOOL inspectAndHideIfMatch(id view) {
+    if (!view) return NO;
+    @try {
+        NSString *accId = nil;
+        if ([view respondsToSelector:@selector(accessibilityIdentifier)]) {
+            @try { accId = [view accessibilityIdentifier]; } @catch (NSException *e) { accId = nil; }
+            if (accId && shouldHideForKey(accId)) {
+                safeHideView(view);
+                return YES;
+            }
+        }
+        NSString *accLabel = nil;
+        if ([view respondsToSelector:@selector(accessibilityLabel)]) {
+            @try { accLabel = [view accessibilityLabel]; } @catch (NSException *e) { accLabel = nil; }
+            if (accLabel && shouldHideForKey(accLabel)) {
+                safeHideView(view);
+                return YES;
+            }
+        }
+        NSString *desc = nil;
+        @try { desc = [[view description] copy]; } @catch (NSException *e) { desc = nil; }
+        if (desc) {
+            for (NSString *key in HideToggleMap().allKeys) {
+                if ([desc containsString:key] && shouldHideForKey(key)) {
+                    safeHideView(view);
+                    return YES;
                 }
             }
         }
-
-        if ([child isKindOfClass:%c(ASNodeController)]) {
-            ASDisplayNode *childNode = ((ASNodeController  * _Nullable)child).node; // ELMContainerNode
-            NSArray<id> *yogaChildren = childNode.yogaChildren;
-            for (ASDisplayNode *displayNode in yogaChildren) {
-                NSLog(@"Yoga Child: %@", displayNode.accessibilityIdentifier);
-
-                if ([identifiers containsObject:displayNode.accessibilityIdentifier]) {
-                    NSLog(@"Found identifier: %@", displayNode.accessibilityIdentifier);
-                    return YES;
-                }
-
-                if (findCell(child, identifiers)) {
-                    return YES;
-                }
-            }
-        }
+    } @catch (NSException *ex) {
+        NSLog(@"[HidePlayerButtons] inspectAndHideIfMatch exception: %@", ex);
     }
     return NO;
 }
-
-%hook ASCollectionView // This stopped working on May 14th 2024 due to a Server-Side Change from YouTube.
-- (CGSize)sizeForElement:(ASCollectionElement  * _Nullable)element {
-    if ([self.accessibilityIdentifier isEqualToString:@"id.video.scrollable_action_bar"]) {
-        ASCellNode *node = [element node];
-        ASNodeController *nodeController = [node controller];
-
-        if (IS_ENABLED(@"hideShareButton_enabled") && findCell(nodeController, @[@"id.video.share.button"])) {
-            return CGSizeZero;
+static void traverseAndHideViews(UIView *root) {
+    if (!root) return;
+    @try {
+        inspectAndHideIfMatch(root);
+        NSArray<UIView *> *subs = nil;
+        @try { subs = root.subviews; } @catch (NSException *e) { subs = nil; }
+        if (subs && subs.count) {
+            for (UIView *sv in subs) {
+                if ([sv isKindOfClass:[UIView class]]) {
+                    traverseAndHideViews(sv);
+                }
+            }
         }
-
-        if (IS_ENABLED(@"hideRemixButton_enabled") && findCell(nodeController, @[@"id.video.remix.button"])) {
-            return CGSizeZero;
-        }
-
-        if (IS_ENABLED(@"hideThanksButton_enabled") && findCell(nodeController, @[@"Thanks"])) {
-            return CGSizeZero;
-        }
-
-        if (IS_ENABLED(@"hideClipButton_enabled") && findCell(nodeController, @[@"clip_button.eml"])) {
-            return CGSizeZero;
-        }
-
-        if (IS_ENABLED(@"hideDownloadButton_enabled") && findCell(nodeController, @[@"id.ui.add_to.offline.button"])) {
-            return CGSizeZero;
-        }
-
-        if (IS_ENABLED(@"hideCommentSection_enabled") && findCell(nodeController, @[@"id.ui.carousel_header"])) {
-            return CGSizeZero;
-        }
+    } @catch (NSException *ex) {
+        NSLog(@"[HidePlayerButtons] traverseAndHideViews exception: %@", ex);
     }
-    return %orig;
+}
+static void hideButtonsInActionBarIfNeeded(id collectionView) {
+    if (!collectionView) return;
+    @try {
+        // Ensure the collectionView has accessibilityIdentifier and we only operate on the action bar
+        NSString *accId = nil;
+        if ([collectionView respondsToSelector:@selector(accessibilityIdentifier)]) {
+            @try { accId = [collectionView accessibilityIdentifier]; } @catch (NSException *e) { accId = nil; }
+        }
+        if (!accId) return;
+        if (![accId isEqualToString:@"id.video.scrollable_action_bar"]) return;
+        NSArray *cells = nil;
+        if ([collectionView respondsToSelector:@selector(visibleCells)]) {
+            @try { cells = [collectionView visibleCells]; } @catch (NSException *e) { cells = nil; }
+        }
+        if (!cells || cells.count == 0) {
+            @try { cells = [collectionView subviews]; } @catch (NSException *e) { cells = nil; }
+        }
+        if (!cells || cells.count == 0) return;
+        for (id cell in cells) {
+            if ([cell isKindOfClass:[UIView class]]) {
+                traverseAndHideViews((UIView *)cell);
+            } else {
+                @try {
+                    if ([cell respondsToSelector:@selector(view)]) {
+                        id view = [cell performSelector:@selector(view)];
+                        if ([view isKindOfClass:[UIView class]]) {
+                            traverseAndHideViews((UIView *)view);
+                        }
+                    } else if ([cell respondsToSelector:@selector(node)]) {
+                        NSString *desc = nil;
+                        @try { desc = [cell description]; } @catch (NSException *e) { desc = nil; }
+                        if (desc) {
+                            // Not ideal to act on description, but we keep this non-destructive: only log for debugging
+                            // Uncomment logging for debug builds if needed.
+                            // NSLog(@"[HidePlayerButtons] Non-UIView cell description: %@", desc);
+                        }
+                    }
+                } @catch (NSException *ex) {
+                    NSLog(@"[HidePlayerButtons] Exception handling non-UIView cell: %@", ex);
+                }
+            }
+        }
+    } @catch (NSException *exception) {
+        NSLog(@"[HidePlayerButtons] hideButtonsInActionBarIfNeeded exception: %@", exception);
+    }
+}
+%hook ASCollectionView
+- (id)nodeForItemAtIndexPath:(NSIndexPath *)indexPath {
+    id node = %orig;
+    id weakSelf = (id)self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        @try {
+            hideButtonsInActionBarIfNeeded(weakSelf);
+        } @catch (NSException *e) {
+            NSLog(@"[HidePlayerButtons] async hide exception: %@", e);
+        }
+    });
+    return node;
+}
+- (void)nodesDidRelayout:(NSArray *)nodes {
+    %orig;
+    id weakSelf = (id)self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        @try {
+            hideButtonsInActionBarIfNeeded(weakSelf);
+        } @catch (NSException *e) {
+            NSLog(@"[HidePlayerButtons] relayout hide exception: %@", e);
+        }
+    });
 }
 %end
 
@@ -873,72 +956,10 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %end
 %end
 
-// Disable Modern/Rounded Buttons (_ASDisplayView Version's not supported) - @arichornlover
-%group gDisableModernButtons 
-%hook YTQTMButton // Disable Modern/Rounded Buttons
-+ (BOOL)buttonModernizationEnabled { return NO; }
-%end
-%end
-
 // Disable Rounded Hints with no Rounded Corners - @arichornlover
 %group gDisableRoundedHints
 %hook YTBubbleHintView // Disable Modern/Rounded Hints
 + (BOOL)modernRoundedCornersEnabled { return NO; }
-%end
-%end
-
-// Disable Modern Flags - @arichornlover
-%group gDisableModernFlags
-%hook YTColdConfig
-// Disable Modern Content
-- (BOOL)creatorClientConfigEnableStudioModernizedMdeThumbnailPickerForClient { return NO; }
-- (BOOL)cxClientEnableModernizedActionSheet { return NO; }
-- (BOOL)enableClientShortsSheetsModernization { return NO; }
-- (BOOL)enableTimestampModernizationForNative { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaFeedStretchBottom { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaFrostedBottomBar { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaFrostedPivotBar { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaFrostedPivotBarUpdatedBackdrop { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaFrostedTopBar { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaOpacityPivotBar { return NO; }
-- (BOOL)mainAppCoreClientEnableModernIaTopAndBottomBarIconRefresh { return NO; }
-- (BOOL)mainAppCoreClientEnableModernizedBedtimeReminderU18DefaultSettings { return NO; }
-- (BOOL)modernizeCameoNavbar { return NO; }
-- (BOOL)modernizeCollectionLockups { return NO; }
-- (BOOL)modernizeCollectionLockupsShowVideoCount { return NO; }
-- (BOOL)modernizeElementsBgColor { return NO; }
-- (BOOL)modernizeElementsTextColor { return NO; }
-- (BOOL)postsCreatorClientEnableModernButtonsUi { return NO; }
-- (BOOL)pullToFullModernEdu { return NO; }
-- (BOOL)showModernMiniplayerRedesign { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigEnableModernButtonsForNative { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigIosEnableModernTabsForNative { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigIosEnableSnackbarModernization { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigModernizeNativeBgColor { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigModernizeNativeTextColor { return NO; }
-// Disable Rounded Content
-- (BOOL)enableIosFloatingMiniplayerRoundedCornerRadius { return YES; }
-- (BOOL)iosDownloadsPageRoundedThumbs { return NO; }
-- (BOOL)iosRoundedSearchBarSuggestZeroPadding { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigEnableRoundedDialogForNative { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigEnableRoundedThumbnailsForNative { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigEnableRoundedThumbnailsForNativeLongTail { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigEnableRoundedTimestampForNative { return NO; }
-// Disable Optional Content
-- (BOOL)elementsClientIosElementsEnableLayoutUpdateForIob { return NO; }
-- (BOOL)supportElementsInMenuItemSupportedRenderers { return NO; }
-- (BOOL)isNewRadioButtonStyleEnabled { return NO; }
-- (BOOL)uiSystemsClientGlobalConfigEnableButtonSentenceCasingForNative { return NO; }
-- (BOOL)mainAppCoreClientEnableClientYouTab { return NO; }
-- (BOOL)mainAppCoreClientEnableClientYouLatency { return NO; }
-- (BOOL)mainAppCoreClientEnableClientYouTabTablet { return NO; }
-%end
-
-%hook YTHotConfig
-- (BOOL)liveChatIosUseModernRotationDetection { return NO; } // Disable Modern Content (YTHotConfig)
-- (BOOL)liveChatModernizeClassicElementizeTextMessage { return NO; }
-- (BOOL)iosShouldRepositionChannelBar { return NO; }
-- (BOOL)enableElementRendererOnChannelCreation { return NO; }
 %end
 %end
 
@@ -1943,14 +1964,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     if (IS_ENABLED(kClassicVideoPlayer)) {
         %init(gClassicVideoPlayer);
     }
-    if (IS_ENABLED(kDisableModernButtons)) {
-        %init(gDisableModernButtons);
-    }
     if (IS_ENABLED(kDisableRoundedHints)) {
         %init(gDisableRoundedHints);
-    }
-    if (IS_ENABLED(kDisableModernFlags)) {
-        %init(gDisableModernFlags);
     }
     if (IS_ENABLED(kDisableAmbientMode)) {
         %init(gDisableAmbientMode);

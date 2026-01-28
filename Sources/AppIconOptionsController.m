@@ -1,10 +1,32 @@
 #import "AppIconOptionsController.h"
-#import <YouTubeHeader/YTAssetLoader.h>
+#import <notify.h>
 
-@interface AppIconOptionsController () <UITableViewDataSource, UITableViewDelegate>
+static NSString *const kPrefDomain = @"com.arichornlover.uYouEnhanced";
+static NSString *const kPrefEnableIconOverride = @"appIconCustomization_enabled";
+static NSString *const kPrefIconName = @"customAppIcon_name";
+static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefschanged";
+
+static NSString *BundlePath(void) {
+    NSString *path = [[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"];
+    if (path) return path;
+    return @"/Library/Application Support/uYouEnhanced";
+}
+
+@interface AppIconOptionsController ()
+
 @property (strong, nonatomic) UITableView *tableView;
 @property (strong, nonatomic) NSArray<NSString *> *appIcons;
 @property (assign, nonatomic) NSInteger selectedIconIndex;
+
+@end
+
+@implementation UIImage (CustomImages)
+
++ (UIImage *)customBackButtonImage {
+    NSBundle *bundle = [NSBundle bundleWithPath:BundlePath()];
+    return [UIImage imageNamed:@"Back.png" inBundle:bundle compatibleWithTraitCollection:nil];
+}
+
 @end
 
 @implementation AppIconOptionsController
@@ -14,102 +36,266 @@
 
     self.title = @"Change App Icon";
     self.selectedIconIndex = -1;
+    self.view.backgroundColor = [UIColor systemBackgroundColor];
 
-    self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
+    self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped];
     self.tableView.dataSource = self;
     self.tableView.delegate = self;
+    self.tableView.translatesAutoresizingMaskIntoConstraints = NO;
+
+    if (@available(iOS 15.0, *)) {
+        self.tableView.sectionHeaderTopPadding = 0;
+    }
+
     [self.view addSubview:self.tableView];
 
-    self.backButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    [self.backButton setImage:[UIImage systemImageNamed:@"chevron.backward"] forState:UIControlStateNormal];
+    [NSLayoutConstraint activateConstraints:@[
+        [self.tableView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+        [self.tableView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [self.tableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [self.tableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor]
+    ]];
+
+    self.navigationItem.hidesBackButton = YES;
+    if (@available(iOS 14.0, *)) {
+        self.navigationItem.backButtonDisplayMode = UINavigationItemBackButtonDisplayModeMinimal;
+    }
+
+    self.backButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.backButton setImage:[UIImage customBackButtonImage] forState:UIControlStateNormal];
     [self.backButton addTarget:self action:@selector(back) forControlEvents:UIControlEventTouchUpInside];
+
     UIBarButtonItem *customBackButton = [[UIBarButtonItem alloc] initWithCustomView:self.backButton];
     self.navigationItem.leftBarButtonItem = customBackButton;
 
-    NSString *path = [[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"];
-    NSBundle *bundle = [NSBundle bundleWithPath:path];
-    self.appIcons = [bundle pathsForResourcesOfType:@"png" inDirectory:@"AppIcons"];
+    NSMutableSet<NSString *> *iconNames = [NSMutableSet set];
+    NSFileManager *fm = [NSFileManager defaultManager];
 
-    if (![UIApplication sharedApplication].supportsAlternateIcons) {
-        NSLog(@"Alternate icons are not supported on this device.");
+    NSString *bundlePath = BundlePath();
+    NSBundle *bundle = [NSBundle bundleWithPath:bundlePath];
+
+    if (bundle) {
+        NSString *appIconsDir = [bundle.bundlePath stringByAppendingPathComponent:@"AppIcons"];
+        BOOL isDir = NO;
+        if ([fm fileExistsAtPath:appIconsDir isDirectory:&isDir] && isDir) {
+            NSArray *contents = [fm contentsOfDirectoryAtPath:appIconsDir error:nil] ?: @[];
+            for (NSString *entry in contents) {
+                NSString *full = [appIconsDir stringByAppendingPathComponent:entry];
+                BOOL entryIsDir = NO;
+                if ([fm fileExistsAtPath:full isDirectory:&entryIsDir]) {
+                    if (entryIsDir) {
+                        [iconNames addObject:entry];
+                    } else {
+                        NSString *ext = entry.pathExtension.lowercaseString;
+                        if ([ext isEqualToString:@"png"]) {
+                            NSString *name = [entry stringByDeletingPathExtension];
+                            if (name.length > 0) {
+                                [iconNames addObject:name];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    NSString *supportBase = @"/Library/Application Support/uYouEnhanced/AppIcons";
+    BOOL supportIsDir = NO;
+
+    if ([fm fileExistsAtPath:supportBase isDirectory:&supportIsDir] && supportIsDir) {
+        NSArray *contents = [fm contentsOfDirectoryAtPath:supportBase error:nil] ?: @[];
+        for (NSString *entry in contents) {
+            NSString *full = [supportBase stringByAppendingPathComponent:entry];
+            BOOL isDir = NO;
+            if ([fm fileExistsAtPath:full isDirectory:&isDir]) {
+                if (isDir) {
+                    [iconNames addObject:entry];
+                } else {
+                    NSString *ext = entry.pathExtension.lowercaseString;
+                    if ([ext isEqualToString:@"png"]) {
+                        NSString *name = [entry stringByDeletingPathExtension];
+                        if (name.length > 0) {
+                            [iconNames addObject:name];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    self.appIcons = [[iconNames allObjects] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+
+    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:[NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", kPrefDomain]] ?: @{};
+    NSString *savedIcon = prefs[kPrefIconName];
+
+    if (savedIcon) {
+        NSInteger idx = [self.appIcons indexOfObject:savedIcon];
+        if (idx != NSNotFound) self.selectedIconIndex = idx;
+    }
+
+    if (self.appIcons.count == 0) {
+        UILabel *lbl = [[UILabel alloc] initWithFrame:CGRectInset(self.view.bounds, 20, 20)];
+        lbl.text = @"No custom icons found. Place PNGs or icon folders in uYouPlus.bundle/AppIcons/ or /Library/Application Support/uYouEnhanced/AppIcons/";
+        lbl.numberOfLines = 0;
+        lbl.textAlignment = NSTextAlignmentCenter;
+        lbl.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        [self.view addSubview:lbl];
     }
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return self.appIcons.count;
+    return self.appIcons.count + 1;
 }
 
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
     return 80.0;
 }
 
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"Cell"];
-    if (!cell) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"Cell"];
-        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+- (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    static NSString *CellId = @"AppIconCell";
+    UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:CellId];
+    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:CellId];
+
+    if (indexPath.row == 0) {
+        cell.textLabel.text = @"Reset to default";
+        cell.detailTextLabel.text = @"Restore the original app icon";
+        cell.imageView.image = nil;
+        cell.accessoryType = (self.selectedIconIndex == -1) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+        return cell;
     }
-    
-    NSString *iconPath = self.appIcons[indexPath.row];
-    cell.textLabel.text = [iconPath.lastPathComponent stringByDeletingPathExtension];
-    
-    UIImage *iconImage = [UIImage imageWithContentsOfFile:iconPath];
-    cell.imageView.image = iconImage;
-    cell.imageView.layer.cornerRadius = 16.0;
+
+    NSString *iconName = self.appIcons[indexPath.row - 1];
+    cell.textLabel.text = iconName;
+    cell.detailTextLabel.text = @"Tap to apply this icon";
+
+    UIImage *preview = nil;
+    NSArray<NSString *> *candidates = @[
+        @"AppIcon60x60@3x.png",
+        @"AppIcon60x60@2x.png",
+        @"Icon@3x.png",
+        @"Icon@2x.png",
+        @"Icon.png"
+    ];
+
+    NSString *bundlePath = BundlePath();
+    NSBundle *bundle = [NSBundle bundleWithPath:bundlePath];
+    NSString *supportBase = @"/Library/Application Support/uYouEnhanced/AppIcons";
+    NSFileManager *fm = [NSFileManager defaultManager];
+
+    BOOL found = NO;
+
+    if (bundle) {
+        NSString *dir = [bundle.bundlePath stringByAppendingPathComponent:[NSString stringWithFormat:@"AppIcons/%@", iconName]];
+        BOOL isDir = NO;
+        if ([fm fileExistsAtPath:dir isDirectory:&isDir] && isDir) {
+            for (NSString *c in candidates) {
+                NSString *imagePath = [dir stringByAppendingPathComponent:c];
+                if ([fm fileExistsAtPath:imagePath]) {
+                    preview = [UIImage imageWithContentsOfFile:imagePath];
+                    found = YES;
+                    break;
+                }
+            }
+            if (!found) {
+                NSArray *files = [fm contentsOfDirectoryAtPath:dir error:nil];
+                for (NSString *file in files) {
+                    NSString *ext = file.pathExtension.lowercaseString;
+                    if ([ext isEqualToString:@"png"]) {
+                        NSString *path = [dir stringByAppendingPathComponent:file];
+                        preview = [UIImage imageWithContentsOfFile:path];
+                        found = YES;
+                        break;
+                    }
+                }
+            }
+        } else {
+            NSString *pngPath = [[bundle.bundlePath stringByAppendingPathComponent:@"AppIcons"] stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.png", iconName]];
+            if ([fm fileExistsAtPath:pngPath]) {
+                preview = [UIImage imageWithContentsOfFile:pngPath];
+                found = YES;
+            }
+        }
+    }
+
+    if (!found) {
+        NSString *dir = [supportBase stringByAppendingPathComponent:iconName];
+        BOOL isDir = NO;
+        if ([fm fileExistsAtPath:dir isDirectory:&isDir] && isDir) {
+            for (NSString *c in candidates) {
+                NSString *imagePath = [dir stringByAppendingPathComponent:c];
+                if ([fm fileExistsAtPath:imagePath]) {
+                    preview = [UIImage imageWithContentsOfFile:imagePath];
+                    found = YES;
+                    break;
+                }
+            }
+            if (!found) {
+                NSArray *files = [fm contentsOfDirectoryAtPath:dir error:nil];
+                for (NSString *file in files) {
+                    NSString *ext = file.pathExtension.lowercaseString;
+                    if ([ext isEqualToString:@"png"]) {
+                        NSString *path = [dir stringByAppendingPathComponent:file];
+                        preview = [UIImage imageWithContentsOfFile:path];
+                        found = YES;
+                        break;
+                    }
+                }
+            }
+        } else {
+            NSString *pngPath = [supportBase stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.png", iconName]];
+            if ([fm fileExistsAtPath:pngPath]) {
+                preview = [UIImage imageWithContentsOfFile:pngPath];
+                found = YES;
+            }
+        }
+    }
+
+    cell.imageView.image = preview;
+    cell.imageView.layer.cornerRadius = 12.0;
     cell.imageView.clipsToBounds = YES;
     cell.imageView.contentMode = UIViewContentModeScaleAspectFit;
-    
-    cell.accessoryType = (indexPath.row == self.selectedIconIndex) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
-    
+    cell.accessoryType = ((indexPath.row - 1) == self.selectedIconIndex) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+
     return cell;
 }
 
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    
-    self.selectedIconIndex = indexPath.row;
-    [self saveIcon];
-    [self.tableView reloadData];
-}
+- (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tv deselectRowAtIndexPath:indexPath animated:YES];
 
-- (void)resetIcon {
-    [[UIApplication sharedApplication] setAlternateIconName:nil completionHandler:^(NSError * _Nullable error) {
-        if (error) {
-            NSLog(@"Error resetting icon: %@", error.localizedDescription);
-            [self showAlertWithTitle:@"Error" message:@"Failed to reset icon"];
-        } else {
-            NSLog(@"Icon reset successfully");
-            [self showAlertWithTitle:@"Success" message:@"Icon reset successfully"];
-            [self.tableView reloadData];
-        }
-    }];
-}
+    NSString *prefsPath = [NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", kPrefDomain];
+    NSMutableDictionary *prefs = [[NSMutableDictionary alloc] initWithContentsOfFile:prefsPath] ?: [NSMutableDictionary dictionary];
 
-- (void)saveIcon {
-    if (self.selectedIconIndex < 0) {
-        [self showAlertWithTitle:@"Error" message:@"No icon selected"];
+    if (indexPath.row == 0) {
+        self.selectedIconIndex = -1;
+        prefs[kPrefEnableIconOverride] = @NO;
+        [prefs writeToFile:prefsPath atomically:YES];
+        notify_post([kPrefNotifyName UTF8String]);
+        [self.tableView reloadData];
+        [self showAlertWithTitle:@"Requested" message:@"Icon reset requested."];
         return;
     }
 
-    NSString *selectedIcon = self.appIcons[self.selectedIconIndex];
-    NSString *iconName = [selectedIcon.lastPathComponent stringByDeletingPathExtension];
+    self.selectedIconIndex = indexPath.row - 1;
+    NSString *iconName = self.appIcons[self.selectedIconIndex];
 
-    [[UIApplication sharedApplication] setAlternateIconName:iconName completionHandler:^(NSError * _Nullable error) {
-        if (error) {
-            NSLog(@"Error setting alternate icon: %@", error.localizedDescription);
-            [self showAlertWithTitle:@"Error" message:@"Failed to set alternate icon"];
-        } else {
-            NSLog(@"Alternate icon set successfully");
-            [self showAlertWithTitle:@"Success" message:@"Alternate icon set successfully"];
-            [self.tableView reloadData];
-        }
-    }];
+    prefs[kPrefEnableIconOverride] = @YES;
+    prefs[kPrefIconName] = iconName;
+
+    BOOL ok = [prefs writeToFile:prefsPath atomically:YES];
+    if (!ok) {
+        [self showAlertWithTitle:@"Error" message:@"Failed to save preference"];
+        return;
+    }
+
+    notify_post([kPrefNotifyName UTF8String]);
+    [self.tableView reloadData];
+    [self showAlertWithTitle:@"Requested" message:@"Icon change requested."];
 }
 
 - (void)showAlertWithTitle:(NSString *)title message:(NSString *)message {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
-    UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil];
-    [alert addAction:okAction];
+    UIAlertAction *ok = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil];
+    [alert addAction:ok];
     [self presentViewController:alert animated:YES completion:nil];
 }
 

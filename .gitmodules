@@ -76,8 +76,7 @@
     url = https://github.com/PoomSmart/YTIcons.git
 [submodule "Tweaks/YTUHD"]
     path = Tweaks/YTUHD
-    url = https://github.com/aricloverEXTRA/YTUHD.git
-    branch = master
+    url = https://github.com/Tonwalter888/YTUHD.git
 [submodule "Tweaks/YTVideoOverlay"]
     path = Tweaks/YTVideoOverlay
     url = https://github.com/PoomSmart/YTVideoOverlay.git
@@ -92,3 +91,9 @@
 [submodule "Tweaks/uYouLocalization"]
     path = Tweaks/uYouLocalization
     url = https://github.com/dayanch96/uYouLocalization.git
+[submodule "Tweaks/libundirect"]
+	path = Tweaks/libundirect
+	url = https://github.com/opa334/libundirect.git
+[submodule "Tweaks/YTweaks"]
+	path = Tweaks/YTweaks
+	url = https://github.com/fosterbarnes/YTweaks.git

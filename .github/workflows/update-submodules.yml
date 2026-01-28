@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v5
 
       - name: Set up Git
         run: |
@@ -61,6 +61,8 @@ jobs:
           git submodule update --init --recursive --remote Tweaks/YTUHD
           git add .
           git submodule update --init --recursive --remote Tweaks/YTVideoOverlay
+          git add .
+          git submodule update --init --recursive --remote Tweaks/YTweaks
           git add .
           git submodule update --init --recursive
           git commit -m "updated submodules"
