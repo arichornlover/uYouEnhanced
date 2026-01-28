@@ -865,7 +865,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
                     return @"v19.29.1";
                 case 87:
                     return @"v19.28.1";
-                case  deck 88:
+                case 88:
                     return @"v19.26.5";
                 case 89:
                     return @"v19.25.4";
