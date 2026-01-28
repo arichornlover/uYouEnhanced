@@ -21,6 +21,7 @@ jobs:
           cd Bundles
           rm YTWKS.bundle
           ln -s ../Tweaks/YTweaks/layout/Library/Application\ Support/YTWKS.bundle YTWKS.bundle
+          git add .
           git commit -m "updated YTweaks bundle"
           git push
         continue-on-error: true
