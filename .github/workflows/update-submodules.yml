@@ -18,7 +18,6 @@ jobs:
 
       - name: Update submodules
         run: |
-          git mv Bundles/YTweaks.bundle Bundles/YTWKS.bundle
           git submodule update --init --recursive --remote Tweaks/Alderis
           git add .
           git submodule update --init --recursive --remote Tweaks/DontEatMyContent
