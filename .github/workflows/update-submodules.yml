@@ -16,11 +16,17 @@ jobs:
            git config --global user.email "actions@github.com"
            git config --global user.name "GitHub Actions"
 
+      - name: Fix YTweaks Bundle
+        run: |
+          git cd Bundles
+          git rm YTWKS.bundle
+          git ln -s ../Tweaks/YTweaks/layout/Library/Application\ Support/YTWKS.bundle YTWKS.bundle
+          git commit -m "updated YTweaks bundle"
+          git push
+        continue-on-error: true
+
       - name: Update submodules
         run: |
-          cd Bundles
-          rm YTWKS.bundle
-          ln -s ../Tweaks/YTweaks/layout/Library/Application\ Support/YTWKS.bundle YTWKS.bundle
           git submodule update --init --recursive --remote Tweaks/Alderis
           git add .
           git submodule update --init --recursive --remote Tweaks/DontEatMyContent
