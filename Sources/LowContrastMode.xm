@@ -28,8 +28,8 @@ static inline BOOL isDarkMode() {
     return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
 }
 
-// Low Contrast Mode v1.8.0 (Compatible with YouTube v19.01.1-v20.44.2)
-%group gLowContrastMode
+// Low Contrast Mode v1.8.0 (Compatible with YouTube v19.21.2-v20.44.2)
+%group gContrastModeShared
 
 %hook UIColor
 + (UIColor *)colorNamed:(NSString *)name {
@@ -317,19 +317,16 @@ static inline BOOL isDarkMode() {
 // Constructor
 %ctor {
     %init;
-    if (lowContrastMode()) {
-        %init(gLowContrastMode);
-    }
-    if (customContrastMode()) {
-        NSData *colorData = [[NSUserDefaults standardUserDefaults] objectForKey:@"kCustomUIColor"];
-        if (colorData) {
-            NSError *error = nil;
-            NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:colorData error:&error];
-            if (!error) {
-                [unarchiver setRequiresSecureCoding:NO];
-                lcmHexColor = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
-                if (lcmHexColor) {
-                    %init(gLowContrastMode);
+    if (lowContrastMode() || customContrastMode()) {
+        %init(gContrastModeShared);
+        if (customContrastMode()) {
+            NSData *colorData = [[NSUserDefaults standardUserDefaults] objectForKey:@"kCustomUIColor"];
+            if (colorData) {
+                NSError *error = nil;
+                NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:colorData error:&error];
+                if (!error) {
+                    [unarchiver setRequiresSecureCoding:NO];
+                    lcmHexColor = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
                 }
             }
         }
