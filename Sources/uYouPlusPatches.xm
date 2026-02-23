@@ -8,18 +8,8 @@
 - (NSDictionary *)infoDictionary {
     NSDictionary *orig = %orig;
     if ([self isEqual:NSBundle.mainBundle]) {
-        NSArray<NSString *> *stack = [NSThread callStackSymbols];
-        BOOL needsSpoof = NO;
-        for (NSString *frame in stack) {
-            if ([frame containsString:@"GIDSignIn"] ||
-                [frame containsString:@"GTMSessionFetcher"] ||
-                [frame containsString:@"GoogleSignIn"]) {
-                needsSpoof = YES;
-                break;
-            }
-        }
-        if (needsSpoof) {
-            NSMutableDictionary *patched = [orig mutableCopy];
+        NSMutableDictionary *patched = [orig mutableCopy];
+        if (patched) {
             patched[@"CFBundleIdentifier"] = @"com.google.ios.youtube";
             return [patched copy];
         }
