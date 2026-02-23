@@ -36,7 +36,6 @@ static BOOL EnsurePrefsDirectoryExists(void) {
 @property (strong, nonatomic) UITableView *tableView;
 @property (strong, nonatomic) NSArray<NSString *> *appIcons;
 @property (assign, nonatomic) NSInteger selectedIconIndex;
-@property (strong, nonatomic) UIButton *backButton;
 
 @end
 
@@ -326,7 +325,6 @@ static BOOL EnsurePrefsDirectoryExists(void) {
     }
 
     NSFileManager *fm = [NSFileManager defaultManager];
-    NSError *writeError = nil;
 
     // Write preferences atomically
     BOOL success = [prefs writeToFile:path atomically:YES];
