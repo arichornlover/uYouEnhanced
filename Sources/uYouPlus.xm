@@ -400,9 +400,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %hook YTHotConfig
 - (BOOL)disableAfmaIdfaCollection { return NO; }
 %end
-
 %hook YTIPlayerResponse
-- (BOOL)isMonetized { return NO; }
 %new(@@:)
 - (NSMutableArray *)playerAdsArray {
     return [NSMutableArray array];
@@ -458,14 +456,13 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %end
 
-// uYou AdBlock Workaround (Note: disables uYou's "Remove YouTube Ads" Option) - @PoomSmart, @arichornlover & @Dodieboy
+// uYou AdBlock Workaround (Note: disables uYou's "Remove YouTube Ads" YouTube-X Option) - @PoomSmart, @arichornlover & @Dodieboy
 %group uYouAdBlockingWorkaround
 // Workaround: uYou 3.0.3 Adblock fix
 %hook YTHotConfig
 - (BOOL)disableAfmaIdfaCollection { return NO; }
 %end
 %hook YTIPlayerResponse
-- (BOOL)isMonetized { return NO; }
 %new(@@:)
 - (NSMutableArray *)playerAdsArray {
     return [NSMutableArray array];
@@ -524,8 +521,37 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     %orig;
 }
 %end
+static BOOL isProductList(YTICommand *command) {
+    if ([command respondsToSelector:@selector(yt_showEngagementPanelEndpoint)]) {
+        YTIShowEngagementPanelEndpoint *endpoint = [command yt_showEngagementPanelEndpoint];
+        return [endpoint.identifier.tag isEqualToString:@"PAproduct_list"];
+    }
+    return NO;
+}
+%hook YTWatchNextResponseViewController
+- (void)loadWithModel:(YTIWatchNextResponse *)model {
+    YTICommand *onUiReady = model.onUiReady;
+    if ([onUiReady respondsToSelector:@selector(yt_commandExecutorCommand)]) {
+        YTICommandExecutorCommand *commandExecutorCommand = [onUiReady yt_commandExecutorCommand];
+        NSMutableArray <YTICommand *> *commandsArray = commandExecutorCommand.commandsArray;
+        [commandsArray removeObjectsAtIndexes:[commandsArray indexesOfObjectsPassingTest:^BOOL(YTICommand *command, NSUInteger idx, BOOL *stop) {
+            return isProductList(command);
+        }]];
+    }
+    if (isProductList(onUiReady))
+        model.onUiReady = nil;
+    %orig;
+}
+%end
+%hook YTMainAppVideoPlayerOverlayViewController
+- (void)playerOverlayProvider:(YTPlayerOverlayProvider *)provider didInsertPlayerOverlay:(YTPlayerOverlay *)overlay {
+    if ([[overlay overlayIdentifier] isEqualToString:@"player_overlay_product_in_video"]) return;
+    %orig;
+}
+%end
 NSString *getAdString(NSString *description) {
-    for (NSString *str in @[        @"brand_promo",
+    for (NSString *str in @[
+        @"brand_promo",
         @"carousel_footered_layout",
         @"carousel_headered_layout",
         @"eml.expandable_metadata",
@@ -545,9 +571,8 @@ NSString *getAdString(NSString *description) {
         @"text_search_ad",
         @"video_display_full_layout",
         @"video_display_full_buttoned_layout"
-    ]) 
+    ])
         if ([description containsString:str]) return str;
-
     return nil;
 }
 static BOOL isAdRenderer(YTIElementRenderer *elementRenderer, int kind) {

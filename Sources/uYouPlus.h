@@ -42,13 +42,14 @@
 #import <YouTubeHeader/YTIPlayerBarDecorationModel.h>
 #import <YouTubeHeader/YTISectionListRenderer.h>
 #import <YouTubeHeader/YTIStringRun.h>
+#import <YouTubeHeader/YTIWatchNextResponse.h>
 #import <YouTubeHeader/YTMainAppVideoPlayerOverlayViewController.h>
 #import <YouTubeHeader/YTMainAppVideoPlayerOverlayView.h>
 #import <YouTubeHeader/YTNavigationBarTitleView.h>
 #import <YouTubeHeader/YTPlayerBarController.h>
 #import <YouTubeHeader/YTPlayerBarRectangleDecorationView.h>
 #import <YouTubeHeader/YTPlayerOverlay.h>
- #import <YouTubeHeader/YTPlayerOverlayProvider.h>
+#import <YouTubeHeader/YTPlayerOverlayProvider.h>
 #import <YouTubeHeader/QTMIcon.h>
 #import <YouTubeHeader/YTReelModel.h>
 #import <YouTubeHeader/YTReelWatchPlaybackOverlayView.h>
