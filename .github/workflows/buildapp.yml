@@ -38,8 +38,8 @@ on:
         type: string
       upload_artifact:
         description: "Upload IPA as artifact"
-        default: false
-        required: false
+        default: true
+        required: true
         type: boolean
       create_release:
         description: "Create a draft release"
