@@ -19,7 +19,7 @@ on:
       decrypted_youtube_url:
         description: "Direct URL of the decrypted YouTube IPA"
         default: ""
-        required: true
+        required: false
         type: string
       bundle_id:
         description: "Modify the bundle ID"
@@ -124,7 +124,6 @@ jobs:
       - name: Prepare YouTube iPA
         id: prepare_youtube
         run: |
-          wget "$YOUTUBE_URL" --quiet --no-verbose -O main/YouTube.ipa
           cd ${{ github.workspace }}/main
           mv YouTube.ipa YouTube.zip
           unzip -q YouTube.zip
