@@ -128,6 +128,10 @@ jobs:
           cd ${{ github.workspace }}/main
           mv YouTube.ipa YouTube.zip
           unzip -q YouTube.zip
+          
+          # Usuwanie problematycznych rozszerzeń (w tym AppMigrationExtension), które wywalają błąd Bundle ID
+          rm -rf Payload/YouTube.app/PlugIns/*
+          
           youtube_version=$(defaults read "$(pwd)/Payload/YouTube.app/Info" CFBundleVersion)
           echo "==> YouTube v$youtube_version downloaded!"
           sed -i '' "17s#.*#YOUTUBE_VERSION = ${youtube_version}#g" Makefile
@@ -136,7 +140,6 @@ jobs:
         env:
           THEOS: ${{ github.workspace }}/theos
           YOUTUBE_URL: ${{ env.URL_YT }}
-
       - name: Fix compiling & Build Package
         id: build_package
         run: |
