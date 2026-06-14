@@ -1,0 +1,58 @@
+name: "Copilot Setup Steps"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install dependencies (Theos, dpkg, ldid, etc.)
+        run: |
+          sudo apt update
+          sudo apt install -y git perl clang make unzip dpkg-dev
+          git clone --recursive https://github.com/theos/theos.git $HOME/theos
+
+      - name: Export THEOS
+        run: echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+
+      - name: Validate submodules
+        run: |
+          echo "Checking submodule status..."
+          git submodule status
+          echo "If any submodule is uninitialized or mismatched, Copilot will flag it."
+
+      - name: Check for YouTube version mismatch
+        run: |
+          echo "Detecting YouTube version used by uYouEnhanced..."
+          YT_VERSION_FILE=$(grep -R "YouTube" -n ./ | head -n 1 | cut -d: -f1)
+          echo "Found version reference in: $YT_VERSION_FILE"
+          echo "This helps Copilot detect when patches break due to upstream updates."
+
+      - name: Collect build logs
+        run: |
+          mkdir -p build-logs
+          cp -r ./obj/* build-logs/ 2>/dev/null || true
+          cp ./packages/*.deb build-logs/ 2>/dev/null || true
+          echo "Logs collected for Copilot to analyze."
+
+      - name: Upload logs for Copilot
+        uses: actions/upload-artifact@v7
+        with:
+          name: uyouenhanced-build-logs
+          path: build-logs
