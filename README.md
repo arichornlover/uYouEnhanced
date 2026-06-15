@@ -5,15 +5,15 @@
 
 # Switch from uYouEnhanced to YouMod (optional)
 
-Hello, this is here to showcase this tweak. I have been seeing the posts about the YouMod tweak on GitHub for a little bit of time now and decided to add it here. Before you download or check out the tweak, you should take a look at the pros and cons below to learn more about YTModPlus.
+Hello, this is here to showcase this tweak. I have been seeing the posts about the YouMod tweak on GitHub for a little bit of time now and decided to add it here. Before you download or check out the tweak, you should take a look at the pros and cons below to learn more about YouMod before you transition to it!
 
-https://github.com/YTLitePlus/YTLitePlus/releases
+https://github.com/Tonwalter888/YouMod
 
-**YTModPlus - Pros**
+**YouMod - Pros**
 
 TBA
 
-**YTModPlus - Cons**
+**YouMod - Cons**
 
 TBA
 
