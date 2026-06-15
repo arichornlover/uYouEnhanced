@@ -1,31 +1,22 @@
-## Lightweight Alternative - YouMod / YTModPlus
+## Lightweight Alternative - YouMod
 
 <details>
     <summary>Read more</summary><br>
 
-# Switch from uYouEnhanced to either YTMod or YTModPlus (optional)
+# Switch from uYouEnhanced to YouMod (optional)
 
-Hello, this is here to showcase this tweak. I have been seeing the posts about the YTLitePlus tweak on Reddit for quite some time now and decided to add it here. Before you download or check out the tweak, you should take a look at the pros and cons below to learn more about YTModPlus.
+Hello, this is here to showcase this tweak. I have been seeing the posts about the YouMod tweak on GitHub for a little bit of time now and decided to add it here. Before you download or check out the tweak, you should take a look at the pros and cons below to learn more about YTModPlus.
 
 https://github.com/YTLitePlus/YTLitePlus/releases
 
 **YTModPlus - Pros**
 
-- YTModPlus is stable and more customizable than uYouPlus/uYouEnhanced. (same goes for the regular YouMod, it's stable based on my testing of using it)
-
-- YTModPlus provides more features in YouMod & YTModPlus Sections in Settings that uYouPlus/uYouEnhanced may not have.
-
-- YTModPlus includes a lightweight version of the App Version Spoofer, making it easier to use.
-
-- YTModPlus does not cause your device to overheat, unlike uYouPlus/uYouEnhanced.
-
-- YTModPlus provides faster video & audio downloading than uYouPlus/uYouEnhanced.
+TBA
 
 **YTModPlus - Cons**
 
-- Video quality on WiFi option is not available in YTModPlus. (unconfirmed as of 2026)
+TBA
 
-- Reordering the pivot bar tabs such as `Home`, `Shorts`, `Explore`, `Trending`, `Create`, `Subscriptions` & `You` is not available in YTModPlus. (unconfirmed as of 2026)
 </details>
 
 ## About the future of the uYouEnhanced Project (Updated, June 13, 2025)
