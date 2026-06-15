@@ -1,31 +1,31 @@
-## Lightweight Alternative - YTLite / YTLitePlus
+## Lightweight Alternative - YouMod / YTModPlus
 
 <details>
     <summary>Read more</summary><br>
 
-# Switch from uYouEnhanced to either YTLite or YTLitePlus (optional)
+# Switch from uYouEnhanced to either YTMod or YTModPlus (optional)
 
-Hello, this is here to showcase this tweak. I have been seeing the posts about the YTLitePlus tweak on Reddit for quite some time now and decided to add it here. Before you download or check out the tweak, you should take a look at the pros and cons below to learn more about YTLitePlus.
+Hello, this is here to showcase this tweak. I have been seeing the posts about the YTLitePlus tweak on Reddit for quite some time now and decided to add it here. Before you download or check out the tweak, you should take a look at the pros and cons below to learn more about YTModPlus.
 
 https://github.com/YTLitePlus/YTLitePlus/releases
 
-**YTLitePlus - Pros**
+**YTModPlus - Pros**
 
-- YTLitePlus is stable and more customizable than uYouPlus/uYouEnhanced. (same goes for the regular YTLite, it's stable based on my testing of using it)
+- YTModPlus is stable and more customizable than uYouPlus/uYouEnhanced. (same goes for the regular YouMod, it's stable based on my testing of using it)
 
-- YTLitePlus provides more features in YTLite & YTLitePlus Sections in Settings that uYouPlus/uYouEnhanced may not have.
+- YTModPlus provides more features in YouMod & YTModPlus Sections in Settings that uYouPlus/uYouEnhanced may not have.
 
-- YTLitePlus includes a lightweight and simplified version of the App Version Spoofer, making it easier to use.
+- YTModPlus includes a lightweight version of the App Version Spoofer, making it easier to use.
 
-- YTLitePlus does not cause your device to overheat, unlike uYouPlus/uYouEnhanced.
+- YTModPlus does not cause your device to overheat, unlike uYouPlus/uYouEnhanced.
 
-- YTLitePlus provides faster video & audio downloading than uYouPlus/uYouEnhanced.
+- YTModPlus provides faster video & audio downloading than uYouPlus/uYouEnhanced.
 
-**YTLitePlus - Cons**
+**YTModPlus - Cons**
 
-- Video quality on WiFi option is not available in YTLitePlus.
+- Video quality on WiFi option is not available in YTModPlus. (unconfirmed as of 2026)
 
-- Reordering the pivot bar tabs such as `Home`, `Shorts`, `Explore`, `Trending`, `Create`, `Subscriptions` & `You` is not available in YTLitePlus.
+- Reordering the pivot bar tabs such as `Home`, `Shorts`, `Explore`, `Trending`, `Create`, `Subscriptions` & `You` is not available in YTModPlus. (unconfirmed as of 2026)
 </details>
 
 ## About the future of the uYouEnhanced Project (Updated, June 13, 2025)
@@ -38,7 +38,7 @@ I do my best to fix stuff when some issues pop up, but it sometimes usually does
 But as of writing this, I’d recommend using uYouEnhanced with YouTube version v20.22.1 or higher.
 Thanks for understanding!
 
-And thanks to the developers qnblackcat, PoomSmart & other  allowing me to expand this fork from where it is today!
+And thanks to the developers qnblackcat, PoomSmart & others allowing me to expand this fork from where it is today!
 
 <p align="center">
   <a href="https://user-images.githubusercontent.com/78001398/271790092-006e81cc-715a-4fbc-aff6-15832e2da8c4.png">
