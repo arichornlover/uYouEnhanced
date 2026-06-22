@@ -5,54 +5,208 @@ on:
   push:
     paths:
       - .github/workflows/copilot-setup-steps.yml
+      - Makefile
+      - control
   pull_request:
     paths:
       - .github/workflows/copilot-setup-steps.yml
+      - Makefile
+      - control
+
+env:
+  THEOS: ${{ github.workspace }}/theos
+  BUILD_LOGS_DIR: build-logs
+  ARTIFACTS_RETENTION_DAYS: 30
 
 jobs:
-  copilot-setup-steps:
+  setup-validation:
+    name: Validate Setup & Environment
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
-
+    
+    outputs:
+      yt-version: ${{ steps.detect-version.outputs.version }}
+      submodule-status: ${{ steps.validate-submodules.outputs.status }}
+    
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup build environment
+        run: |
+          echo "Setting up Theos and build dependencies..."
+          sudo apt update
+          sudo apt install -y \
+            git \
+            perl \
+            clang \
+            make \
+            unzip \
+            dpkg-dev \
+            ldid \
+            curl
+          
+          if [ ! -d "${{ env.THEOS }}" ]; then
+            git clone --recursive https://github.com/theos/theos.git "${{ env.THEOS }}"
+            echo "Theos cloned successfully"
+          else
+            echo "Theos already present"
+          fi
+
+      - name: Validate submodules
+        id: validate-submodules
+        run: |
+          echo "Checking submodule status..."
+          SUBMODULE_STATUS=$(git submodule status)
+          echo "$SUBMODULE_STATUS"
+          
+          if echo "$SUBMODULE_STATUS" | grep -E "^\-|^\+"; then
+            echo "⚠️  WARNING: Uninitialized or mismatched submodules detected"
+            echo "status=warning" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "✓ All submodules initialized correctly"
+            echo "status=ok" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Detect YouTube version
+        id: detect-version
+        run: |
+          echo "Detecting YouTube version used by uYouEnhanced..."
+          
+          # Try multiple version detection methods
+          YT_VERSION=$(grep -r "YOUTUBE_VERSION\|YT_VERSION\|TWEAKED_VERSION" . \
+            --include="*.h" --include="*.m" --include="*.logos" 2>/dev/null | head -1 | cut -d: -f2 | xargs || echo "unknown")
+          
+          if [ -z "$YT_VERSION" ] || [ "$YT_VERSION" = "unknown" ]; then
+            YT_VERSION=$(grep -r "YouTube" control 2>/dev/null | grep -oE "[0-9]+\.[0-9]+(\.[0-9]+)?" | head -1 || echo "unknown")
+          fi
+          
+          echo "YouTube Version: $YT_VERSION"
+          echo "version=$YT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check build artifacts directory structure
+        run: |
+          echo "Verifying directory structure..."
+          echo "Project root contents:"
+          ls -la
+          
+          if [ -d "obj" ]; then
+            echo "Build directory (obj) found"
+          else
+            echo "⚠️  No build directory yet (expected on first run)"
+          fi
+          
+          if [ -d "packages" ]; then
+            echo "Packages directory found"
+            ls -la packages/
+          fi
+
+      - name: Create build logs directory
+        run: |
+          mkdir -p "${{ env.BUILD_LOGS_DIR }}"
+          echo "Build logs directory created"
+
+  collect-artifacts:
+    name: Collect Build Artifacts & Logs
+    runs-on: ubuntu-latest
+    needs: setup-validation
+    permissions:
+      contents: read
+    
+    if: always()
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install dependencies (Theos, dpkg, ldid, etc.)
+      - name: Create organized logs structure
         run: |
-          sudo apt update
-          sudo apt install -y git perl clang make unzip dpkg-dev
-          git clone --recursive https://github.com/theos/theos.git $HOME/theos
+          mkdir -p "${{ env.BUILD_LOGS_DIR }}"/{build,theos,system}
+          
+          echo "=== Build Environment Information ===" > "${{ env.BUILD_LOGS_DIR }}/system/environment.log"
+          echo "Timestamp: $(date -u)" >> "${{ env.BUILD_LOGS_DIR }}/system/environment.log"
+          echo "OS: $(lsb_release -ds)" >> "${{ env.BUILD_LOGS_DIR }}/system/environment.log"
+          echo "Architecture: $(uname -m)" >> "${{ env.BUILD_LOGS_DIR }}/system/environment.log"
+          echo "" >> "${{ env.BUILD_LOGS_DIR }}/system/environment.log"
+          echo "=== Tool Versions ===" >> "${{ env.BUILD_LOGS_DIR }}/system/environment.log"
+          clang --version >> "${{ env.BUILD_LOGS_DIR }}/system/environment.log" 2>&1 || echo "clang not found"
+          make --version >> "${{ env.BUILD_LOGS_DIR }}/system/environment.log" 2>&1 || echo "make not found"
+          perl --version >> "${{ env.BUILD_LOGS_DIR }}/system/environment.log" 2>&1 || echo "perl not found"
 
-      - name: Export THEOS
-        run: echo "THEOS=$HOME/theos" >> $GITHUB_ENV
-
-      - name: Validate submodules
+      - name: Collect build outputs
         run: |
-          echo "Checking submodule status..."
-          git submodule status
-          echo "If any submodule is uninitialized or mismatched, Copilot will flag it."
+          if [ -d "obj" ]; then
+            echo "Copying build objects..."
+            find obj -type f -name "*.o" -o -name "*.d" | head -20 | xargs -I {} cp {} "${{ env.BUILD_LOGS_DIR }}/build/" 2>/dev/null || true
+            ls -la obj/ > "${{ env.BUILD_LOGS_DIR }}/build/obj_structure.log"
+          fi
+          
+          if [ -d "packages" ]; then
+            echo "Copying package artifacts..."
+            cp -v packages/*.deb "${{ env.BUILD_LOGS_DIR }}/build/" 2>/dev/null || echo "No .deb packages found"
+            ls -lah packages/ > "${{ env.BUILD_LOGS_DIR }}/build/packages_list.log"
+          fi
+          
+          echo "✓ Artifacts collected"
 
-      - name: Check for YouTube version mismatch
+      - name: Collect source file information
         run: |
-          echo "Detecting YouTube version used by uYouEnhanced..."
-          YT_VERSION_FILE=$(grep -R "YouTube" -n ./ | head -n 1 | cut -d: -f1)
-          echo "Found version reference in: $YT_VERSION_FILE"
-          echo "This helps Copilot detect when patches break due to upstream updates."
+          echo "=== Source File Statistics ===" > "${{ env.BUILD_LOGS_DIR }}/build/sources.log"
+          find . -name "*.logos" -o -name "*.m" -o -name "*.h" | wc -l >> "${{ env.BUILD_LOGS_DIR }}/build/sources.log"
+          echo "Source files listed:" >> "${{ env.BUILD_LOGS_DIR }}/build/sources.log"
+          find . -name "*.logos" -o -name "*.m" -o -name "*.h" | sort >> "${{ env.BUILD_LOGS_DIR }}/build/sources.log"
 
-      - name: Collect build logs
+      - name: Generate summary report
         run: |
-          mkdir -p build-logs
-          cp -r ./obj/* build-logs/ 2>/dev/null || true
-          cp ./packages/*.deb build-logs/ 2>/dev/null || true
-          echo "Logs collected for Copilot to analyze."
+          cat > "${{ env.BUILD_LOGS_DIR }}/SUMMARY.md" << 'EOF'
+          # uYouEnhanced Setup Report
+          
+          ## Build Information
+          - **Date**: $(date -u)
+          - **Workflow**: Copilot Setup Steps
+          - **YouTube Version**: ${{ needs.setup-validation.outputs.yt-version }}
+          - **Submodule Status**: ${{ needs.setup-validation.outputs.submodule-status }}
+          
+          ## Directory Structure
+          ```
+          build-logs/
+          ├── build/          # Build artifacts and outputs
+          ├── theos/          # Theos framework information
+          └── system/         # System environment logs
+          ```
+          
+          ## Files Generated
+          - `system/environment.log` - System and tool versions
+          - `build/obj_structure.log` - Build object directory structure
+          - `build/packages_list.log` - Generated packages list
+          - `build/sources.log` - Source file statistics
+          
+          **For Copilot Analysis**: Check the organized logs above for setup validation and artifact information.
+          EOF
+          cat "${{ env.BUILD_LOGS_DIR }}/SUMMARY.md"
 
-      - name: Upload logs for Copilot
+      - name: Upload organized logs
         uses: actions/upload-artifact@v7
         with:
           name: uyouenhanced-build-logs
-          path: build-logs
+          path: ${{ env.BUILD_LOGS_DIR }}/
+          retention-days: ${{ env.ARTIFACTS_RETENTION_DAYS }}
+          if-no-files-found: warn
+        if: always()
+
+      - name: Log summary
+        run: |
+          echo "========================================="
+          echo "Setup Validation Complete"
+          echo "========================================="
+          echo "YouTube Version Detected: ${{ needs.setup-validation.outputs.yt-version }}"
+          echo "Submodules Status: ${{ needs.setup-validation.outputs.submodule-status }}"
+          echo "Artifacts uploaded: uyouenhanced-build-logs"
+          echo "========================================="
