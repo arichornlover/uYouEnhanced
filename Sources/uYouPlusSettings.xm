@@ -484,7 +484,6 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     SWITCH2(LOC(@"HIDE_FULLSCREEN_ACTION_BUTTONS"), LOC(@"HIDE_FULLSCREEN_ACTION_BUTTONS_DESC"), kHideFullscreenActions);
     SWITCH2(LOC(@"HIDE_SUGGESTED_VIDEO"), LOC(@"HIDE_SUGGESTED_VIDEO_DESC"), kHideSuggestedVideo);
     SWITCH2(LOC(@"HIDE_HEATWAVES_BAR"), LOC(@"HIDE_HEATWAVES_BAR_DESC"), kHideHeatwaves);
-    SWITCH2(LOC(@"HIDE_DOUBLE_TAP_TO_SEEK_OVERLAY"), LOC(@"HIDE_DOUBLE_TAP_TO_SEEK_OVERLAY_DESC"), kHideDoubleTapToSeekOverlay);
     SWITCH2(LOC(@"HIDE_DARK_OVERLAY_BACKGROUND"), LOC(@"HIDE_DARK_OVERLAY_BACKGROUND_DESC"), kHideOverlayDarkBackground);
     SWITCH2(LOC(@"HIDE_AMBIENT_MODE_IN_FULLSCREEN"), LOC(@"HIDE_AMBIENT_MODE_IN_FULLSCREEN_DESC"), kDisableAmbientMode);
     SWITCH2(LOC(@"HIDE_SUGGESTED_VIDEOS_IN_FULLSCREEN"), LOC(@"HIDE_SUGGESTED_VIDEOS_IN_FULLSCREEN_DESC"), kHideVideosInFullscreen);
@@ -665,24 +664,6 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     ];
     [sectionItems addObject:lowContrastModeButton];
     SWITCH2(LOC(@"CLASSIC_VIDEO_PLAYER"), LOC(@"CLASSIC_VIDEO_PLAYER_DESC"), kClassicVideoPlayer);
-    SWITCH2(LOC(@"DISABLE_ROUNDED_CORNERS_ON_HINTS"), LOC(@"DISABLE_ROUNDED_CORNERS_ON_HINTS_DESC"), kDisableRoundedHints);
-    SWITCH3(
-        LOC(@"YTNOMODERNUI"), 
-        LOC(@"YTNOMODERNUI_DESC"), 
-        kYTNoModernUI,
-        ({
-            if (enable) {
-                UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Warning" message:@"This will force-enable other settings on restart. To disable them, you must turn this setting off. (YTNoModernUI is Deprecated)" preferredStyle:UIAlertControllerStyleAlert];
-                UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil];
-                [alert addAction:okAction];
-                [settingsViewController presentViewController:alert animated:YES completion:nil];
-            }
-            [[NSUserDefaults standardUserDefaults] setBool:enable forKey:kYTNoModernUI];
-            [settingsViewController reloadData];
-            SHOW_RELAUNCH_YT_SNACKBAR;
-            return YES;
-        });
-    );
     SWITCH2(LOC(@"ENABLE_APP_VERSION_SPOOFER"), LOC(@"ENABLE_APP_VERSION_SPOOFER_DESC"), kEnableVersionSpoofer);
     YTSettingsSectionItem *versionSpoofer = [%c(YTSettingsSectionItem)
         itemWithTitle:LOC(@"VERSION_SPOOFER_SELECTOR")
@@ -847,7 +828,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     SWITCH3(
         LOC(@"FAKE_PREMIUM"),
         LOC(@"FAKE_PREMIUM_DESC"),
-        kYouTabFakePremium,
+        kYTPremiumLogo,
         ({
             // Get the current version (including spoofed versions)
             Class YTVersionUtilsClass = %c(YTVersionUtils);
