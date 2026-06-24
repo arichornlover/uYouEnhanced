@@ -1969,13 +1969,6 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
         %init(gFixCasting);
     }
 
-    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
-    [userDefaults setBool:ytNoModernUIEnabled ? ytNoModernUIEnabled : [userDefaults boolForKey:kDisableModernButtons] forKey:kDisableModernButtons];
-    [userDefaults setBool:ytNoModernUIEnabled ? ytNoModernUIEnabled : [userDefaults boolForKey:kDisableRoundedHints] forKey:kDisableRoundedHints];
-    [userDefaults setBool:ytNoModernUIEnabled ? ytNoModernUIEnabled : [userDefaults boolForKey:kDisableModernFlags] forKey:kDisableModernFlags];
-    [userDefaults setBool:ytNoModernUIEnabled ? ytNoModernUIEnabled : [userDefaults boolForKey:kDisableAmbientMode] forKey:kDisableAmbientMode];
-    [userDefaults setBool:ytNoModernUIEnabled ? ytNoModernUIEnabled : [userDefaults boolForKey:kRedProgressBar] forKey:kRedProgressBar];
-
     // Change the default value of some options
     NSArray *allKeys = [[[NSUserDefaults standardUserDefaults] dictionaryRepresentation] allKeys];
     if (![allKeys containsObject:kHidePlayNextInQueue]) {
