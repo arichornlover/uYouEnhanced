@@ -1944,9 +1944,6 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     if (IS_ENABLED(kHidePremiumPromos)) {
         %init(gHidePremiumPromos);
     }
-    if (IS_ENABLED(kYTPremiumLogo)) {
-        %init(gFakePremium);
-    }
     if (IS_ENABLED(kDisablePullToFull)) {
         %init(gDisablePullToFull);
     }
