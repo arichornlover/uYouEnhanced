@@ -988,7 +988,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %end
 %end
 
-// Disable Ambient Mode in Fullscreen - @arichornlover
+// Disable Ambient Mode in Fullscreen - v21.10.2+ - @arichornlover
 %group gDisableAmbientMode
 %hook YTCinematicContainerView
 - (BOOL)watchFullScreenCinematicSupported {
@@ -1003,19 +1003,14 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 - (BOOL)enableCinematicContainer { return NO; }
 - (BOOL)enableCinematicContainerOnClient { return NO; }
 - (BOOL)enableCinematicContainerOnTablet { return NO; }
-- (BOOL)enableTurnOffCinematicForFrameWithBlackBars { return YES; }
-- (BOOL)enableTurnOffCinematicForVideoWithBlackBars { return YES; }
 - (BOOL)iosCinematicContainerClientImprovement { return NO; }
-- (BOOL)iosEnableGhostCardInlineTitleCinematicContainerFix { return NO; }
-- (BOOL)iosUseFineScrubberMosaicStoreForCinematic { return NO; }
 - (BOOL)mainAppCoreClientEnableClientCinematicPlaylists { return NO; }
 - (BOOL)mainAppCoreClientEnableClientCinematicPlaylistsPostMvp { return NO; }
 - (BOOL)mainAppCoreClientEnableClientCinematicTablets { return NO; }
-- (BOOL)iosEnableFullScreenAmbientMode { return NO; }
 %end
 %end
 
-// Hide YouTube Heatwaves in Video Player - v17.33.2+ - @arichornlover
+// Hide YouTube Heatwaves in Video Player - v20.02.3+ - @arichornlover
 %group gHideHeatwaves
 %hook YTInlinePlayerBarContainerView
 - (BOOL)canShowHeatwave { return NO; }
@@ -1194,61 +1189,6 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 - (void)enableDoubleTapToSeek:(BOOL)arg1 {
     return IS_ENABLED(kDoubleTapToSeek) ? %orig(NO) : %orig;
 }
-%end
-
-// Hide double tap to seek overlay - @arichornlover & @bhackel
-%group gHideDoubleTapToSeekOverlay
-%hook YTInlinePlayerDoubleTapIndicatorView
-%property(nonatomic, strong) CABasicAnimation *uYouEnhancedBlankAlphaAnimation;
-%property(nonatomic, strong) CABasicAnimation *uYouEnhancedBlankColorAnimation;
-/**
- * @return A clear color animation
- */
-%new
-- (CABasicAnimation *)uYouEnhancedGetBlankColorAnimation {
-    if (!self.uYouEnhancedBlankColorAnimation) {
-        // Create a new basic animation for the color property
-        self.uYouEnhancedBlankColorAnimation = [CABasicAnimation animationWithKeyPath:@"backgroundColor"];
-        // Set values to 0 to prevent visibility
-        self.uYouEnhancedBlankColorAnimation.fromValue = (id)[UIColor clearColor].CGColor;
-        self.uYouEnhancedBlankColorAnimation.toValue = (id)[UIColor clearColor].CGColor;
-        self.uYouEnhancedBlankColorAnimation.duration = 0.0;
-        self.uYouEnhancedBlankColorAnimation.fillMode = kCAFillModeForwards;
-        self.uYouEnhancedBlankColorAnimation.removedOnCompletion = NO;
-    }
-    return self.uYouEnhancedBlankColorAnimation;
-}
-// Replace all color animations with a clear one
-- (CABasicAnimation *)fillColorAnimation {
-    return [self uYouEnhancedGetBlankColorAnimation];
-}
-- (CABasicAnimation *)earlyBackgroundColorAnimation {
-    return [self uYouEnhancedGetBlankColorAnimation];
-}
-- (CABasicAnimation *)laterBackgroundcolorAnimation {
-    return [self uYouEnhancedGetBlankColorAnimation];
-}
-// Replace the opacity animation with a clear one
-- (CABasicAnimation *)alphaAnimation {
-    if (!self.uYouEnhancedBlankAlphaAnimation) {
-        // Create a new basic animation for the opacity property
-        self.uYouEnhancedBlankAlphaAnimation = [CABasicAnimation animationWithKeyPath:@"opacity"];
-        // Set values to 0 to prevent visibility
-        self.uYouEnhancedBlankAlphaAnimation.fromValue = @0.0;
-        self.uYouEnhancedBlankAlphaAnimation.toValue = @0.0;
-        self.uYouEnhancedBlankAlphaAnimation.duration = 0.0;
-        self.uYouEnhancedBlankAlphaAnimation.fillMode = kCAFillModeForwards;
-        self.uYouEnhancedBlankAlphaAnimation.removedOnCompletion = NO; 
-    }
-    return self.uYouEnhancedBlankAlphaAnimation;
-}
-// Remove the screen darkening effect
-- (void)layoutSubviews {
-    %orig;
-    // Set the 0th subview (which darkens the screen) to hidden
-    self.subviews[0].hidden = YES;
-}
-%end
 %end
 
 // Disable pull to enter vertical/portrait fullscreen gesture - @bhackel
@@ -2046,9 +1986,6 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     if (IS_ENABLED(kAutoHideHomeBar)) {
         %init(gAutoHideHomeBar);
     }
-    if (IS_ENABLED(kHideDoubleTapToSeekOverlay)) {
-        %init(gHideDoubleTapToSeekOverlay);
-    }
     if (IS_ENABLED(kShortsQualityPicker)) {
         %init(gShortsQualityPicker);
     }
@@ -2056,7 +1993,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
         %init(gFixCasting);
     }
 
-    // YTNoModernUI - @arichornlover
+    // YTNoModernUI (DEPRECATED) - @arichornlover
     BOOL ytNoModernUIEnabled = IS_ENABLED(kYTNoModernUI);
     if (ytNoModernUIEnabled) {
         NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
