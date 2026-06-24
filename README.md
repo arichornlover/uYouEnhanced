@@ -368,13 +368,6 @@ And thanks to the developers qnblackcat, PoomSmart & others allowing me to expan
 
 </details>
 
-# uYou Tweak Compatibility List (Deprecated List)
-
-| Developer | Tweak Name and Version | App Version Compatibility | iOS Version Compatibility | List Removal |
-|-----------|-----------------------|--------------------------|--------------------------|--------------------------|
-| MiRO92 | uYou 3.0.2 / 3.0.3 | v19.06.2 - v19.15.1 | iOS 15 - iOS 18 |
-| MiRO92 | uYou 3.0.4 | v19.20.2 - v19.22.6 | iOS 15 - iOS 18 |
-
 # Building
 
 See [arichornlover/Building - Wiki](https://github.com/arichornlover/uYouEnhanced/wiki/Building)
