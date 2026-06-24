@@ -499,16 +499,13 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 + (id)spamSignalsDictionary { return @{ @"ms": @"" }; }
 + (id)spamSignalsDictionaryWithoutIDFA { return @{}; }
 %end
-%hook YTAdsInnerTubeContextDecorator
-- (void)decorateContext:(id)context { %orig(nil); }
-%end
-%hook YTAccountScopedAdsInnerTubeContextDecorator
-- (void)decorateContext:(id)context { %orig(nil); }
-%end
 %hook YTLocalPlaybackController
 - (id)createAdsPlaybackCoordinator { return nil; }
 %end
 %hook MDXSession
+- (void)adPlaying:(id)ad {}
+%end
+%hook MDXSessionImpl
 - (void)adPlaying:(id)ad {}
 %end
 %hook YTReelDataSource
@@ -564,6 +561,7 @@ static BOOL isProductList(YTICommand *command) {
 NSString *getAdString(NSString *description) {
     for (NSString *str in @[
         @"brand_promo",
+        @"brand_video_singleton",
         @"carousel_footered_layout",
         @"carousel_headered_layout",
         @"eml.expandable_metadata",
@@ -750,13 +748,13 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 
 // A/B flags
 %hook YTColdConfig 
-- (BOOL)respectDeviceCaptionSetting { return NO; } // YouRememberCaption: https://poomsmart.github.io/repo/depictions/youremembercaption.html
-- (BOOL)isLandscapeEngagementPanelSwipeRightToDismissEnabled { return YES; } // Swipe right to dismiss the right panel in fullscreen mode
+- (BOOL)respectDeviceCaptionSetting { return NO; } // YouRememberCaption: https://poomsmart.github.io/repo/depictions/youremembercaption.html - deprecated flag ⚠️
+- (BOOL)isLandscapeEngagementPanelSwipeRightToDismissEnabled { return YES; } // Swipe right to dismiss the right panel in fullscreen mode - deprecated flag ⚠️
 - (BOOL)enableModularPlayerBarController { return NO; } // fixes some of the iSponorBlock problems
 - (BOOL)mainAppCoreClientEnableCairoSettings { return IS_ENABLED(@"newSettingsUI_enabled"); } // New grouped settings UI
 - (BOOL)enableIosFloatingMiniplayer { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer
-- (BOOL)enableIosFloatingMiniplayerSwipeUpToExpand { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer
-- (BOOL)enableIosFloatingMiniplayerRepositioning { return IS_ENABLED(@"floatingMiniplayer2_enabled"); } // Floating Miniplayer (Repositioning Support, Removes Swiping Up Gesture)
+- (BOOL)enableIosFloatingMiniplayerSwipeUpToExpand { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer - deprecated flag ⚠️
+- (BOOL)enableIosFloatingMiniplayerRepositioning { return IS_ENABLED(@"floatingMiniplayer2_enabled"); } // Floating Miniplayer (Repositioning Support, Removes Swiping Up Gesture) - deprecated flag ⚠️
 %end
 
 // Fix Casting: https://github.com/arichornlover/uYouEnhanced/issues/606#issuecomment-2098289942
@@ -767,7 +765,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 - (BOOL)cxClientEnableIosLocalNetworkPermissionWifiFixes { return YES; }
 %end
 %hook YTHotConfig
-- (BOOL)isPromptForLocalNetworkPermissionsEnabled { return YES; }
+- (BOOL)isPromptForLocalNetworkPermissionsEnabled { return YES; } // deprecated flag ⚠️
 %end
 %end
 
@@ -790,19 +788,26 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 - (BOOL)canShowThrottledPromoWithFrequencyCaps:(id)arg1 { return NO; }
 %end
 
+%hook YTPromoThrottleControllerImpl
+- (BOOL)canShowThrottledPromo { return NO; }
+- (BOOL)canShowThrottledPromoWithFrequencyCap:(id)arg1 { return NO; }
+- (BOOL)canShowThrottledPromoWithFrequencyCaps:(id)arg1 { return NO; }
+%end
+
 %hook YTIShowFullscreenInterstitialCommand
-- (BOOL)shouldThrottleInterstitial { return YES; }
+- (BOOL)shouldThrottleInterstitial {
+    if (self.hasModalClientThrottlingRules)
+        self.modalClientThrottlingRules.oncePerTimeWindow = YES;
+    return %orig;
+}
+%end
+
+%hook YTSettingsSectionItemManager
+- (void)updatePremiumEarlyAccessSectionWithEntry:(id)arg1 {}
 %end
 
 %hook YTSurveyController
 - (void)showSurveyWithRenderer:(id)arg1 surveyParentResponder:(id)arg2 {}
-%end
-
-%hook YTIOfflineabilityFormat
-%new
-- (int)availabilityType { return 1; }
-%new
-- (BOOL)savedSettingShouldExpire { return NO; }
 %end
 
 // Restore Settings Button in Navigaton Bar - @arichornlover & @bhackel - https://github.com/arichornlover/uYouEnhanced/issues/178
@@ -1369,7 +1374,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 }
 %end
 
-%hook YTInlinePlayerBarContainerView // Red Progress Bar - Old (Compatible for v17.33.2-v19.10.7)
+%hook YTInlinePlayerBarContainerView // Red Progress Bar - Old (Compatible for v17.33.2-v19.10.7) - Planned for removal ⚠️
 - (id)quietProgressBarColor {
     return [UIColor redColor];
 }
@@ -1433,7 +1438,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 - (BOOL)enablePlayerBarForVerticalVideoWhenControlsHiddenInFullscreen { return YES; }
 %end
 
-// Hide Shorts Cells - for uYou 3.0.4+ (PoomSmart/YTUnShorts)
+// Hide Shorts Cells - LEGACY v1.2.3 - for uYou 3.0.4+ (PoomSmart/YTUnShorts)
 %hook YTIElementRenderer
 - (NSData *)elementData {
     // Check if hideShortsCells is enabled
@@ -1524,26 +1529,51 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %end
 */
 
-// Red Subscribe Button - 17.33.2 and up - @arichornlover
+// Red Subscribe Button - v20.02.3+ - @arichornlover
 %hook ELMContainerNode
-- (void)setBackgroundColor:(UIColor *)color {
-    NSString *description = [self description];
-    if ([description containsString:@"eml.compact_subscribe_button"]) {
-        if (IS_ENABLED(@"kRedSubscribeButton")) {
-            color = [UIColor redColor];
-        }
+- (void)layoutSubviews {
+    %orig;
+    NSString *desc = [self description];
+    if ([desc containsString:@"eml.compact_subscribe_button"] && IS_ENABLED(@"kRedSubscribeButton")) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self applyRedColorToSubscribeButton:self];
+        });
     }
-    // Hide the Button Containers under the Video Player - 17.33.2 and up - @arichornlover
+// Hide the Button Containers under the Video Player - v20.02.3+ - @arichornlover
     if (IS_ENABLED(kHideButtonContainers)) {
-        if ([description containsString:@"id.video.like.button"] ||
-            [description containsString:@"id.video.dislike.button"] ||
-            [description containsString:@"id.video.share.button"] ||
-            [description containsString:@"id.video.remix.button"] ||
-            [description containsString:@"id.ui.add_to.offline.button"]) {
-//          self.hidden = YES;
+        if ([desc containsString:@"id.video.like.button"] ||
+            [desc containsString:@"id.video.dislike.button"] ||
+            [desc containsString:@"id.video.share.button"] ||
+            [desc containsString:@"id.video.remix.button"] ||
+            [desc containsString:@"id.ui.add_to.offline.button"]) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideMatchingSubviews:self];
+            });
         }
     }
-    %orig(color);
+}
+- (void)applyRedColorToSubscribeButton:(UIView *)view {
+    NSString *desc = [view description];
+    if ([desc containsString:@"eml.compact_subscribe_button"]) {
+        view.backgroundColor = [UIColor redColor];
+    }
+    for (UIView *subview in view.subviews) {
+        [self applyRedColorToSubscribeButton:subview];
+    }
+}
+- (void)hideMatchingSubviews:(UIView *)view {
+    for (UIView *subview in view.subviews) {
+        NSString *desc = [subview description];
+        if ([desc containsString:@"id.video.like.button"] ||
+            [desc containsString:@"id.video.dislike.button"] ||
+            [desc containsString:@"id.video.share.button"] ||
+            [desc containsString:@"id.video.remix.button"] ||
+            [desc containsString:@"id.ui.add_to.offline.button"]) {
+            subview.hidden = YES;
+        } else {
+            [self hideMatchingSubviews:subview];
+        }
+    }
 }
 %end
 
@@ -1939,17 +1969,6 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
         %init(gFixCasting);
     }
 
-    // YTNoModernUI (DEPRECATED) - @arichornlover
-    BOOL ytNoModernUIEnabled = IS_ENABLED(kYTNoModernUI);
-    if (ytNoModernUIEnabled) {
-        NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
-        [userDefaults setBool:NO forKey:kEnableVersionSpoofer];
-    } else {
-        BOOL enableVersionSpooferEnabled = IS_ENABLED(kEnableVersionSpoofer);
-
-        NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
-        [userDefaults setBool:enableVersionSpooferEnabled forKey:kEnableVersionSpoofer];
-    }
     NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     [userDefaults setBool:ytNoModernUIEnabled ? ytNoModernUIEnabled : [userDefaults boolForKey:kDisableModernButtons] forKey:kDisableModernButtons];
     [userDefaults setBool:ytNoModernUIEnabled ? ytNoModernUIEnabled : [userDefaults boolForKey:kDisableRoundedHints] forKey:kDisableRoundedHints];
