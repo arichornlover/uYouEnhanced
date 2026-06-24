@@ -119,7 +119,7 @@ static int getNotificationIconStyle() {
 %end
 %end
 
-// YTHidePlayerButtons 1.0.0 - made by @aricloverEXTRA
+// YTHidePlayerButtons 1.0.1 - v20.02.3+ - made by @aricloverEXTRA
 static NSDictionary<NSString *, NSString *> *HideToggleMap(void) {
     static NSDictionary<NSString *, NSString *> *map = nil;
     static dispatch_once_t onceToken;
@@ -204,6 +204,18 @@ static BOOL inspectAndHideIfMatch(id view) {
         NSLog(@"[HidePlayerButtons] inspectAndHideIfMatch exception: %@", ex);
     }
     return NO;
+}
+static void removeViewFromSuperview(id view) {
+    if (!view) return;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        @try {
+            if ([view respondsToSelector:@selector(removeFromSuperview)]) {
+                [view removeFromSuperview];
+            }
+        } @catch (NSException *ex) {
+            NSLog(@"[HidePlayerButtons] removeFromSuperview exception: %@", ex);
+        }
+    });
 }
 static void traverseAndHideViews(UIView *root) {
     if (!root) return;
