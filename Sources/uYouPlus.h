@@ -41,6 +41,7 @@
 #import <YouTubeHeader/YTIPivotBarSupportedRenderers.h>
 #import <YouTubeHeader/YTIPlayerBarDecorationModel.h>
 #import <YouTubeHeader/YTISectionListRenderer.h>
+#import <YouTubeHeader/YTIShowFullscreenInterstitialCommand.h>
 #import <YouTubeHeader/YTIStringRun.h>
 #import <YouTubeHeader/YTIWatchNextResponse.h>
 #import <YouTubeHeader/YTMainAppVideoPlayerOverlayViewController.h>
