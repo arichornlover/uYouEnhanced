@@ -1531,6 +1531,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 
 // Red Subscribe Button - v20.02.3+ - @arichornlover
 %hook ELMContainerNode
+- (void)applyRedColorToSubscribeButton:(UIView *)view;
+- (void)hideMatchingSubviews:(UIView *)view;
 - (void)layoutSubviews {
     %orig;
     NSString *desc = [self description];
