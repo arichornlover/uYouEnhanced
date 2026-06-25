@@ -688,15 +688,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 // Center YouTube Logo - @arichornlover
 %group gCenterYouTubeLogo
 %hook YTNavigationBarTitleView
-- (void)setShouldCenterNavBarTitleView:(BOOL)center {
-    center = YES;
-    %orig(center);
-    [self centerLogo];
-}
-- (BOOL)shouldCenterNavBarTitleView {
-    return YES;
-}
-- (void)centerLogo {
+- (void)alignCustomViewToCenterOfWindow {
     UIView *superview = self.superview;
     if (!superview) return;
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -708,7 +700,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
             [self setNeedsLayout];
             [self layoutIfNeeded];
         } @catch (NSException *ex) {
-            NSLog(@"[CenterLogo] Exception: %@", ex);
+            NSLog(@"[alignCustomViewToCenterOfWindow] Exception: %@", ex);
         }
     });
 }
