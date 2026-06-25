@@ -11,6 +11,7 @@
 #import <sys/utsname.h>
 #import <YouTubeHeader/ASCollectionElement.h>
 #import <YouTubeHeader/ASCollectionView.h>
+#import <YouTubeHeader/ELMContainerNode.h>
 #import <YouTubeHeader/ELMCellNode.h>
 #import <YouTubeHeader/ELMNodeController.h>
 #import <YouTubeHeader/ELMPBElement.h>
@@ -347,7 +348,9 @@ static NSString *const kGoogleSigninFix = @"googleSigninFix_enabled";
 @interface ELMView : UIView
 @end
 
-@interface ELMContainerNode : NSObject
+@interface ELMContainerNode (uYouEnhanced)
+- (void)applyRedColorToSubscribeButton:(UIView *)view;
+- (void)hideMatchingSubviews:(UIView *)view;
 @end
 
 @interface YTWrapperSplitView : UIView
