@@ -1528,7 +1528,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     NSString *desc = [self description];
     if ([desc containsString:@"eml.compact_subscribe_button"] && IS_ENABLED(@"kRedSubscribeButton")) {
         dispatch_async(dispatch_get_main_queue(), ^{
-            [self applyRedColorToSubscribeButton:self];
+            [self applyRedColorToSubscribeButton:self.view];
         });
     }
 // Hide the Button Containers under the Video Player - v20.02.3+ - @arichornlover
@@ -1539,7 +1539,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
             [desc containsString:@"id.video.remix.button"] ||
             [desc containsString:@"id.ui.add_to.offline.button"]) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                [self hideMatchingSubviews:self];
+                [self hideMatchingSubviews:self.view];
             });
         }
     }
