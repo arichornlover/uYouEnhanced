@@ -924,6 +924,16 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     SWITCH2(LOC(@"HIDE_INDICATORS"), LOC(@"HIDE_INDICATORS_DESC"), kHideSubscriptionsNotificationBadge);
     SWITCH2(LOC(@"FIX_CASTING"), LOC(@"FIX_CASTING_DESC"), kFixCasting);
     SWITCH2(LOC(@"NEW_SETTINGS_UI"), LOC(@"NEW_SETTINGS_UI_DESC"), kNewSettingsUI);
+    YTSettingsSectionItem *youModGitHub = [%c(YTSettingsSectionItem)
+        itemWithTitle:@"YouMod on GitHub"
+        titleDescription:@"Lightweight alternative to uYouEnhanced — visit the repo"
+        accessibilityIdentifier:nil
+        detailTextBlock:nil
+        selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
+            return [%c(YTUIUtils) openURL:[NSURL URLWithString:@"https://github.com/Tonwalter888/YouMod"]];
+        }
+    ];
+    [sectionItems addObject:youModGitHub];
     YTSettingsSectionItem *migrateToYouMod = [%c(YTSettingsSectionItem)
         itemWithTitle:@"Migrate saved options to YouMod"
         titleDescription:@"Copy compatible toggles to YouMod (does not alter existing uYouEnhanced settings)"
