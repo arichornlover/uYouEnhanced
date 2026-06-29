@@ -12,6 +12,15 @@
 #import <YouTubeHeader/GPBUnknownFields.h>
 #import "uYouPlus.h"
 
+@interface ELMPBProperties (uYouEnhanced)
+- (id)firstSubmessage;
+- (id)submessageAtIndex:(NSUInteger)index;
+@end
+
+@interface ELMPBIdentifierProperties (uYouEnhanced)
+- (NSString *)identifier;
+@end
+
 @interface PlayerManager : NSObject
 // Prevent uYou player bar from showing when not playing downloaded media
 - (float)progress;
