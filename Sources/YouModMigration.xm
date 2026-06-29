@@ -1,6 +1,7 @@
 // keys migration from uYouEnhanced → YouMod 1.3.0+
 
 #import "uYouPlus.h"
+#import <UIKit/UIKit.h>
 
 // YouMod 1.3.0 key definitions (https://github.com/Tonwalter888/YouMod/blob/e381a29287a30a005ad258adef0cb1a9a8d504fd/Files/Headers.h)
 #define YouModPrefix @"YouMod"
@@ -109,7 +110,7 @@
 
 @interface YouModMigrationManager : NSObject
 + (instancetype)sharedManager;
-- (void)migrateToYouMod;
+- (void)migrateToYouModWithReset:(BOOL)shouldReset;
 @end
 
 @implementation YouModMigrationManager
@@ -123,14 +124,12 @@
     return shared;
 }
 
-- (void)migrateToYouMod {
+- (void)migrateToYouModWithReset:(BOOL)shouldReset {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     
     NSDictionary *mapping = @{
-        // === Only similar / overlapping options ===
         kOLEDKeyboard: OLEDKeyboard,
         kAppTheme: OLEDTheme,
-
         kPortraitFullscreen: PortFull,
         kAlwaysShowRemainingTime: AlwaysShowRemaining,
         kDisableRemainingTime: DisablesShowRemaining,
@@ -139,7 +138,7 @@
         kHideVideoTitle: HideFullvidTitle,
         kHidePaidPromotionCard: HidePaidPromoOverlay,
         kHideChannelWatermark: HideWaterMark,
-        kHidePreviousAndNextButton: HidePrevButton,   // also covers next in most cases
+        kHidePreviousAndNextButton: HidePrevButton,
         kHideHoverCards: HideEndScreenCards,
         kHideSuggestedVideo: HideSuggestedVideo,
         kDisableAmbientMode: RemoveAmbiant,
@@ -156,12 +155,8 @@
         kHideRemixButton: HideRemixButton,
         kHideSaveToPlaylistButton: HideSaveButton,
         kHidePlayNextInQueue: HidePlayInNextQueue,
-
-        // Shorts
         kHideBuySuperThanks: HideShortsProducts,
         kHideSubscriptions: HideShortsSubscriptButton,
-        
-        // Add more one-to-one mappings here if you find better ones - @aricloverEXTRA
     };
 
     NSInteger migrated = 0;
@@ -181,13 +176,26 @@
         NSString *msg = [NSString stringWithFormat:
             @"%ld compatible settings were copied to YouMod.\n\n"
             "uYouEnhanced settings were left untouched.\n"
-            "Restart YouTube → test YouMod → then you can safely uninstall uYouEnhanced.", 
+            "Restart YouTube → test YouMod.", 
             (long)migrated];
 
-        YTAlertView *alert = [%c(YTAlertView) infoDialog];
-        alert.title = @"YouMod Migration Finished";
-        alert.subtitle = msg;
-        [alert show];
+        if (shouldReset) {
+            msg = [msg stringByAppendingString:@"\n\nuYouEnhanced settings have been reset (except submodules)."];
+            // Reset uYouEnhanced keys (keep submodule keys)
+            NSArray *protectedKeys = @[/* add submodule keys here if needed */];
+            for (NSString *key in [defaults dictionaryRepresentation].allKeys) {
+                if ([key hasPrefix:@"k"] && ![protectedKeys containsObject:key]) {
+                    [defaults removeObjectForKey:key];
+                }
+            }
+            [defaults synchronize];
+        }
+
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Migration Finished"
+                                                                       message:msg
+                                                                preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [[UIApplication sharedApplication].keyWindow.rootViewController presentViewController:alert animated:YES completion:nil];
     });
 }
 
