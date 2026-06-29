@@ -306,7 +306,7 @@ static void hideButtonsInActionBarIfNeeded(id collectionView) {
 }
 %end
 
-// Replace YouTube's download with uYou's
+// Replace YouTube's download with uYou's - 19.30.2+
 YTMainAppControlsOverlayView *controlsOverlayView;
 %hook YTMainAppControlsOverlayView
 - (id)initWithDelegate:(id)arg1 {
@@ -319,11 +319,18 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     if (IS_ENABLED(kReplaceYTDownloadWithuYou) && [arg2 isKindOfClass:%c(ELMPBShowActionSheetCommand)]) {
         ELMPBShowActionSheetCommand *showCommand = (ELMPBShowActionSheetCommand *)arg2;
         NSArray *listOptions = [showCommand listOptionArray];
+
         for (ELMPBElement *element in listOptions) {
             ELMPBProperties *properties = [element properties];
-            ELMPBIdentifierProperties *identifierProperties = [properties firstSubmessage];
-            // 19.30.2
-            if ([identifierProperties respondsToSelector:@selector(identifier)]) {
+
+            ELMPBIdentifierProperties *identifierProperties = nil;
+            if ([properties respondsToSelector:@selector(firstSubmessage)]) {
+                identifierProperties = [properties firstSubmessage];
+            } else if ([properties respondsToSelector:@selector(submessageAtIndex:)]) {
+                identifierProperties = [properties submessageAtIndex:0];
+            }
+
+            if (identifierProperties && [identifierProperties respondsToSelector:@selector(identifier)]) {
                 NSString *identifier = [identifierProperties identifier];
                 if ([identifier containsString:@"offline_upsell_dialog"]) {
                     if ([controlsOverlayView respondsToSelector:@selector(uYou)]) {
@@ -331,14 +338,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
                     }
                     return;
                 }
-            }
-            // 19.20.2
-            NSString *description = [identifierProperties description];
-            if ([description containsString:@"offline_upsell_dialog"]) {
-                if ([controlsOverlayView respondsToSelector:@selector(uYou)]) {
-                    [controlsOverlayView uYou];
-                }
-                return;
             }
         }
     }
