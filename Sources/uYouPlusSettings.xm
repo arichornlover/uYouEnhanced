@@ -5,6 +5,9 @@
 #import "SettingsKeys.h"
 #import "AppIconOptionsController.h"
 
+// Migrate to YouMod import
+#import "YouModMigration.xm"
+
 #define VERSION_STRING [[NSString stringWithFormat:@"%@", @(OS_STRINGIFY(TWEAK_VERSION))] stringByReplacingOccurrencesOfString:@"\"" withString:@""]
 #define SHOW_RELAUNCH_YT_SNACKBAR [[%c(GOOHUDManagerInternal) sharedInstance] showMessageMainThread:[%c(YTHUDMessage) messageWithText:LOC(@"RESTART_YOUTUBE")]]
 
@@ -921,6 +924,17 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     SWITCH2(LOC(@"HIDE_INDICATORS"), LOC(@"HIDE_INDICATORS_DESC"), kHideSubscriptionsNotificationBadge);
     SWITCH2(LOC(@"FIX_CASTING"), LOC(@"FIX_CASTING_DESC"), kFixCasting);
     SWITCH2(LOC(@"NEW_SETTINGS_UI"), LOC(@"NEW_SETTINGS_UI_DESC"), kNewSettingsUI);
+    YTSettingsSectionItem *migrateToYouMod = [%c(YTSettingsSectionItem)
+        itemWithTitle:@"Migrate saved options to YouMod"
+        titleDescription:@"Copy compatible toggles to YouMod (does not alter existing uYouEnhanced settings)"
+        accessibilityIdentifier:nil
+        detailTextBlock:nil
+        selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
+            [[YouModMigrationManager sharedManager] migrateToYouMod];
+            return YES;
+        }
+    ];
+    [sectionItems addObject:migrateToYouMod];
     SWITCH(LOC(@"ENABLE_FLEX"), LOC(@"ENABLE_FLEX_DESC"), kFlex);
 
     if ([settingsViewController respondsToSelector:@selector(setSectionItems:forCategory:title:icon:titleDescription:headerHidden:)])
