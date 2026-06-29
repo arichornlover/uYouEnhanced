@@ -1521,12 +1521,16 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %end
 */
 
-// Red Subscribe Button - v20.02.3+ - @arichornlover
+// Red Subscribe Button + Hide the Button Containers under the Video Player - @arichornlover
+// Hide the Button Containers under the Video Player - v20.02.3+ - @arichornlover
 %hook ELMContainerNode
 - (void)layoutSubviews {
     %orig;
+
     NSString *desc = [self description];
-    if ([desc containsString:@"eml.compact_subscribe_button"] && IS_ENABLED(@"kRedSubscribeButton")) {
+
+// Red Subscribe Button - v20.02.3+ - @arichornlover
+    if ([desc containsString:@"eml.compact_subscribe_button"] && IS_ENABLED(kRedSubscribeButton)) {
         dispatch_async(dispatch_get_main_queue(), ^{
             [self applyRedColorToSubscribeButton:self];
         });
@@ -1544,26 +1548,39 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
         }
     }
 }
-- (void)applyRedColorToSubscribeButton:(UIView *)view {
+- (void)applyRedColorToSubscribeButton:(id)view {
+    if (!view) return;
+
     NSString *desc = [view description];
     if ([desc containsString:@"eml.compact_subscribe_button"]) {
-        view.backgroundColor = [UIColor redColor];
+        if ([view respondsToSelector:@selector(setBackgroundColor:)]) {
+            [view setBackgroundColor:[UIColor redColor]];
+        }
     }
-    for (UIView *subview in view.subviews) {
-        [self applyRedColorToSubscribeButton:subview];
+    if ([view respondsToSelector:@selector(subviews)]) {
+        for (id subview in [view subviews]) {
+            [self applyRedColorToSubscribeButton:subview];
+        }
     }
 }
-- (void)hideMatchingSubviews:(UIView *)view {
-    for (UIView *subview in view.subviews) {
-        NSString *desc = [subview description];
-        if ([desc containsString:@"id.video.like.button"] ||
-            [desc containsString:@"id.video.dislike.button"] ||
-            [desc containsString:@"id.video.share.button"] ||
-            [desc containsString:@"id.video.remix.button"] ||
-            [desc containsString:@"id.ui.add_to.offline.button"]) {
-            subview.hidden = YES;
-        } else {
-            [self hideMatchingSubviews:subview];
+- (void)hideMatchingSubviews:(id)view {
+    if (!view) return;
+
+    if ([view respondsToSelector:@selector(subviews)]) {
+        for (id subview in [view subviews]) {
+            NSString *desc = [subview description];
+
+            if ([desc containsString:@"id.video.like.button"] ||
+                [desc containsString:@"id.video.dislike.button"] ||
+                [desc containsString:@"id.video.share.button"] ||
+                [desc containsString:@"id.video.remix.button"] ||
+                [desc containsString:@"id.ui.add_to.offline.button"]) {
+                if ([subview respondsToSelector:@selector(setHidden:)]) {
+                    [subview setHidden:YES];
+                }
+            } else {
+                [self hideMatchingSubviews:subview];
+            }
         }
     }
 }
