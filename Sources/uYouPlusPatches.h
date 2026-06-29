@@ -62,22 +62,17 @@
 + (id)_defaultColor;
 @end
 
-// YouTube Native Share Headers - https://github.com/jkhsjdhjs/youtube-native-share - @jkhsjdhjs
+// YouTube Native Share 0.2.7 Headers - https://github.com/jkhsjdhjs/youtube-native-share - @jkhsjdhjs
+@interface YTUIUtils : NSObject
++ (UIViewController *)topViewControllerForPresenting;
+@end
+
 @interface CustomGPBMessage : GPBMessage
 + (instancetype)deserializeFromString:(NSString*)string;
 @end
 
 // @interface YTICommand : GPBMessage
 // @end
-
-@interface ELMPBCommand : GPBMessage
-@end
-
-@interface ELMPBShowActionSheetCommand : GPBMessage
-@property (nonatomic, strong, readwrite) ELMPBCommand *onAppear;
-@property (nonatomic, assign, readwrite) BOOL hasOnAppear;
-- (id)listOptionArray;
-@end
 
 @interface ELMContext : NSObject
 @property (nonatomic, strong, readwrite) UIView *fromView;
@@ -87,23 +82,8 @@
 @property (nonatomic, strong, readwrite) ELMContext *context;
 @end
 
-@interface YTIUpdateShareSheetCommand
-@property (nonatomic, assign, readwrite) BOOL hasSerializedShareEntity;
-@property (nonatomic, copy, readwrite) NSString *serializedShareEntity;
-+ (GPBExtensionDescriptor*)updateShareSheetCommand;
+@interface ELMPBShowActionSheetCommand : GPBMessage
 @end
 
-@interface YTIInnertubeCommandExtensionRoot
-+ (GPBExtensionDescriptor*)innertubeCommand;
-@end
-
-@interface YTAccountScopedCommandResponderEvent
-@property (nonatomic, strong, readwrite) YTICommand *command;
-@property (nonatomic, strong, readwrite) UIView *fromView;
-@end
-
-@interface YTIShareEntityEndpoint
-@property (nonatomic, assign, readwrite) BOOL hasSerializedShareEntity;
-@property (nonatomic, copy, readwrite) NSString *serializedShareEntity;
-+ (GPBExtensionDescriptor*)shareEntityEndpoint;
+@interface YTShareEntityEndpointCommandHandler : NSObject
 @end
