@@ -4,6 +4,7 @@
 #import <YouTubeHeader/YTColorPalette.h>
 #import <YouTubeHeader/YTCommonColorPalette.h>
 #import <YouTubeHeader/YTSingleVideoController.h>
+#import <YouTubeHeader/ELMPBShowActionSheetCommand.h>
 #import <YouTubeHeader/GOODialogView.h>
 #import <YouTubeHeader/GPBDescriptor.h>
 #import <YouTubeHeader/GPBUnknownField.h>
