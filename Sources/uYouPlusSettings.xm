@@ -964,7 +964,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     SWITCH2(LOC(@"NEW_SETTINGS_UI"), LOC(@"NEW_SETTINGS_UI_DESC"), kNewSettingsUI);
     YTSettingsSectionItem *youModGitHub = [%c(YTSettingsSectionItem)
         itemWithTitle:@"YouMod on GitHub"
-        titleDescription:@"Lightweight alternative to uYouEnhanced — visit the repo"
+        titleDescription:@"Lightweight alternative — visit the YouMod repo first to prepare!"
         accessibilityIdentifier:nil
         detailTextBlock:nil
         selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
@@ -973,16 +973,27 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     ];
     [sectionItems addObject:youModGitHub];
     YTSettingsSectionItem *migrateToYouMod = [%c(YTSettingsSectionItem)
-        itemWithTitle:@"Migrate saved options to YouMod"
-        titleDescription:@"Copy compatible toggles to YouMod (does not alter existing uYouEnhanced settings)"
+        itemWithTitle:@"Migrate to YouMod"
+        titleDescription:@"Migrate settings to YouMod (Default - migrates but won't the remove uYouEnhanced settings, recommended option.)"
         accessibilityIdentifier:nil
         detailTextBlock:nil
         selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
-            [[YouModMigrationManager sharedManager] migrateToYouMod];
+            [[YouModMigrationManager sharedManager] migrateToYouModWithReset:NO];
             return YES;
         }
     ];
     [sectionItems addObject:migrateToYouMod];
+    YTSettingsSectionItem *migrateAndReset = [%c(YTSettingsSectionItem)
+        itemWithTitle:@"Migrate to YouMod + Reset uYouEnhanced"
+        titleDescription:@"Migrate settings to YouMod (Alternate - REMOVES all toggled uYouEnhanced Settings. Use this if you are willing to remove all of the uYouEnhanced keys for any reason for YouMod.)"
+        accessibilityIdentifier:nil
+        detailTextBlock:nil
+        selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
+            [[YouModMigrationManager sharedManager] migrateToYouModWithReset:YES];
+            return YES;
+        }
+    ];
+    [sectionItems addObject:migrateAndReset];
     SWITCH(LOC(@"ENABLE_FLEX"), LOC(@"ENABLE_FLEX_DESC"), kFlex);
 
     if ([settingsViewController respondsToSelector:@selector(setSectionItems:forCategory:title:icon:titleDescription:headerHidden:)])
