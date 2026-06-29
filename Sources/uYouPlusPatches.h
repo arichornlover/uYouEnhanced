@@ -63,16 +63,9 @@
 @end
 
 // YouTube Native Share 0.2.7 Headers - https://github.com/jkhsjdhjs/youtube-native-share - @jkhsjdhjs
-@interface YTUIUtils : NSObject
-+ (UIViewController *)topViewControllerForPresenting;
-@end
-
 @interface CustomGPBMessage : GPBMessage
 + (instancetype)deserializeFromString:(NSString*)string;
 @end
-
-// @interface YTICommand : GPBMessage
-// @end
 
 @interface ELMContext : NSObject
 @property (nonatomic, strong, readwrite) UIView *fromView;
