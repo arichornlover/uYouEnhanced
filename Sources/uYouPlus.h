@@ -351,8 +351,8 @@ static NSString *const kGoogleSigninFix = @"googleSigninFix_enabled";
 @end
 
 @interface ELMContainerNode (uYouEnhanced)
-- (void)applyRedColorToSubscribeButton:(UIView *)view;
-- (void)hideMatchingSubviews:(UIView *)view;
+- (void)applyRedColorToSubscribeButton:(id)view;
+- (void)hideMatchingSubviews:(id)view;
 @end
 
 @interface YTWrapperSplitView : UIView
