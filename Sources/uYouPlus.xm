@@ -322,22 +322,32 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
         for (ELMPBElement *element in listOptions) {
             ELMPBProperties *properties = [element properties];
+            if (!properties) continue;
 
-            ELMPBIdentifierProperties *identifierProperties = nil;
+            NSString *identifier = nil;
+
             if ([properties respondsToSelector:@selector(firstSubmessage)]) {
-                identifierProperties = [properties firstSubmessage];
+                id sub = [properties firstSubmessage];
+                if ([sub respondsToSelector:@selector(identifier)]) {
+                    identifier = [sub identifier];
+                }
             } else if ([properties respondsToSelector:@selector(submessageAtIndex:)]) {
-                identifierProperties = [properties submessageAtIndex:0];
+                id sub = [properties submessageAtIndex:0];
+                if ([sub respondsToSelector:@selector(identifier)]) {
+                    identifier = [sub identifier];
+                }
+            } else if ([properties respondsToSelector:@selector(description)]) {
+                NSString *desc = [properties description];
+                if ([desc containsString:@"offline_upsell_dialog"]) {
+                    identifier = @"offline_upsell_dialog";
+                }
             }
 
-            if (identifierProperties && [identifierProperties respondsToSelector:@selector(identifier)]) {
-                NSString *identifier = [identifierProperties identifier];
-                if ([identifier containsString:@"offline_upsell_dialog"]) {
-                    if ([controlsOverlayView respondsToSelector:@selector(uYou)]) {
-                        [controlsOverlayView uYou];
-                    }
-                    return;
+            if (identifier && [identifier containsString:@"offline_upsell_dialog"]) {
+                if (controlsOverlayView && [controlsOverlayView respondsToSelector:@selector(uYou)]) {
+                    [controlsOverlayView uYou];
                 }
+                return;
             }
         }
     }
