@@ -26,7 +26,7 @@ Just wanted to give you an update about uYouEnhanced. I’m not 100% leaving or 
 
 I do my best to fix stuff when some issues pop up, but it sometimes usually doesn’t work out. I do even suggest workarounds, but they might not work perfectly or might mot even work, especially with the latest YouTube version changes.
 
-I’d even recommend using uYouEnhanced with a YouTube version at least v21.10.2 or higher.
+I’d even recommend using uYouEnhanced with a YouTube version at least v21.14.4 or higher.
 Thanks for understanding!
 
 And thanks to the developers qnblackcat, PoomSmart & others allowing me to expand this fork from where it is today!
