@@ -84,7 +84,7 @@ jobs:
         id: SDK
         uses: actions/cache@v4.3.0
         env:
-          cache-name: iOS-${{ inputs.sdk_version }}-SDK
+          cache-name: iOS-${{ github.event.inputs.sdk_version }}-SDK
         with:
           path: theos/sdks/
           key: ${{ env.cache-name }}
