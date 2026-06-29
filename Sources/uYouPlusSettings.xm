@@ -885,7 +885,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
             // Enable the "Disable Animated YouTube Logo" setting
             [[NSUserDefaults standardUserDefaults] setBool:enable forKey:kDisableAnimatedYouTubeLogo];
             // Refresh data and show the relaunch popup
-            [[NSUserDefaults standardUserDefaults] setBool:enable forKey:kYouTabFakePremium];
+            [[NSUserDefaults standardUserDefaults] setBool:enable forKey:kYTPremiumLogo];
             [settingsViewController reloadData];
             SHOW_RELAUNCH_YT_SNACKBAR;
             return YES;
