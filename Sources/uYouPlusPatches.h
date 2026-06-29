@@ -76,8 +76,5 @@
 @property (nonatomic, strong, readwrite) ELMContext *context;
 @end
 
-@interface ELMPBShowActionSheetCommand : GPBMessage
-@end
-
 @interface YTShareEntityEndpointCommandHandler : NSObject
 @end
