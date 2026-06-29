@@ -673,147 +673,185 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
         accessibilityIdentifier:nil
         detailTextBlock:^NSString *() {
             switch (appVersionSpoofer()) {
-                case 0: return @"v21.08.3";
-                case 1: return @"v21.07.4";
-                case 2: return @"v21.06.2";
-                case 3: return @"v21.05.3";
-                case 4: return @"v21.04.2";
-                case 5: return @"v21.03.2";
-                case 6: return @"v21.02.3";
-                case 7: return @"v20.50.10";
-                case 8: return @"v20.50.9";
-                case 9: return @"v20.50.6";
-                case 10: return @"v20.49.5";
-                case 11: return @"v20.47.3";
-                case 12: return @"v20.46.3";
-                case 13: return @"v20.46.2";
-                case 14: return @"v20.45.3";
-                case 15: return @"v20.44.2";
-                case 16: return @"v20.43.3";
-                case 17: return @"v20.42.3";
-                case 18: return @"v20.41.5";
-                case 19: return @"v20.41.4";
-                case 20: return @"v20.40.4";
-                case 21: return @"v20.39.6";
-                case 22: return @"v20.39.5";
-                case 23: return @"v20.39.4";
-                case 24: return @"v20.38.4";
-                case 25: return @"v20.38.3";
-                case 26: return @"v20.37.5";
-                case 27: return @"v20.37.3";
-                case 28: return @"v20.36.3";
-                case 29: return @"v20.35.2";
-                case 30: return @"v20.34.2";
-                case 31: return @"v20.33.2";
-                case 32: return @"v20.32.5";
-                case 33: return @"v20.32.4";
-                case 34: return @"v20.31.6";
-                case 35: return @"v20.31.5";
-                case 36: return @"v20.30.5";
-                case 37: return @"v20.29.3";
-                case 38: return @"v20.28.2";
-                case 39: return @"v20.26.7";
-                case 40: return @"v20.25.4";
-                case 41: return @"v20.24.5";
-                case 42: return @"v20.24.4";
-                case 43: return @"v20.23.3 (Deprecated)";
-                case 44: return @"v20.22.1 (Deprecated)";
-                case 45: return @"v20.21.6 (Deprecated)";
-                case 46: return @"v20.20.7 (Deprecated)";
-                case 47: return @"v20.20.5 (Deprecated)";
-                case 48: return @"v20.19.3 (Deprecated)";
-                case 49: return @"v20.19.2 (Deprecated)";
-                case 50: return @"v20.18.5 (Deprecated)";
-                case 51: return @"v20.18.4 (Deprecated)";
-                case 52: return @"v20.16.7 (Deprecated)";
-                case 53: return @"v20.15.1 (Deprecated)";
-                case 54: return @"v20.14.2 (Deprecated)";
-                case 55: return @"v20.13.5 (Deprecated)";
-                case 56: return @"v20.12.4 (Deprecated)";
-                case 57: return @"v20.11.6 (Deprecated)";
-                case 58: return @"v20.10.4 (Deprecated)";
-                case 59: return @"v20.10.3 (Deprecated)";
-                case 60: return @"v20.09.3 (Deprecated)";
-                case 61: return @"v20.08.3 (Deprecated)";
-                case 62: return @"v20.07.6 (Deprecated)";
-                case 63: return @"v20.06.03 (Deprecated)";
-                case 64: return @"v20.05.4 (Deprecated)";
-                case 65: return @"v20.03.1 (Deprecated)";
-                case 66: return @"v20.03.02 (Deprecated)";
-                case 67: return @"v20.02.3 (Deprecated)";
-                default: return @"v21.08.3";
+                case 0: return @"v21.26.4";
+                case 1: return @"v21.25.5";
+                case 2: return @"v21.24.3";
+                case 3: return @"v21.22.4";
+                case 4: return @"v21.21.3";
+                case 5: return @"v21.20.4";
+                case 6: return @"v21.19.2";
+                case 7: return @"v21.18.4";
+                case 8: return @"v21.17.3";
+                case 9: return @"v21.16.2";
+                case 10: return @"v21.15.5";
+                case 11: return @"v21.15.4";
+                case 12: return @"v21.14.4";
+                case 13: return @"v21.13.6";
+                case 14: return @"v21.12.4";
+                case 15: return @"v21.11.4";
+                case 16: return @"v21.10.2";
+                case 17: return @"v21.09.3";
+                case 18: return @"v21.09.2";
+                case 19: return @"v21.08.3";
+                case 20: return @"v21.07.4";
+                case 21: return @"v21.06.2";
+                case 22: return @"v21.05.3";
+                case 23: return @"v21.04.2";
+                case 24: return @"v21.03.2";
+                case 25: return @"v21.02.3";
+                case 26: return @"v20.50.10";
+                case 27: return @"v20.50.9";
+                case 28: return @"v20.50.6";
+                case 29: return @"v20.49.5";
+                case 30: return @"v20.47.3";
+                case 31: return @"v20.46.3";
+                case 32: return @"v20.46.2";
+                case 33: return @"v20.45.3";
+                case 34: return @"v20.44.2";
+                case 35: return @"v20.43.3";
+                case 36: return @"v20.42.3";
+                case 37: return @"v20.41.5";
+                case 38: return @"v20.41.4";
+                case 39: return @"v20.40.4";
+                case 40: return @"v20.39.6";
+                case 41: return @"v20.39.5";
+                case 42: return @"v20.39.4";
+                case 43: return @"v20.38.4";
+                case 44: return @"v20.38.3";
+                case 45: return @"v20.37.5";
+                case 46: return @"v20.37.3";
+                case 47: return @"v20.36.3";
+                case 48: return @"v20.35.2";
+                case 49: return @"v20.34.2";
+                case 50: return @"v20.33.2";
+                case 51: return @"v20.32.5";
+                case 52: return @"v20.32.4";
+                case 53: return @"v20.31.6";
+                case 54: return @"v20.31.5";
+                case 55: return @"v20.30.5";
+                case 56: return @"v20.29.3";
+                case 57: return @"v20.28.2";
+                case 58: return @"v20.26.7";
+                case 59: return @"v20.25.4";
+                case 60: return @"v20.24.5";
+                case 61: return @"v20.24.4";
+                case 62: return @"v20.23.3 (Deprecated)";
+                case 63: return @"v20.22.1 (Deprecated)";
+                case 64: return @"v20.21.6 (Deprecated)";
+                case 65: return @"v20.20.7 (Deprecated)";
+                case 66: return @"v20.20.5 (Deprecated)";
+                case 67: return @"v20.19.3 (Deprecated)";
+                case 68: return @"v20.19.2 (Deprecated)";
+                case 69: return @"v20.18.5 (Deprecated)";
+                case 70: return @"v20.18.4 (Deprecated)";
+                case 71: return @"v20.16.7 (Deprecated)";
+                case 72: return @"v20.15.1 (Deprecated)";
+                case 73: return @"v20.14.2 (Deprecated)";
+                case 74: return @"v20.13.5 (Deprecated)";
+                case 75: return @"v20.12.4 (Deprecated)";
+                case 76: return @"v20.11.6 (Deprecated)";
+                case 77: return @"v20.10.4 (Deprecated)";
+                case 78: return @"v20.10.3 (Deprecated)";
+                case 79: return @"v20.09.3 (Deprecated)";
+                case 80: return @"v20.08.3 (Deprecated)";
+                case 81: return @"v20.07.6 (Deprecated)";
+                case 82: return @"v20.06.03 (Deprecated)";
+                case 83: return @"v20.05.4 (Deprecated)";
+                case 84: return @"v20.03.1 (Deprecated)";
+                case 85: return @"v20.03.02 (Deprecated)";
+                case 86: return @"v20.02.3 (Deprecated)";
+                default: return @"v21.26.4";
             }
         }
         selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
             NSArray <YTSettingsSectionItem *> *rows = @[
-                SPOOFER_VERSION(@"v21.08.3", 0),
-                SPOOFER_VERSION(@"v21.07.4", 1),
-                SPOOFER_VERSION(@"v21.06.2", 2),
-                SPOOFER_VERSION(@"v21.05.3", 3),
-                SPOOFER_VERSION(@"v21.04.2", 4),
-                SPOOFER_VERSION(@"v21.03.2", 5),
-                SPOOFER_VERSION(@"v21.02.3", 6),
-                SPOOFER_VERSION(@"v20.50.10", 7),
-                SPOOFER_VERSION(@"v20.50.9", 8),
-                SPOOFER_VERSION(@"v20.50.6", 9),
-                SPOOFER_VERSION(@"v20.49.5", 10),
-                SPOOFER_VERSION(@"v20.47.3", 11),
-                SPOOFER_VERSION(@"v20.46.3", 12),
-                SPOOFER_VERSION(@"v20.46.2", 13),
-                SPOOFER_VERSION(@"v20.45.3", 14),
-                SPOOFER_VERSION(@"v20.44.2", 15),
-                SPOOFER_VERSION(@"v20.43.3", 16),
-                SPOOFER_VERSION(@"v20.42.3", 17),
-                SPOOFER_VERSION(@"v20.41.5", 18),
-                SPOOFER_VERSION(@"v20.41.4", 19),
-                SPOOFER_VERSION(@"v20.40.4", 20),
-                SPOOFER_VERSION(@"v20.39.6", 21),
-                SPOOFER_VERSION(@"v20.39.5", 22),
-                SPOOFER_VERSION(@"v20.39.4", 23),
-                SPOOFER_VERSION(@"v20.38.4", 24),
-                SPOOFER_VERSION(@"v20.38.3", 25),
-                SPOOFER_VERSION(@"v20.37.5", 26),
-                SPOOFER_VERSION(@"v20.37.3", 27),
-                SPOOFER_VERSION(@"v20.36.3", 28),
-                SPOOFER_VERSION(@"v20.35.2", 29),
-                SPOOFER_VERSION(@"v20.34.2", 30),
-                SPOOFER_VERSION(@"v20.33.2", 31),
-                SPOOFER_VERSION(@"v20.32.5", 32),
-                SPOOFER_VERSION(@"v20.32.4", 33),
-                SPOOFER_VERSION(@"v20.31.6", 34),
-                SPOOFER_VERSION(@"v20.31.5", 35),
-                SPOOFER_VERSION(@"v20.30.5", 36),
-                SPOOFER_VERSION(@"v20.29.3", 37),
-                SPOOFER_VERSION(@"v20.28.2", 38),
-                SPOOFER_VERSION(@"v20.26.7", 39),
-                SPOOFER_VERSION(@"v20.25.4", 40),
-                SPOOFER_VERSION(@"v20.24.5", 41),
-                SPOOFER_VERSION(@"v20.24.4", 42),
-                SPOOFER_VERSION(@"v20.23.3 (Deprecated)", 43),
-                SPOOFER_VERSION(@"v20.22.1 (Deprecated)", 44),
-                SPOOFER_VERSION(@"v20.21.6 (Deprecated)", 45),
-                SPOOFER_VERSION(@"v20.20.7 (Deprecated)", 46),
-                SPOOFER_VERSION(@"v20.20.5 (Deprecated)", 47),
-                SPOOFER_VERSION(@"v20.19.3 (Deprecated)", 48),
-                SPOOFER_VERSION(@"v20.19.2 (Deprecated)", 49),
-                SPOOFER_VERSION(@"v20.18.5 (Deprecated)", 50),
-                SPOOFER_VERSION(@"v20.18.4 (Deprecated)", 51),
-                SPOOFER_VERSION(@"v20.16.7 (Deprecated)", 52),
-                SPOOFER_VERSION(@"v20.15.1 (Deprecated)", 53),
-                SPOOFER_VERSION(@"v20.14.2 (Deprecated)", 54),
-                SPOOFER_VERSION(@"v20.13.5 (Deprecated)", 55),
-                SPOOFER_VERSION(@"v20.12.4 (Deprecated)", 56),
-                SPOOFER_VERSION(@"v20.11.6 (Deprecated)", 57),
-                SPOOFER_VERSION(@"v20.10.4 (Deprecated)", 58),
-                SPOOFER_VERSION(@"v20.10.3 (Deprecated)", 59),
-                SPOOFER_VERSION(@"v20.09.3 (Deprecated)", 60),
-                SPOOFER_VERSION(@"v20.08.3 (Deprecated)", 61),
-                SPOOFER_VERSION(@"v20.07.6 (Deprecated)", 62),
-                SPOOFER_VERSION(@"v20.06.03 (Deprecated)", 63),
-                SPOOFER_VERSION(@"v20.05.4 (Deprecated)", 64),
-                SPOOFER_VERSION(@"v20.03.1 (Deprecated)", 65),
-                SPOOFER_VERSION(@"v20.03.02 (Deprecated)", 66),
-                SPOOFER_VERSION(@"v20.02.3 (Deprecated)", 67)
+                SPOOFER_VERSION(@"v21.26.4", 0),
+                SPOOFER_VERSION(@"v21.25.5", 1),
+                SPOOFER_VERSION(@"v21.24.3", 2),
+                SPOOFER_VERSION(@"v21.22.4", 3),
+                SPOOFER_VERSION(@"v21.21.3", 4),
+                SPOOFER_VERSION(@"v21.20.4", 5),
+                SPOOFER_VERSION(@"v21.19.2", 6),
+                SPOOFER_VERSION(@"v21.18.4", 7),
+                SPOOFER_VERSION(@"v21.17.3", 8),
+                SPOOFER_VERSION(@"v21.16.2", 9),
+                SPOOFER_VERSION(@"v21.15.5", 10),
+                SPOOFER_VERSION(@"v21.15.4", 11),
+                SPOOFER_VERSION(@"v21.14.4", 12),
+                SPOOFER_VERSION(@"v21.13.6", 13),
+                SPOOFER_VERSION(@"v21.12.4", 14),
+                SPOOFER_VERSION(@"v21.11.4", 15),
+                SPOOFER_VERSION(@"v21.10.2", 16),
+                SPOOFER_VERSION(@"v21.09.3", 17),
+                SPOOFER_VERSION(@"v21.09.2", 18),
+                SPOOFER_VERSION(@"v21.08.3", 19),
+                SPOOFER_VERSION(@"v21.07.4", 20),
+                SPOOFER_VERSION(@"v21.06.2", 21),
+                SPOOFER_VERSION(@"v21.05.3", 22),
+                SPOOFER_VERSION(@"v21.04.2", 23),
+                SPOOFER_VERSION(@"v21.03.2", 24),
+                SPOOFER_VERSION(@"v21.02.3", 25),
+                SPOOFER_VERSION(@"v20.50.10", 26),
+                SPOOFER_VERSION(@"v20.50.9", 27),
+                SPOOFER_VERSION(@"v20.50.6", 28),
+                SPOOFER_VERSION(@"v20.49.5", 29),
+                SPOOFER_VERSION(@"v20.47.3", 30),
+                SPOOFER_VERSION(@"v20.46.3", 31),
+                SPOOFER_VERSION(@"v20.46.2", 32),
+                SPOOFER_VERSION(@"v20.45.3", 33),
+                SPOOFER_VERSION(@"v20.44.2", 34),
+                SPOOFER_VERSION(@"v20.43.3", 35),
+                SPOOFER_VERSION(@"v20.42.3", 36),
+                SPOOFER_VERSION(@"v20.41.5", 37),
+                SPOOFER_VERSION(@"v20.41.4", 38),
+                SPOOFER_VERSION(@"v20.40.4", 39),
+                SPOOFER_VERSION(@"v20.39.6", 40),
+                SPOOFER_VERSION(@"v20.39.5", 41),
+                SPOOFER_VERSION(@"v20.39.4", 42),
+                SPOOFER_VERSION(@"v20.38.4", 43),
+                SPOOFER_VERSION(@"v20.38.3", 44),
+                SPOOFER_VERSION(@"v20.37.5", 45),
+                SPOOFER_VERSION(@"v20.37.3", 46),
+                SPOOFER_VERSION(@"v20.36.3", 47),
+                SPOOFER_VERSION(@"v20.35.2", 48),
+                SPOOFER_VERSION(@"v20.34.2", 49),
+                SPOOFER_VERSION(@"v20.33.2", 50),
+                SPOOFER_VERSION(@"v20.32.5", 51),
+                SPOOFER_VERSION(@"v20.32.4", 52),
+                SPOOFER_VERSION(@"v20.31.6", 53),
+                SPOOFER_VERSION(@"v20.31.5", 54),
+                SPOOFER_VERSION(@"v20.30.5", 55),
+                SPOOFER_VERSION(@"v20.29.3", 56),
+                SPOOFER_VERSION(@"v20.28.2", 57),
+                SPOOFER_VERSION(@"v20.26.7", 58),
+                SPOOFER_VERSION(@"v20.25.4", 59),
+                SPOOFER_VERSION(@"v20.24.5", 60),
+                SPOOFER_VERSION(@"v20.24.4", 61),
+                SPOOFER_VERSION(@"v20.23.3 (Deprecated)", 62),
+                SPOOFER_VERSION(@"v20.22.1 (Deprecated)", 63),
+                SPOOFER_VERSION(@"v20.21.6 (Deprecated)", 64),
+                SPOOFER_VERSION(@"v20.20.7 (Deprecated)", 65),
+                SPOOFER_VERSION(@"v20.20.5 (Deprecated)", 66),
+                SPOOFER_VERSION(@"v20.19.3 (Deprecated)", 67),
+                SPOOFER_VERSION(@"v20.19.2 (Deprecated)", 68),
+                SPOOFER_VERSION(@"v20.18.5 (Deprecated)", 69),
+                SPOOFER_VERSION(@"v20.18.4 (Deprecated)", 70),
+                SPOOFER_VERSION(@"v20.16.7 (Deprecated)", 71),
+                SPOOFER_VERSION(@"v20.15.1 (Deprecated)", 72),
+                SPOOFER_VERSION(@"v20.14.2 (Deprecated)", 73),
+                SPOOFER_VERSION(@"v20.13.5 (Deprecated)", 74),
+                SPOOFER_VERSION(@"v20.12.4 (Deprecated)", 75),
+                SPOOFER_VERSION(@"v20.11.6 (Deprecated)", 76),
+                SPOOFER_VERSION(@"v20.10.4 (Deprecated)", 77),
+                SPOOFER_VERSION(@"v20.10.3 (Deprecated)", 78),
+                SPOOFER_VERSION(@"v20.09.3 (Deprecated)", 79),
+                SPOOFER_VERSION(@"v20.08.3 (Deprecated)", 80),
+                SPOOFER_VERSION(@"v20.07.6 (Deprecated)", 81),
+                SPOOFER_VERSION(@"v20.06.03 (Deprecated)", 82),
+                SPOOFER_VERSION(@"v20.05.4 (Deprecated)", 83),
+                SPOOFER_VERSION(@"v20.03.1 (Deprecated)", 84),
+                SPOOFER_VERSION(@"v20.03.02 (Deprecated)", 85),
+                SPOOFER_VERSION(@"v20.02.3 (Deprecated)", 86)
             ];
             YTSettingsPickerViewController *picker = [[%c(YTSettingsPickerViewController) alloc] initWithNavTitle:LOC(@"VERSION_SPOOFER_SELECTOR") pickerSectionTitle:nil rows:rows selectedItemIndex:appVersionSpoofer() parentResponder:[self parentResponder]];
             [settingsViewController pushViewController:picker];
