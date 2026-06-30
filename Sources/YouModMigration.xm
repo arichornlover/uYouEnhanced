@@ -108,11 +108,6 @@
 
 // =============================================
 
-@interface YouModMigrationManager : NSObject
-+ (instancetype)sharedManager;
-- (void)migrateToYouModWithReset:(BOOL)shouldReset;
-@end
-
 @implementation YouModMigrationManager
 
 + (instancetype)sharedManager {
