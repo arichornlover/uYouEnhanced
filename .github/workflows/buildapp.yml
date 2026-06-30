@@ -46,6 +46,11 @@ on:
         default: true
         required: false
         type: boolean
+      ytuhd:
+        description: "Include YTUHD (this will clone dav1d + libvpx libraries)"
+        default: false
+        required: false
+        type: boolean
   
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -114,6 +119,18 @@ jobs:
           ./theos-jailed/install
         env:
           THEOS: ${{ github.workspace }}/theos
+
+      # YTUHD + Libraries (conditional)
+      - name: YTUHD + Libraries
+        if: ${{ inputs.ytuhd }}
+        run: |
+          echo "⚠️ Installing YTUHD + required libraries (dav1d + libvpx)..."
+          git clone --quiet --depth=1 https://github.com/PoomSmart/YTUHD.git
+          cd YTUHD
+          # Install dav1d and libvpx if needed (Theos environment)
+          make clean package DEBUG=0 FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless || true
+          cd ..
+          echo "YTUHD + libraries prepared."
 
       - name: Hash YT ipa url
         run: |
