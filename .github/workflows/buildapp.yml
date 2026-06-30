@@ -115,15 +115,6 @@ jobs:
         env:
           THEOS: ${{ github.workspace }}/theos
 
-      - name: Fix Theos broken pipe issue
-        run: |
-          for script in $(find $THEOS -name "convert_xml_plist.sh" 2>/dev/null || echo ""); do
-            if [ -f "$script" ]; then
-              sed -i '' 's/od -c "$i" | head/od -c "$i" 2>\/dev\/null | head/g' "$script"
-              echo "Fixed: $script"
-            fi
-          done || true
-
       - name: Hash YT ipa url
         run: |
           URL_YT="$(jq -r '.inputs.decrypted_youtube_url' $GITHUB_EVENT_PATH)"
