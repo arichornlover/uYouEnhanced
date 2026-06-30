@@ -22,6 +22,8 @@ jobs:
           git add .
           git submodule update --init --recursive --remote Tweaks/DontEatMyContent
           git add .
+          git submodule update --init --recursive --remote Tweaks/FLEXing
+          git add .
           git submodule update --init --recursive --remote Tweaks/iSponsorBlock
           git add .
           git submodule update --init --recursive --remote Tweaks/protobuf
