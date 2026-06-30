@@ -117,8 +117,14 @@ jobs:
 
       - name: Fix Theos broken pipe issue
         run: |
-          find $THEOS -name "convert_xml_plist.sh" -exec sed -i '' 's/od -c "$i" | head/od -c "$i" 2>\/dev\/null | head/g' {} + || true
-          echo "Fixed broken pipe issue if script was found."
+          # Find and fix convert_xml_plist.sh (BSD compatible)
+          SCRIPT_PATH=$(find $THEOS -name "convert_xml_plist.sh" 2>/dev/null | head -n 1)
+          if [ -n "$SCRIPT_PATH" ]; then
+            sed -i '' 's/od -c "$i" | head/od -c "$i" 2>\/dev\/null | head/g' "$SCRIPT_PATH"
+            echo "Fixed: $SCRIPT_PATH"
+          else
+            echo "convert_xml_plist.sh not found - skipping"
+          fi
 
       - name: Hash YT ipa url
         run: |
