@@ -76,7 +76,7 @@
     url = https://github.com/aricloverEXTRA/YTIcons.git
 [submodule "Tweaks/YTUHD"]
     path = Tweaks/YTUHD
-    url = https://github.com/Tonwalter888/YTUHD.git
+    url = https://github.com/PoomSmart/YTUHD.git
 [submodule "Tweaks/YTVideoOverlay"]
     path = Tweaks/YTVideoOverlay
     url = https://github.com/PoomSmart/YTVideoOverlay.git
