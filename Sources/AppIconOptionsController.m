@@ -69,7 +69,6 @@ static NSString *BundlePath(void) {
     NSString *bundlePath = BundlePath();
     NSBundle *bundle = [NSBundle bundleWithPath:bundlePath];
 
-    // Scan bundle AppIcons
     NSString *iconsDir = [bundle.bundlePath stringByAppendingPathComponent:@"AppIcons"];
     if ([fm fileExistsAtPath:iconsDir]) {
         for (NSString *entry in [fm contentsOfDirectoryAtPath:iconsDir error:nil]) {
@@ -83,7 +82,6 @@ static NSString *BundlePath(void) {
         }
     }
 
-    // Scan support directory
     NSString *supportDir = @"/Library/Application Support/uYouEnhanced/AppIcons";
     if ([fm fileExistsAtPath:supportDir]) {
         for (NSString *entry in [fm contentsOfDirectoryAtPath:supportDir error:nil]) {
@@ -99,7 +97,6 @@ static NSString *BundlePath(void) {
 
     self.appIcons = [[iconNames allObjects] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
 
-    // Load saved icon
     NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:[NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", kPrefDomain]] ?: @{};
     NSString *saved = prefs[kPrefIconName];
     if (saved) {
@@ -117,7 +114,7 @@ static NSString *BundlePath(void) {
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return self.appIcons.count + 1; // +1 for "Reset to default"
+    return self.appIcons.count + 1;
 }
 
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -142,13 +139,12 @@ static NSString *BundlePath(void) {
     cell.detailTextLabel.text = @"Tap to apply this icon";
 
     UIImage *preview = nil;
-    // Try to find preview image
+    NSArray<NSString *> *candidates = @[@"AppIcon60x60@3x.png", @"Icon@3x.png", @"Icon.png"];
+
     NSString *bundlePath = BundlePath();
     NSBundle *bundle = [NSBundle bundleWithPath:bundlePath];
     NSString *supportBase = @"/Library/Application Support/uYouEnhanced/AppIcons";
     NSFileManager *fm = [NSFileManager defaultManager];
-
-    NSArray<NSString *> *candidates = @[@"AppIcon60x60@3x.png", @"Icon@3x.png", @"Icon.png"];
 
     for (NSString *c in candidates) {
         NSString *path = [bundle.bundlePath stringByAppendingPathComponent:[NSString stringWithFormat:@"AppIcons/%@/%@", iconName, c]];
