@@ -5,9 +5,6 @@
 #import "SettingsKeys.h"
 #import "AppIconOptionsController.h"
 
-// Migrate to YouMod import
-#import "YouModMigration.xm"
-
 #define VERSION_STRING [[NSString stringWithFormat:@"%@", @(OS_STRINGIFY(TWEAK_VERSION))] stringByReplacingOccurrencesOfString:@"\"" withString:@""]
 #define SHOW_RELAUNCH_YT_SNACKBAR [[%c(GOOHUDManagerInternal) sharedInstance] showMessageMainThread:[%c(YTHUDMessage) messageWithText:LOC(@"RESTART_YOUTUBE")]]
 
