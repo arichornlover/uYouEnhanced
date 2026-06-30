@@ -73,10 +73,10 @@ jobs:
         run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH 
 
       - name: Setup Theos
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: theos/theos
-          ref: master
+          ref: 9bc73406cf80b711ef4d02c15ff1dedc4478a275
           path: theos
           submodules: recursive
       
@@ -102,7 +102,7 @@ jobs:
           THEOS: ${{ github.workspace }}/theos
 
       - name: Setup Theos Jailed
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: qnblackcat/theos-jailed
           ref: master
