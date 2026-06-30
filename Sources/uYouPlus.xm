@@ -873,7 +873,13 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     %orig(renderer);
 }
 // For when spoofing before 18.34.5
-- (void)setPremiumLogo:(BOOL)arg { IS_ENABLED(kYTPremiumLogo) ? %orig(YES) : %orig; }
+- (void)setPremiumLogo:(BOOL)arg {
+    if (IS_ENABLED(kYTPremiumLogo)) {
+        %orig(YES);
+    } else {
+        %orig;
+    }
+}
 - (BOOL)isPremiumLogo { return IS_ENABLED(kYTPremiumLogo) ? YES : %orig; }
 %end
 
