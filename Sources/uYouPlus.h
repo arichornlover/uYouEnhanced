@@ -183,6 +183,12 @@ static NSString *const kGoogleSigninFix = @"googleSigninFix_enabled";
 // Header has been moved to https://github.com/PoomSmart/YouTubeHeader/blob/main/YTPlayerBarController.h
 // Header has been moved to https://github.com/PoomSmart/YouTubeHeader/blob/main/YTInlinePlayerBarContainerView.h
 
+// YouMod Migration
+@interface YouModMigrationManager : NSObject
++ (instancetype)sharedManager;
+- (void)migrateToYouModWithReset:(BOOL)shouldReset;
+@end
+
 // IAmYouTube
 @interface SSOConfiguration : NSObject
 @end
