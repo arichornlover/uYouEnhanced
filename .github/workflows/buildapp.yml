@@ -115,6 +115,10 @@ jobs:
         env:
           THEOS: ${{ github.workspace }}/theos
 
+      - name: Fix Theos broken pipe issue
+        run: |
+          sed -i '' 's/od -c "$i" | head/od -c "$i" 2>\/dev\/null | head/g' $THEOS/bin/convert_xml_plist.sh || true
+
       - name: Hash YT ipa url
         run: |
           URL_YT="$(jq -r '.inputs.decrypted_youtube_url' $GITHUB_EVENT_PATH)"
