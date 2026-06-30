@@ -205,18 +205,6 @@ static BOOL inspectAndHideIfMatch(id view) {
     }
     return NO;
 }
-static void removeViewFromSuperview(id view) {
-    if (!view) return;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        @try {
-            if ([view respondsToSelector:@selector(removeFromSuperview)]) {
-                [view removeFromSuperview];
-            }
-        } @catch (NSException *ex) {
-            NSLog(@"[HidePlayerButtons] removeFromSuperview exception: %@", ex);
-        }
-    });
-}
 static void traverseAndHideViews(UIView *root) {
     if (!root) return;
     @try {
