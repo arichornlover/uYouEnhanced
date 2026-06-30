@@ -7,7 +7,7 @@
     url = https://github.com/hbang/Alderis.git
 [submodule "Tweaks/DontEatMyContent"]
     path = Tweaks/DontEatMyContent
-    url = https://github.com/aricloverEXTRA/DontEatMyContent.git
+    url = https://github.com/therealFoxster/DontEatMyContent.git
 [submodule "Tweaks/FLEXing"]
     path = Tweaks/FLEXing
     url = https://github.com/PoomSmart/FLEXing.git
@@ -73,7 +73,7 @@
     url = https://github.com/aricloverEXTRA/YTHoldForSpeed.git
 [submodule "Tweaks/YTIcons"]
     path = Tweaks/YTIcons
-    url = https://github.com/PoomSmart/YTIcons.git
+    url = https://github.com/aricloverEXTRA/YTIcons.git
 [submodule "Tweaks/YTUHD"]
     path = Tweaks/YTUHD
     url = https://github.com/Tonwalter888/YTUHD.git
