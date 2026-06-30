@@ -117,14 +117,12 @@ jobs:
 
       - name: Fix Theos broken pipe issue
         run: |
-          # Find and fix convert_xml_plist.sh (BSD compatible)
-          SCRIPT_PATH=$(find $THEOS -name "convert_xml_plist.sh" 2>/dev/null | head -n 1)
-          if [ -n "$SCRIPT_PATH" ]; then
-            sed -i '' 's/od -c "$i" | head/od -c "$i" 2>\/dev\/null | head/g' "$SCRIPT_PATH"
-            echo "Fixed: $SCRIPT_PATH"
-          else
-            echo "convert_xml_plist.sh not found - skipping"
-          fi
+          for script in $(find $THEOS -name "convert_xml_plist.sh" 2>/dev/null || echo ""); do
+            if [ -f "$script" ]; then
+              sed -i '' 's/od -c "$i" | head/od -c "$i" 2>\/dev\/null | head/g' "$script"
+              echo "Fixed: $script"
+            fi
+          done || true
 
       - name: Hash YT ipa url
         run: |
