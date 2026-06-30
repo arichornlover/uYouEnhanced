@@ -117,7 +117,8 @@ jobs:
 
       - name: Fix Theos broken pipe issue
         run: |
-          sed -i '' 's/od -c "$i" | head/od -c "$i" 2>\/dev\/null | head/g' $THEOS/bin/convert_xml_plist.sh || true
+          find $THEOS -name "convert_xml_plist.sh" -exec sed -i '' 's/od -c "$i" | head/od -c "$i" 2>\/dev\/null | head/g' {} + || true
+          echo "Fixed broken pipe issue if script was found."
 
       - name: Hash YT ipa url
         run: |
