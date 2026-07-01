@@ -1234,28 +1234,6 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 }
 %end
 
-/*
-// LEGACY VERSION ⚠️
-// Hide Fullscreen Button - @arichornlover - PoomSmart's 1.2.0+ Versions of the *YouQuality* tweak makes the button invisible when enabling this
-%hook YTInlinePlayerBarContainerView
-- (void)layoutSubviews {
-    %orig; 
-    if (IS_ENABLED(kDisableFullscreenButton)) {
-        if (self.exitFullscreenButton) {
-            [self.exitFullscreenButton removeFromSuperview];
-            self.exitFullscreenButton.frame = CGRectZero;
-        }
-        if (self.enterFullscreenButton) {
-            [self.enterFullscreenButton removeFromSuperview];
-            self.enterFullscreenButton.frame = CGRectZero;
-        }
-        self.fullscreenButtonDisabled = YES;
-    }
-}
-%end
-*/
-
-// NEW VERSION
 // Hide Fullscreen Button - @arichornlover
 %group gHideFullscreenButton
 %hook YTInlinePlayerBarContainerView
@@ -1523,22 +1501,6 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     else { return %orig; }
 }
 %end
-
-/* DISABLED DUE TO CONFLICTS
-// Hide Community Posts - @michael-winay, @arichornlover, @iCrazeiOS @PoomSmart & @Dayanch96
-%hook YTIElementRenderer
-- (NSData *)elementData {
-    NSString *description = [self description];
-    if (IS_ENABLED(kHideCommunityPosts)) {
-        if ([description containsString:@"post_base_wrapper.eml"]) {
-            if (!cellDividerData) cellDividerData = [NSData dataWithBytes:cellDividerDataBytes length:cellDividerDataBytesLength];
-            return cellDividerData;
-        }
-    }
-    return %orig;
-}
-%end
-*/
 
 // Red Subscribe Button + Hide the Button Containers under the Video Player - @arichornlover
 // Hide the Button Containers under the Video Player - v20.02.3+ - @arichornlover
@@ -1876,11 +1838,10 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     // dlopen([[NSString stringWithFormat:@"%@/Frameworks/uYou.dylib", [[NSBundle mainBundle] bundlePath]] UTF8String], RTLD_LAZY);
 
     %init;
-/*
-    if (IS_ENABLED(kSettingsStyle_enabled)) {
-        %init(gSettingsStyle);
-    }
-*/
+//  if (IS_ENABLED(kSettingsStyle_enabled)) {
+//      %init(gSettingsStyle);
+//  }
+
     if (IS_ENABLED(kHideYouTubeLogo)) {
         %init(gHideYouTubeLogo);
     }
