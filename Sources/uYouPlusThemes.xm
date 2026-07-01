@@ -475,20 +475,32 @@ UIColor *customHexColor;
 
 %hook YTFormattedStringLabel  // YT is werid...
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig([UIColor clearColor]) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig([UIColor clearColor]);
+    } else {
+        %orig;
+    }
 }
 %end
 
 // Live chat comment
 %hook YCHLiveChatActionPanelView 
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(customHexColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook YTEmojiTextView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(customHexColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -503,14 +515,22 @@ UIColor *customHexColor;
 
 %hook YTCollectionView 
 - (void)setBackgroundColor:(UIColor *)color { 
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(customHexColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
 //
 %hook YTBackstageCreateRepostDetailView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(customHexColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
