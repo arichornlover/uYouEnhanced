@@ -188,6 +188,75 @@ jobs:
           BUNDLE_ID: ${{ inputs.bundle_id }}
           APP_NAME: ${{ inputs.app_name }}
 
+      - name: Normalize & preserve OpenYouTube appex
+        if: always()
+        run: |
+          set -e
+          PACKAGE="${{ steps.build_package.outputs.package }}"
+          IPA="${{ github.workspace }}/main/packages/${PACKAGE}"
+          echo "Processing IPA: $IPA"
+          tmpdir=$(mktemp -d)
+          unzip -q "$IPA" -d "$tmpdir"
+
+          APP_PLIST=$(ls "$tmpdir/Payload"/*.app/Info.plist | head -n1)
+          PARENT_ID=$( /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PLIST" )
+          echo "Parent bundle id: $PARENT_ID"
+
+          # Process .appex directories: preserve any OpenYouTube/OpenYoutube/OpenYoutubeAndShorts applix, remove others
+          find "$tmpdir/Payload" -type d -name "*.appex" -print0 | while IFS= read -r -d '' extdir; do
+            name=$(basename "$extdir")
+            # Keep extensions that mention "openyoutube" (case-insensitive)
+            if echo "$name" | grep -qi "openyoutube"; then
+              plist="$extdir/Info.plist"
+              if [ -f "$plist" ]; then
+                old=$( /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$plist" 2>/dev/null || echo "" )
+                if [ -n "$old" ]; then
+                  last="${old##*.}"
+                  new="${PARENT_ID}.${last}"
+                  echo "Updating $plist: $old -> $new"
+                  /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $new" "$plist"
+                fi
+              fi
+            else
+              echo "Removing unwanted appex: $extdir"
+              rm -rf "$extdir"
+            fi
+          done
+
+          # Remove embedded provisioning profiles (sideloader will re-sign)
+          find "$tmpdir/Payload" -name "embedded.mobileprovision" -print0 | xargs -0 -r rm -f
+
+          # Repack IPA
+          (cd "$tmpdir" && zip -qr "../fixed_ipa.zip" Payload)
+          mv "$tmpdir/../fixed_ipa.zip" "$IPA"
+          rm -rf "$tmpdir"
+          echo "Normalization complete."
+
+      - name: Validate extension CFBundleIdentifiers match parent
+        run: |
+          set -e
+          PACKAGE="${{ steps.build_package.outputs.package }}"
+          IPA="${{ github.workspace }}/main/packages/${PACKAGE}"
+          tmpdir=$(mktemp -d)
+          unzip -q "$IPA" -d "$tmpdir"
+
+          PARENT=$( /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$tmpdir/Payload"/*.app/Info.plist )
+          echo "Parent ID: $PARENT"
+          bad=0
+          while IFS= read -r plist; do
+            id=$( /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$plist" 2>/dev/null || echo "" )
+            if [ -n "$id" ] && [[ "$id" != "$PARENT"* ]]; then
+              echo "::error::Mismatched extension id '$id' (file: $plist) — does not start with parent '$PARENT'"
+              bad=1
+            fi
+          done < <(find "$tmpdir/Payload" -name Info.plist | grep -v "$tmpdir/Payload"/*.app/Info.plist || true)
+          rm -rf "$tmpdir"
+          if [ "$bad" -eq 1 ]; then
+            echo "::error::Extension id mismatch detected. Consider stripping or normalizing extension ids."
+            exit 1
+          fi
+          echo "Extension id validation OK."
+
       - name: Upload Artifact
         if: ${{ inputs.upload_artifact }}
         uses: actions/upload-artifact@v7
