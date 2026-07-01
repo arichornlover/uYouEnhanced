@@ -1147,7 +1147,11 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 // Disable double tap to seek
 %hook YTDoubleTapToSeekController
 - (void)enableDoubleTapToSeek:(BOOL)arg1 {
-    return IS_ENABLED(kDoubleTapToSeek) ? %orig(NO) : %orig;
+    if (IS_ENABLED(kDoubleTapToSeek)) {
+        %orig(NO);
+    } else {
+        %orig;
+    }
 }
 %end
 
