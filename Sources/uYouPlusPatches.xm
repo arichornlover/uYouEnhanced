@@ -511,11 +511,6 @@ static void refreshUYouAppearance() {
     if (IS_ENABLED(kGoogleSignInPatch)) {
         %init(gGoogleSignInPatch);
     }
-/*
-    if (IS_ENABLED(kYouTubeNativeShare)) {
-        %init(gYouTubeNativeShare);
-    }
-*/
     // if (@available(iOS 16, *)) {
     //     %init(iOS16);
     // }
