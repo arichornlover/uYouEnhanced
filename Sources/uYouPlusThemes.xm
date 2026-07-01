@@ -597,13 +597,21 @@ UIColor *customHexColor;
 // Open link with...
 %hook ASWAppSwitchingSheetHeaderView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(raisedColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(raisedColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook ASWAppSwitchingSheetFooterView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(raisedColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(raisedColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
