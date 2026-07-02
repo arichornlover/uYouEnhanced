@@ -1,20 +1,58 @@
 #import "uYouPlusPatches.h"
 
+#define YT_BUNDLE_ID @"com.google.ios.youtube"
+#define YT_NAME @"YouTube"
+
 # pragma mark - YouTube patches
+
+static NSString *accessGroupID() {
+    NSDictionary *query = [NSDictionary dictionaryWithObjectsAndKeys:
+                           (__bridge NSString *)kSecClassGenericPassword, (__bridge NSString *)kSecClass,
+                           @"bundleSeedID", kSecAttrAccount,
+                           @"", kSecAttrService,
+                           (id)kCFBooleanTrue, kSecReturnAttributes,
+                           nil];
+    CFDictionaryRef result = nil;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
+    if (status == errSecItemNotFound) {
+        status = SecItemAdd((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
+        if (status != errSecSuccess) {
+            return nil;
+        }
+    }
+    NSString *accessGroup = [(__bridge NSDictionary *)result objectForKey:(__bridge NSString *)kSecAttrAccessGroup];
+    return accessGroup;
+}
 
 // Fix Google Sign in Patch
 %group gGoogleSignInPatch
 %hook NSBundle
++ (NSBundle *)bundleWithIdentifier:(NSString *)identifier {
+    if ([identifier isEqualToString:YT_BUNDLE_ID])
+        return NSBundle.mainBundle;
+    return %orig(identifier);
+}
+- (NSString *)bundleIdentifier {
+    return [self isEqual:NSBundle.mainBundle] ? YT_BUNDLE_ID : %orig;
+}
 - (NSDictionary *)infoDictionary {
-    NSDictionary *orig = %orig;
-    if ([self isEqual:NSBundle.mainBundle]) {
-        NSMutableDictionary *patched = [orig mutableCopy];
-        if (patched) {
-            patched[@"CFBundleIdentifier"] = @"com.google.ios.youtube";
-            return [patched copy];
-        }
-    }
-    return orig;
+    NSDictionary *dict = %orig;
+    if (![self isEqual:NSBundle.mainBundle])
+        return %orig;
+    NSMutableDictionary *info = [dict mutableCopy];
+    if (info[@"CFBundleIdentifier"]) info[@"CFBundleIdentifier"] = YT_BUNDLE_ID;
+    if (info[@"CFBundleDisplayName"]) info[@"CFBundleDisplayName"] = YT_NAME;
+    if (info[@"CFBundleName"]) info[@"CFBundleName"] = YT_NAME;
+    return info;
+}
+- (id)objectForInfoDictionaryKey:(NSString *)key {
+    if (![self isEqual:NSBundle.mainBundle])
+        return %orig;
+    if ([key isEqualToString:@"CFBundleIdentifier"])
+        return YT_BUNDLE_ID;
+    if ([key isEqualToString:@"CFBundleDisplayName"] || [key isEqualToString:@"CFBundleName"])
+        return YT_NAME;
+    return %orig;
 }
 %end
 %end
@@ -32,36 +70,6 @@
 %hook YTHotConfig
 - (BOOL)disableAfmaIdfaCollection { return NO; }
 %end
-
-// Reposition "Create" Tab to the Center in the Pivot Bar - qnblackcat/uYouPlus#107
-/*
-static void repositionCreateTab(YTIGuideResponse *response) {
-    NSMutableArray<YTIGuideResponseSupportedRenderers *> *renderers = [response itemsArray];
-    for (YTIGuideResponseSupportedRenderers *guideRenderers in renderers) {
-        YTIPivotBarRenderer *pivotBarRenderer = [guideRenderers pivotBarRenderer];
-        NSMutableArray<YTIPivotBarSupportedRenderers *> *items = [pivotBarRenderer itemsArray];
-        NSUInteger createIndex = [items indexOfObjectPassingTest:^BOOL(YTIPivotBarSupportedRenderers *renderers, NSUInteger idx, BOOL *stop) {
-            return [[[renderers pivotBarItemRenderer] pivotIdentifier] isEqualToString:@"FEuploads"];
-        }];
-        if (createIndex != NSNotFound) {
-            YTIPivotBarSupportedRenderers *createTab = [items objectAtIndex:createIndex];
-            [items removeObjectAtIndex:createIndex];
-            NSUInteger centerIndex = items.count / 2;
-            [items insertObject:createTab atIndex:centerIndex]; // Reposition the "Create" tab at the center
-        }
-    }
-}
-%hook YTGuideServiceCoordinator
-- (void)handleResponse:(YTIGuideResponse *)response withCompletion:(id)completion {
-    repositionCreateTab(response);
-    %orig(response, completion);
-}
-- (void)handleResponse:(YTIGuideResponse *)response error:(id)error completion:(id)completion {
-    repositionCreateTab(response);
-    %orig(response, error, completion);
-}
-%end
-*/
 
 // https://github.com/PoomSmart/YouTube-X/blob/1e62b68e9027fcb849a75f54a402a530385f2a51/Tweak.x#L27
 // %hook YTAdsInnerTubeContextDecorator
@@ -98,41 +106,38 @@ static void repositionCreateTab(YTIGuideResponse *response) {
 }
 %end
 
-// YouTube Native Share - https://github.com/jkhsjdhjs/youtube-native-share - @jkhsjdhjs
+// YouTube Native Share 0.2.7 - https://github.com/jkhsjdhjs/youtube-native-share - @jkhsjdhjs
 typedef NS_ENUM(NSInteger, ShareEntityType) {
-    ShareEntityFieldVideo = 1,
-    ShareEntityFieldPlaylist = 2,
-    ShareEntityFieldChannel = 3,
-    ShareEntityFieldPost = 6,
-    ShareEntityFieldClip = 8,
+    ShareEntityFieldVideo     = 1,
+    ShareEntityFieldPlaylist  = 2,
+    ShareEntityFieldChannel   = 3,
+    ShareEntityFieldPost      = 6,
+    ShareEntityFieldClip      = 8,
     ShareEntityFieldShortFlag = 10
 };
 
-static inline NSString* extractIdWithFormat(GPBUnknownFields *fields, NSInteger fieldNumber, NSString *format) {
-    NSArray<GPBUnknownField*> *fieldArray = [fields fields:fieldNumber];
-    if (!fieldArray)
-        return nil;
+static inline NSString *extractIdWithFormat(GPBUnknownFields *fields, NSInteger fieldNumber, NSString *format) {
+    NSArray<GPBUnknownField *> *fieldArray = [fields fields:fieldNumber];
     if ([fieldArray count] != 1)
         return nil;
-    NSString *id = [[NSString alloc] initWithData:[fieldArray firstObject].lengthDelimited encoding:NSUTF8StringEncoding];
-    return [NSString stringWithFormat:format, id];
+    NSString *value = [[NSString alloc] initWithData:[fieldArray firstObject].lengthDelimited encoding:NSUTF8StringEncoding];
+    return [NSString stringWithFormat:format, value];
 }
 
-static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *sourceView) {
-    GPBMessage *shareEntity = [%c(GPBMessage) deserializeFromString:serializedShareEntity];
-    GPBUnknownFields *fields = [[%c(GPBUnknownFields) alloc] initFromMessage:shareEntity];
+static NSString *extractUrlFromFields(GPBUnknownFields *fields) {
     NSString *shareUrl;
 
-    NSArray<GPBUnknownField*> *shareEntityClip = [fields fields:ShareEntityFieldClip];
-    if (shareEntityClip) {
-        if ([shareEntityClip count] != 1)
-            return NO;
+    NSArray<GPBUnknownField *> *shareEntityClip = [fields fields:ShareEntityFieldClip];
+    if ([shareEntityClip count] == 1) {
         GPBMessage *clipMessage = [%c(GPBMessage) parseFromData:[shareEntityClip firstObject].lengthDelimited error:nil];
         shareUrl = extractIdWithFormat([[%c(GPBUnknownFields) alloc] initFromMessage:clipMessage], 1, @"https://youtube.com/clip/%@");
     }
 
     if (!shareUrl)
         shareUrl = extractIdWithFormat(fields, ShareEntityFieldChannel, @"https://youtube.com/channel/%@");
+
+    if (!shareUrl)
+        shareUrl = extractIdWithFormat(fields, ShareEntityFieldPost, @"https://youtube.com/post/%@");
 
     if (!shareUrl) {
         shareUrl = extractIdWithFormat(fields, ShareEntityFieldPlaylist, @"%@");
@@ -144,67 +149,100 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
     }
 
     if (!shareUrl) {
-        NSString *format = @"https://youtube.com/watch?v=%@";
-        if ([fields fields:ShareEntityFieldShortFlag])
-            format = @"https://youtube.com/shorts/%@";
+        NSString *format = ([fields fields:ShareEntityFieldShortFlag].count > 0) ? @"https://youtube.com/shorts/%@" : @"https://youtube.com/watch?v=%@";
         shareUrl = extractIdWithFormat(fields, ShareEntityFieldVideo, format);
     }
 
-    if (!shareUrl)
-        shareUrl = extractIdWithFormat(fields, ShareEntityFieldPost, @"https://youtube.com/post/%@");
+    return shareUrl;
+}
 
-    if (!shareUrl)
-        return NO;
+static NSString *extractUrlFromDescription(NSString *desc) {
+    NSRegularExpression *regex;
+    NSTextCheckingResult *match;
+
+    regex = [NSRegularExpression regularExpressionWithPattern:[NSString stringWithFormat:@"\\b%ld: \"([^\"]+)\"", (long)ShareEntityFieldChannel] options:0 error:nil];
+    match = [regex firstMatchInString:desc options:0 range:NSMakeRange(0, desc.length)];
+    if (match) return [NSString stringWithFormat:@"https://youtube.com/channel/%@", [desc substringWithRange:[match rangeAtIndex:1]]];
+
+    regex = [NSRegularExpression regularExpressionWithPattern:[NSString stringWithFormat:@"\\b%ld: \"([^\"]+)\"", (long)ShareEntityFieldPost] options:0 error:nil];
+    match = [regex firstMatchInString:desc options:0 range:NSMakeRange(0, desc.length)];
+    if (match) return [NSString stringWithFormat:@"https://youtube.com/post/%@", [desc substringWithRange:[match rangeAtIndex:1]]];
+
+    regex = [NSRegularExpression regularExpressionWithPattern:[NSString stringWithFormat:@"\\b%ld: \"([^\"]+)\"", (long)ShareEntityFieldPlaylist] options:0 error:nil];
+    match = [regex firstMatchInString:desc options:0 range:NSMakeRange(0, desc.length)];
+    if (match) {
+        NSString *playlistId = [desc substringWithRange:[match rangeAtIndex:1]];
+        if (![playlistId hasPrefix:@"PL"] && ![playlistId hasPrefix:@"FL"])
+            playlistId = [playlistId stringByAppendingString:@"&playnext=1"];
+        return [NSString stringWithFormat:@"https://youtube.com/playlist?list=%@", playlistId];
+    }
+
+    regex = [NSRegularExpression regularExpressionWithPattern:[NSString stringWithFormat:@"\\b%ld: \"([^\"]+)\"", (long)ShareEntityFieldVideo] options:0 error:nil];
+    match = [regex firstMatchInString:desc options:0 range:NSMakeRange(0, desc.length)];
+    if (match) return [NSString stringWithFormat:@"https://youtube.com/watch?v=%@", [desc substringWithRange:[match rangeAtIndex:1]]];
+
+    return nil;
+}
+
+static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *sourceView) {
+    GPBMessage *shareEntity = [%c(GPBMessage) deserializeFromString:serializedShareEntity];
+    if (!shareEntity) return NO;
+
+    NSString *shareUrl;
+    GPBUnknownFields *fields = [[%c(GPBUnknownFields) alloc] initFromMessage:shareEntity];
+
+    if (fields && [fields count] > 0)
+        shareUrl = extractUrlFromFields(fields);
+    else
+        shareUrl = extractUrlFromDescription([shareEntity description]);
+
+    if (!shareUrl) return NO;
 
     UIActivityViewController *activityViewController = [[UIActivityViewController alloc] initWithActivityItems:@[shareUrl] applicationActivities:nil];
     activityViewController.excludedActivityTypes = @[UIActivityTypeAssignToContact, UIActivityTypePrint];
 
     UIViewController *topViewController = [%c(YTUIUtils) topViewControllerForPresenting];
-
     if (activityViewController.popoverPresentationController) {
-        activityViewController.popoverPresentationController.sourceView = topViewController.view;
-        activityViewController.popoverPresentationController.sourceRect = [sourceView convertRect:sourceView.bounds toView:topViewController.view];
+        if (sourceView) {
+            activityViewController.popoverPresentationController.sourceView = sourceView;
+            activityViewController.popoverPresentationController.sourceRect = [sourceView convertRect:sourceView.bounds toView:topViewController.view];
+        } else {
+            activityViewController.popoverPresentationController.sourceView = topViewController.view;
+            CGFloat w = [UIScreen mainScreen].bounds.size.width;
+            CGFloat h = [UIScreen mainScreen].bounds.size.height;
+            activityViewController.popoverPresentationController.sourceRect = CGRectMake(w / 2.0, h, 0, 0);
+        }
     }
-
     [topViewController presentViewController:activityViewController animated:YES completion:nil];
-
     return YES;
 }
 
-/* -------------------- iPad Layout -------------------- */
+%hook ELMPBShowActionSheetCommand
+- (void)executeWithCommandContext:(ELMCommandContext *)context handler:(id)handler {
+    NSString *desc = [self description];
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"serialized_share_entity: \"([^\"]+)\"" options:0 error:nil];
+    NSTextCheckingResult *match = [regex firstMatchInString:desc options:0 range:NSMakeRange(0, desc.length)];
+    if (!match) return %orig;
 
-// %group gYouTubeNativeShare // YouTube Native Share Option - 0.2.3 - Supports YouTube v17.33.2-v19.34.2
-%hook YTAccountScopedCommandResponderEvent
-- (void)send {
-    GPBExtensionDescriptor *shareEntityEndpointDescriptor = [%c(YTIShareEntityEndpoint) shareEntityEndpoint];
-    if (![self.command hasExtension:shareEntityEndpointDescriptor])
-        return %orig;
-    YTIShareEntityEndpoint *shareEntityEndpoint = [self.command getExtension:shareEntityEndpointDescriptor];
-    if (!shareEntityEndpoint.hasSerializedShareEntity)
-        return %orig;
-    if (!showNativeShareSheet(shareEntityEndpoint.serializedShareEntity, self.fromView))
+    NSString *serializedShareEntity = [desc substringWithRange:[match rangeAtIndex:1]];
+    UIView *fromView;
+    if ([context.context respondsToSelector:@selector(fromView)])
+        fromView = context.context.fromView;
+
+    if (!showNativeShareSheet(serializedShareEntity, fromView))
         return %orig;
 }
 %end
 
+%hook YTShareEntityEndpointCommandHandler
+- (void)executeWithCommand:(YTICommand *)command entry:(id)entry fromView:(UIView *)fromView sender:(id)sender {
+    NSString *desc = [command description];
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"serialized_share_entity: \"([^\"]+)\"" options:0 error:nil];
+    NSTextCheckingResult *match = [regex firstMatchInString:desc options:0 range:NSMakeRange(0, desc.length)];
+    if (!match) return %orig;
 
-/* ------------------- iPhone Layout ------------------- */
-
-%hook ELMPBShowActionSheetCommand
-- (void)executeWithCommandContext:(ELMCommandContext*)context handler:(id)_handler {
-    if (!self.hasOnAppear)
-        return %orig;
-    GPBExtensionDescriptor *innertubeCommandDescriptor = [%c(YTIInnertubeCommandExtensionRoot) innertubeCommand];
-    if (![self.onAppear hasExtension:innertubeCommandDescriptor])
-        return %orig;
-    YTICommand *innertubeCommand = [self.onAppear getExtension:innertubeCommandDescriptor];
-    GPBExtensionDescriptor *updateShareSheetCommandDescriptor = [%c(YTIUpdateShareSheetCommand) updateShareSheetCommand];
-    if(![innertubeCommand hasExtension:updateShareSheetCommandDescriptor])
-        return %orig;
-    YTIUpdateShareSheetCommand *updateShareSheetCommand = [innertubeCommand getExtension:updateShareSheetCommandDescriptor];
-    if (!updateShareSheetCommand.hasSerializedShareEntity)
-        return %orig;
-    if (!showNativeShareSheet(updateShareSheetCommand.serializedShareEntity, context.context.fromView))
+    NSString *serializedShareEntity = [desc substringWithRange:[match rangeAtIndex:1]];
+    if (!showNativeShareSheet(serializedShareEntity, fromView))
         return %orig;
 }
 %end
@@ -411,16 +449,68 @@ static void refreshUYouAppearance() {
  
  %end
 
+// Sideloading
+%hook SSOKeychainHelper
++ (id)accessGroup { return accessGroupID(); }
++ (id)sharedAccessGroup { return accessGroupID(); }
+%end
+
+%hook SSOFolsomKeychainUtils
+- (id)sharedAccessGroup { return accessGroupID(); }
+%end
+
+%hook GULKeychainStorage
+- (void)getObjectForKey:(id)key objectClass:(Class)objectClass accessGroup:(id)accessGroup completionHandler:(id)handler {
+    accessGroup = accessGroupID();
+    %orig(key, objectClass, accessGroup, handler);
+}
+- (void)setObject:(id)object forKey:(id)key accessGroup:(id)accessGroup completionHandler:(id)handler {
+    accessGroup = accessGroupID();
+    %orig(object, key, accessGroup, handler);
+}
+- (void)removeObjectForKey:(id)key accessGroup:(id)accessGroup completionHandler:(id)handler {
+    accessGroup = accessGroupID();
+    %orig(key, accessGroup, handler);
+}
+- (void)getObjectFromKeychainForKey:(id)key objectClass:(Class)objectClass accessGroup:(id)accessGroup completionHandler:(id)handler {
+    accessGroup = accessGroupID();
+    %orig(key, objectClass, accessGroup, handler);
+}
+- (id)keychainQueryWithKey:(id)key accessGroup:(id)accessGroup {
+    accessGroup = accessGroupID();
+    return %orig(key, accessGroup);
+}
+%end
+
+%hook GNPEncryptionConfiguration
+- (id)initWithKeychainAccessGroup:(id)arg {
+    arg = accessGroupID();
+    return %orig(arg);
+}
+- (id)keychainAccessGroup { return accessGroupID(); }
+%end
+
+%hook FIRInstallationsStore
+- (id)initWithSecureStorage:(id)arg1 accessGroup:(id)arg2 {
+    arg2 = accessGroupID();
+    return %orig(arg1, arg2);
+}
+- (id)accessGroup { return accessGroupID(); }
+%end
+
+%hook CHMConfiguration
+- (void)setKeychainAccessGroup:(id)arg {
+    arg = accessGroupID();
+    %orig(arg);
+}
+- (id)keychainAccessGroup { return accessGroupID(); }
+%end
+
 %ctor {
     %init;
     if (IS_ENABLED(kGoogleSignInPatch)) {
         %init(gGoogleSignInPatch);
     }
-/*
-    if (IS_ENABLED(kYouTubeNativeShare)) {
-        %init(gYouTubeNativeShare);
-    }
-*/
     // if (@available(iOS 16, *)) {
     //     %init(iOS16);
     // }

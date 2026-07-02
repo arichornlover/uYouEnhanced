@@ -1,5 +1,5 @@
-export TARGET = iphone:clang:17.5:15.0
-export SDK_PATH = $(THEOS)/sdks/iPhoneOS17.5.sdk/
+export TARGET = iphone:clang:18.6:16.0
+export SDK_PATH = $(THEOS)/sdks/iPhoneOS18.6.sdk/
 export SYSROOT = $(SDK_PATH)
 export ARCHS = arm64
 
@@ -16,7 +16,7 @@ MODULES = jailed
 endif
 
 ifndef YOUTUBE_VERSION
-YOUTUBE_VERSION = 20.44.2
+YOUTUBE_VERSION = 21.14.4
 endif
 ifndef UYOU_VERSION
 UYOU_VERSION = 3.0.4
@@ -33,6 +33,12 @@ $(TWEAK_NAME)_FILES := $(wildcard Sources/*.xm) $(wildcard Sources/*.x) $(wildca
 $(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation AVFoundation AVKit Photos Accelerate CoreMotion GameController VideoToolbox Security
 $(TWEAK_NAME)_LIBRARIES = bz2 c++ iconv z
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-but-set-variable -DTWEAK_VERSION=\"$(PACKAGE_VERSION)\"
+
+# YTUHD is now optional
+ifeq ($(YTUHD_ENABLED),1)
+$(TWEAK_NAME)_INJECT_DYLIBS += $(THEOS_OBJ_DIR)/YTUHD.dylib
+endif
+
 $(TWEAK_NAME)_INJECT_DYLIBS = \
     Tweaks/uYou/Library/MobileSubstrate/DynamicLibraries/uYou.dylib \
     $(THEOS_OBJ_DIR)/libFLEX.dylib \
@@ -50,7 +56,6 @@ $(TWEAK_NAME)_INJECT_DYLIBS = \
     $(THEOS_OBJ_DIR)/YouTubeDislikesReturn.dylib \
     $(THEOS_OBJ_DIR)/DontEatMyContent.dylib \
     $(THEOS_OBJ_DIR)/YTHoldForSpeed.dylib \
-    $(THEOS_OBJ_DIR)/YTUHD.dylib \
     $(THEOS_OBJ_DIR)/YTVideoOverlay.dylib \
     $(THEOS_OBJ_DIR)/YTweaks.dylib
 
@@ -61,7 +66,12 @@ $(TWEAK_NAME)_EMBED_EXTENSIONS = $(wildcard Extensions/*.appex)
 
 include $(THEOS)/makefiles/common.mk
 ifneq ($(JAILBROKEN),1)
-SUBPROJECTS += Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing/libflex Tweaks/iSponsorBlock Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouMute Tweaks/YouPiP Tweaks/YouQuality Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTHoldForSpeed Tweaks/YTUHD Tweaks/YTVideoOverlay Tweaks/YTweaks
+SUBPROJECTS += Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing/libflex Tweaks/iSponsorBlock Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouMute Tweaks/YouPiP Tweaks/YouQuality Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTHoldForSpeed Tweaks/YTVideoOverlay Tweaks/YTweaks
+
+ifeq ($(YTUHD_ENABLED),1)
+SUBPROJECTS += Tweaks/YTUHD
+endif
+
 include $(THEOS_MAKE_PATH)/aggregate.mk
 endif
 include $(THEOS_MAKE_PATH)/tweak.mk

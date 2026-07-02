@@ -8,7 +8,7 @@ on:
     inputs:
       sdk_version:
         description: "iOS SDK Version"
-        default: "17.5"
+        default: "18.6"
         required: true
         type: string
       uyou_version:
@@ -46,7 +46,12 @@ on:
         default: true
         required: false
         type: boolean
-  
+      ytuhd:
+        description: "Include YTUHD (clones dav1d + libvpx)"
+        default: false
+        required: false
+        type: boolean
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -54,66 +59,84 @@ concurrency:
 jobs:
   build:
     name: Build uYouEnhanced
-    runs-on: macos-14
+    runs-on: macos-latest
     permissions:
       contents: write
 
     steps:
       - name: Checkout Main
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           path: main
           ref: ${{ github.event.inputs.commit_id || github.ref }}
           submodules: recursive
 
       - name: Install Dependencies
-        run: brew install ldid dpkg make
+        run: |
+          brew install ldid dpkg make wget unzip jq pipx
 
-      - name: Set PATH environment variable
-        run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH 
+      - name: Set PATH
+        run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
 
       - name: Setup Theos
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: theos/theos
           ref: 9bc73406cf80b711ef4d02c15ff1dedc4478a275
           path: theos
           submodules: recursive
-      
+
       - name: SDK Caching
         id: SDK
-        uses: actions/cache@v4.3.0
-        env:
-          cache-name: iOS-${{ inputs.sdk_version }}-SDK
+        uses: actions/cache@v6
         with:
           path: theos/sdks/
-          key: ${{ env.cache-name }}
-          restore-keys: ${{ env.cache-name }}
+          key: iOS-${{ inputs.sdk_version }}-SDK
 
       - name: Download iOS SDK
         if: steps.SDK.outputs.cache-hit != 'true'
         run: |
-          git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/aricloverALT/sdks/
+          git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/aricloverALT/sdks/ sdks
           cd sdks
           git sparse-checkout set --no-cone iPhoneOS${{ inputs.sdk_version }}.sdk
-          git checkout
+          git checkout --quiet
           mv *.sdk $THEOS/sdks
         env:
           THEOS: ${{ github.workspace }}/theos
 
       - name: Setup Theos Jailed
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: qnblackcat/theos-jailed
           ref: master
           path: theos-jailed
-          submodules: recursive
 
       - name: Install Theos Jailed
-        run: |
-          ./theos-jailed/install
+        run: ./theos-jailed/install
         env:
           THEOS: ${{ github.workspace }}/theos
+
+      - name: Fix Theos broken pipe issue
+        run: |
+          SCRIPT=$(find $THEOS -name convert_xml_plist.sh 2>/dev/null | head -1)
+          if [ -n "$SCRIPT" ]; then
+            sed -i '' 's/od -c "$i" | head/od -c "$i" 2>\/dev\/null | head/g' "$SCRIPT"
+            echo "Fixed broken pipe"
+          fi
+
+      - name: Install cyan and tbd
+        run: |
+          pipx install https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip
+          wget --quiet "https://github.com/inoahdev/tbd/releases/download/2.2/tbd-mac" -O /usr/local/bin/tbd
+          chmod +x /usr/local/bin/tbd
+
+      - name: YTUHD Libraries (only if enabled)
+        if: ${{ inputs.ytuhd }}
+        run: |
+          echo "Installing YTUHD + dav1d + libvpx"
+          git clone --quiet --depth=1 https://code.videolan.org/videolan/dav1d.git $THEOS/vendor/dav1d
+          git clone --quiet --depth=1 https://chromium.googlesource.com/webm/libvpx $THEOS/vendor/libvpx
+          git clone --quiet --depth=1 https://github.com/PoomSmart/YTUHD.git YTUHD
 
       - name: Hash YT ipa url
         run: |
@@ -124,40 +147,72 @@ jobs:
       - name: Prepare YouTube iPA
         id: prepare_youtube
         run: |
-          wget "$YOUTUBE_URL" --quiet --no-verbose -O main/YouTube.ipa
-          cd ${{ github.workspace }}/main
+          wget "$YOUTUBE_URL" --quiet -O main/YouTube.ipa
+          cd main
           mv YouTube.ipa YouTube.zip
           unzip -q YouTube.zip
           youtube_version=$(defaults read "$(pwd)/Payload/YouTube.app/Info" CFBundleVersion)
-          echo "==> YouTube v$youtube_version downloaded!"
-          sed -i '' "17s#.*#YOUTUBE_VERSION = ${youtube_version}#g" Makefile
+          echo "YT_VERSION=$youtube_version" >> $GITHUB_ENV
           echo "youtube_version=${youtube_version}" >> $GITHUB_OUTPUT
 
         env:
-          THEOS: ${{ github.workspace }}/theos
           YOUTUBE_URL: ${{ env.URL_YT }}
 
       - name: Fix compiling & Build Package
         id: build_package
         run: |
-          cd ${{ github.workspace }}/main
-          sed -i '' "30s#.*#BUNDLE_ID = ${{ env.BUNDLE_ID }}#g" Makefile                          # Modify the bundle ID
-          sed -i '' "29s#.*#DISPLAY_NAME = ${{ env.APP_NAME }}#g" Makefile                        # Modify the app name
-          sed -i '' "1s#.*#export TARGET = iphone:clang:${{ inputs.sdk_version }}:14.0#g" Makefile # Modify the SDK version
+          cd main
+          # Update Makefile
+          sed -i '' "s/^BUNDLE_ID .*/BUNDLE_ID = ${{ inputs.bundle_id }}/" Makefile || echo "BUNDLE_ID = ${{ inputs.bundle_id }}" >> Makefile
+          sed -i '' "s/^DISPLAY_NAME .*/DISPLAY_NAME = ${{ inputs.app_name }}/" Makefile || echo "DISPLAY_NAME = ${{ inputs.app_name }}" >> Makefile
+          sed -i '' "s/^export TARGET .*/export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0/" Makefile || echo "export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0" >> Makefile
+          
+          # YTUHD flag
+          if [ "${{ inputs.ytuhd }}" = "true" ]; then
+            echo "YTUHD_ENABLED=1" >> Makefile
+          else
+            echo "YTUHD_ENABLED=0" >> Makefile
+          fi
+          
           make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app FINALPACKAGE=1
-          echo "package=$(ls -t packages | head -n1)" >>$GITHUB_OUTPUT
-          echo -e "==> \033[1mSHASUM256: $(shasum -a 256 packages/*.ipa | cut -f1 -d' ')\033[0m"
-          echo -e "==> \033[1mBundle ID: ${{ env.BUNDLE_ID }}\033[0m"
+          echo "package=$(ls -t packages | head -n1)" >> $GITHUB_OUTPUT
 
         env:
           THEOS: ${{ github.workspace }}/theos
-          UYOU_VERSION: ${{ inputs.uyou_version }}
-          BUNDLE_ID: ${{ inputs.bundle_id }}
-          APP_NAME: ${{ inputs.app_name }}
+
+      - name: Clone Open in YouTube (Safari Extension)
+        run: |
+          git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/BillyCurtis/OpenYouTubeSafariExtension.git OpenYouTubeSafariExtension
+          cd OpenYouTubeSafariExtension
+          git sparse-checkout set --no-cone OpenYouTubeSafariExtension.appex
+          git checkout --quiet
+          mv *.appex ..
+
+      - name: Normalize Extension Bundle ID for SideStore
+        run: |
+          PARENT_BUNDLE="${{ inputs.bundle_id }}"
+          for appex in *.appex; do
+            if [ -f "$appex/Info.plist" ]; then
+              # Set extension ID to parent + .Extension (common pattern)
+              EXT_ID="${PARENT_BUNDLE}.Extension"
+              /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $EXT_ID" "$appex/Info.plist" 2>/dev/null || true
+              echo "Set extension ID: $EXT_ID"
+            fi
+          done
+
+      - name: Inject Tweaks Into IPA
+        run: |
+          IPA_IN="main/packages/${{ steps.build_package.outputs.package }}"
+          OUTNAME="uYouEnhanced_${{ env.YT_VERSION }}_v${{ inputs.uyou_version }}.ipa"
+          tweaks="OpenYouTubeSafariExtension.appex"
+          for f in main/packages/*.deb; do
+            [ -f "$f" ] && tweaks="$tweaks $f"
+          done
+          cyan -i "$IPA_IN" -o "$OUTNAME" -uwef $tweaks -n "${{ inputs.app_name }}" -b ${{ inputs.bundle_id }}
 
       - name: Upload Artifact
         if: ${{ inputs.upload_artifact }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         env:
           UYOU_VERSION: ${{ inputs.uyou_version }}
           YOUTUBE_VERSION: ${{ steps.prepare_youtube.outputs.youtube_version }}
@@ -169,7 +224,7 @@ jobs:
       - name: Create Release
         if: ${{ inputs.create_release }}
         id: create_release
-        uses: softprops/action-gh-release@v2.5.0
+        uses: softprops/action-gh-release@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UYOU_VERSION: ${{ inputs.uyou_version }}

@@ -15,19 +15,20 @@
     [super viewDidLoad];
 
     self.title = @"uYouEnhanced Extras Menu";
-    [self.navigationController.navigationBar setTitleTextAttributes:@{NSFontAttributeName: [UIFont fontWithName:@"YTSans-Bold" size:22], NSForegroundColorAttributeName: [UIColor whiteColor]}];
+    self.view.backgroundColor = [UIColor systemBackgroundColor];
+
+    if (@available(iOS 18.0, *)) {
+        self.navigationController.navigationBar.prefersLargeTitles = YES;
+    }
+
+    [self.navigationController.navigationBar setTitleTextAttributes:@{NSFontAttributeName: [UIFont fontWithName:@"YTSans-Bold" size:22], NSForegroundColorAttributeName: [UIColor labelColor]}];
 
     [self setupBackButton];
     [self setupTableView];
 }
 
-- (void)viewDidLayoutSubviews {
-    [super viewDidLayoutSubviews];
-    self.tableView.frame = self.view.bounds;
-}
-
 - (void)setupBackButton {
-    self.backButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    self.backButton = [UIButton buttonWithType:UIButtonTypeSystem];
     NSBundle *backIcon = [NSBundle bundleWithPath:[[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"]];
     UIImage *backImage = [UIImage imageNamed:@"Back.png" inBundle:backIcon compatibleWithTraitCollection:nil];
     backImage = [self resizeImage:backImage newSize:CGSizeMake(24, 24)];
@@ -49,9 +50,13 @@
     [NSLayoutConstraint activateConstraints:@[
         [self.tableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.tableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [self.tableView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [self.tableView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
         [self.tableView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor]
     ]];
+
+    if (@available(iOS 18.0, *)) {
+        self.tableView.sectionHeaderTopPadding = 0;
+    }
 }
 
 - (UIImage *)resizeImage:(UIImage *)image newSize:(CGSize)newSize {
@@ -77,6 +82,7 @@
     if (cell == nil) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:CellIdentifier];
     }
+
     [self configureCell:cell atIndexPath:indexPath];
     return cell;
 }
@@ -86,33 +92,27 @@
     cell.textLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightRegular];
     cell.detailTextLabel.adjustsFontSizeToFitWidth = YES;
     cell.detailTextLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
 
     BOOL isPortrait = UIDevice.currentDevice.orientation == UIDeviceOrientationPortrait;
     BOOL isPhone = UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPhone;
 
     if (indexPath.section == 0) {
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         if (indexPath.row == 0) {
             cell.textLabel.text = @"Custom Theme Color";
-            cell.detailTextLabel.text = isPortrait && isPhone ? @"" : @"You must go to uYouEnhanced settings and then go to 'Dark Mode' and set it to 'Custom Dark Mode' for it to work.";
+            cell.detailTextLabel.text = isPortrait && isPhone ? @"" : @"Go to Dark Mode settings → Custom Dark Mode";
             cell.imageView.image = [UIImage systemImageNamed:@"slider.horizontal.3"];
-        }
-        if (indexPath.row == 1) {
+        } else if (indexPath.row == 1) {
             cell.textLabel.text = @"Custom Tint Color";
-            cell.detailTextLabel.text = isPortrait && isPhone ? @"" : @"You must go to uYouEnhanced settings and have LowContrastMode enabled and then go to 'LowContrastMode Selector' and set it to 'Custom' for it to work.";
+            cell.detailTextLabel.text = isPortrait && isPhone ? @"" : @"Enable LowContrastMode → Custom";
             cell.imageView.image = [UIImage systemImageNamed:@"drop.fill"];
         }
     } else if (indexPath.section == 1) {
         if (indexPath.row == 0) {
             cell.textLabel.text = @"Clear Cache";
-            UILabel *cache = [[UILabel alloc] init];
-            cache.text = [self getCacheSize];
-            cache.textColor = [UIColor secondaryLabelColor];
-            cache.font = [UIFont systemFontOfSize:16];
-            cache.textAlignment = NSTextAlignmentRight;
-            [cache sizeToFit];
-            cell.accessoryView = cache;
+            cell.detailTextLabel.text = [self getCacheSize];
             cell.imageView.image = [UIImage systemImageNamed:@"trash"];
+            cell.accessoryType = UITableViewCellAccessoryNone;
         }
     }
 
@@ -120,22 +120,16 @@
 }
 
 - (void)applyColorSchemeForCell:(UITableViewCell *)cell {
-    if (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleLight) {
-        cell.backgroundColor = [UIColor whiteColor];
-        cell.textLabel.textColor = [UIColor blackColor];
-        cell.detailTextLabel.textColor = [UIColor blackColor];
-    } else {
-        cell.backgroundColor = [UIColor colorWithRed:0.110 green:0.110 blue:0.118 alpha:1.0];
-        cell.textLabel.textColor = [UIColor whiteColor];
-        cell.detailTextLabel.textColor = [UIColor whiteColor];
-    }
-    cell.imageView.tintColor = cell.textLabel.textColor;
+    cell.backgroundColor = [UIColor secondarySystemGroupedBackgroundColor];
+    cell.textLabel.textColor = [UIColor labelColor];
+    cell.detailTextLabel.textColor = [UIColor secondaryLabelColor];
+    cell.imageView.tintColor = [UIColor labelColor];
 }
 
 - (NSString *)getCacheSize {
     NSString *cachePath = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
     NSArray *filesArray = [[NSFileManager defaultManager] subpathsOfDirectoryAtPath:cachePath error:nil];
-    
+
     unsigned long long int folderSize = 0;
     for (NSString *fileName in filesArray) {
         NSString *filePath = [cachePath stringByAppendingPathComponent:fileName];
@@ -151,39 +145,34 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
+
     if (indexPath.section == 0) {
         if (indexPath.row == 0) {
-            ColourOptionsController *colourOptionsController = [[ColourOptionsController alloc] init];
-            UINavigationController *colourOptionsControllerView = [[UINavigationController alloc] initWithRootViewController:colourOptionsController];
-            colourOptionsControllerView.modalPresentationStyle = UIModalPresentationFullScreen;
-
-            [self presentViewController:colourOptionsControllerView animated:YES completion:nil];
+            ColourOptionsController *vc = [[ColourOptionsController alloc] init];
+            UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+            nav.modalPresentationStyle = UIModalPresentationFullScreen;
+            [self presentViewController:nav animated:YES completion:nil];
+        } else if (indexPath.row == 1) {
+            ColourOptionsController2 *vc = [[ColourOptionsController2 alloc] init];
+            UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+            nav.modalPresentationStyle = UIModalPresentationFullScreen;
+            [self presentViewController:nav animated:YES completion:nil];
         }
-        if (indexPath.row == 1) {
-            ColourOptionsController2 *colourOptionsController2 = [[ColourOptionsController2 alloc] init];
-            UINavigationController *colourOptionsController2View = [[UINavigationController alloc] initWithRootViewController:colourOptionsController2];
-            colourOptionsController2View.modalPresentationStyle = UIModalPresentationFullScreen;
+    } else if (indexPath.section == 1 && indexPath.row == 0) {
+        UIActivityIndicatorView *indicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+        indicator.color = [UIColor labelColor];
+        [indicator startAnimating];
+        UITableViewCell *cell = [tableView cellForRowAtIndexPath:indexPath];
+        cell.accessoryView = indicator;
 
-            [self presentViewController:colourOptionsController2View animated:YES completion:nil];
-        }
-    }
-    if (indexPath.section == 1) {
-        if (indexPath.row == 0) {
-            UIActivityIndicatorView *activityIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
-            activityIndicator.color = [UIColor labelColor];
-            [activityIndicator startAnimating];
-            UITableViewCell *cell = [tableView cellForRowAtIndexPath:indexPath];
-            cell.accessoryView = activityIndicator;
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            NSString *cachePath = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
+            [[NSFileManager defaultManager] removeItemAtPath:cachePath error:nil];
 
-            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                NSString *cachePath = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
-                [[NSFileManager defaultManager] removeItemAtPath:cachePath error:nil];
-
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:0 inSection:1]] withRowAnimation:UITableViewRowAnimationNone];
-                });
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:0 inSection:1]] withRowAnimation:UITableViewRowAnimationNone];
             });
-        }
+        });
     }
 }
 

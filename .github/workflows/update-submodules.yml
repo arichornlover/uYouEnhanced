@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Git
         run: |
@@ -21,6 +21,8 @@ jobs:
           git submodule update --init --recursive --remote Tweaks/Alderis
           git add .
           git submodule update --init --recursive --remote Tweaks/DontEatMyContent
+          git add .
+          git submodule update --init --recursive --remote Tweaks/FLEXing
           git add .
           git submodule update --init --recursive --remote Tweaks/iSponsorBlock
           git add .

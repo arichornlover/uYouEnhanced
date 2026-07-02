@@ -166,7 +166,11 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 // Download sort
 %hook GOODialogView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig([UIColor blackColor]) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig([UIColor blackColor]);
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -266,13 +270,21 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 // Open link with...
 %hook ASWAppSwitchingSheetHeaderView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(raisedColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(raisedColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook ASWAppSwitchingSheetFooterView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(raisedColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(raisedColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -393,39 +405,62 @@ UIColor *customHexColor;
 %end
 
 // Search view
-%hook YTSearchBarView 
+%hook YTSearchBarView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(customHexColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
 // History search view
 %hook YTSearchBoxView 
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
-
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(customHexColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
 // Comment view
 %hook YTCommentView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(customHexColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook YTCreateCommentAccessoryView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(customHexColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook YTCreateCommentTextView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(customHexColor);
+    } else {
+        %orig;
+    }
 }
 - (void)setTextColor:(UIColor *)color { // fix black text in #Shorts video's comment
-    return IS_DARK_APPEARANCE_ENABLED ? %orig([UIColor whiteColor]) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig([UIColor whiteColor]);
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -440,20 +475,32 @@ UIColor *customHexColor;
 
 %hook YTFormattedStringLabel  // YT is werid...
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig([UIColor clearColor]) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig([UIColor clearColor]);
+    } else {
+        %orig;
+    }
 }
 %end
 
 // Live chat comment
 %hook YCHLiveChatActionPanelView 
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(customHexColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook YTEmojiTextView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(customHexColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -468,14 +515,22 @@ UIColor *customHexColor;
 
 %hook YTCollectionView 
 - (void)setBackgroundColor:(UIColor *)color { 
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(customHexColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
 //
 %hook YTBackstageCreateRepostDetailView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(customHexColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -542,13 +597,21 @@ UIColor *customHexColor;
 // Open link with...
 %hook ASWAppSwitchingSheetHeaderView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(raisedColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(raisedColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook ASWAppSwitchingSheetFooterView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(raisedColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(raisedColor);
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -608,7 +671,9 @@ UIColor *customHexColor;
 %end
 
 %hook UIKBRenderConfig // Prediction text color
-- (void)setLightKeyboard:(BOOL)arg1 { %orig(NO); }
+- (void)setLightKeyboard:(BOOL)arg1 {
+    %orig(NO);
+}
 %end
 %end
 
