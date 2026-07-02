@@ -123,22 +123,21 @@ jobs:
       # YTUHD + Libraries (conditional)
       - name: YTUHD + Libraries (dav1d + libvpx)
         if: ${{ inputs.ytuhd }}
+        env:
+          THEOS: ${{ github.workspace }}/theos
         run: |
+          set -euo pipefail
           echo "⚠️ Installing YTUHD + required libraries (dav1d + libvpx)..."
-          
-          # Clone YTUHD
-          git clone --quiet --depth=1 https://github.com/PoomSmart/YTUHD.git
-          
-          # Clone dav1d
-          git clone --quiet --depth=1 https://code.videolan.org/videolan/dav1d.git $THEOS/vendor/dav1d
-          
-          # Clone libvpx
-          git clone --quiet --depth=1 https://chromium.googlesource.com/webm/libvpx $THEOS/vendor/libvpx
-          
+          # Ensure vendor directory exists in THEOS
+          mkdir -p "$THEOS/vendor"
+          # Clone libraries into THEOS vendor so YTUHD can use them
+          git clone --quiet --depth=1 https://code.videolan.org/videolan/dav1d.git "$THEOS/vendor/dav1d"
+          git clone --quiet --depth=1 https://chromium.googlesource.com/webm/libvpx "$THEOS/vendor/libvpx"
+          # Clone YTUHD into the workspace and build
+          git clone --quiet --depth=1 https://github.com/PoomSmart/YTUHD.git YTUHD
           cd YTUHD
           make clean package DEBUG=0 FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless || true
           cd ..
-          
           echo "YTUHD + libraries prepared."
 
       - name: Hash YT ipa url
