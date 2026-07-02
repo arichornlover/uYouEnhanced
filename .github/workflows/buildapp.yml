@@ -207,18 +207,27 @@ jobs:
           done
           cyan -i "$IPA_IN" -o "$OUTNAME" -uwef $tweaks -n "${{ inputs.app_name }}" -b ${{ inputs.bundle_id }}
 
-      - name: Create Draft Release
-        if: ${{ inputs.create_release }}
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: v${{ env.YT_VERSION }}-${{ inputs.uyou_version }}-(${{ github.run_number }})
-          name: v${{ env.YT_VERSION }}-${{ inputs.uyou_version }}-(${{ github.run_number }})
-          files: uYouEnhanced_${{ env.YT_VERSION }}_v${{ inputs.uyou_version }}.ipa
-          draft: true
-
       - name: Upload Artifact
         if: ${{ inputs.upload_artifact }}
         uses: actions/upload-artifact@v7
+        env:
+          UYOU_VERSION: ${{ inputs.uyou_version }}
+          YOUTUBE_VERSION: ${{ steps.prepare_youtube.outputs.youtube_version }}
         with:
-          name: uYouEnhanced_${{ env.YT_VERSION }}_${{ inputs.uyou_version }}
-          path: uYouEnhanced_${{ env.YT_VERSION }}_v${{ inputs.uyou_version }}.ipa
+          name: uYouEnhanced_${{ env.YOUTUBE_VERSION }}_${{ env.UYOU_VERSION }}
+          path: ${{ github.workspace }}/main/packages/${{ steps.build_package.outputs.package }}
+          if-no-files-found: error
+
+      - name: Create Release
+        if: ${{ inputs.create_release }}
+        id: create_release
+        uses: softprops/action-gh-release@v2.5.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UYOU_VERSION: ${{ inputs.uyou_version }}
+          YOUTUBE_VERSION: ${{ steps.prepare_youtube.outputs.youtube_version }}
+        with:
+          tag_name: v${{ env.YOUTUBE_VERSION }}-${{ env.UYOU_VERSION }}-(${{ github.run_number }})
+          name: v${{ env.YOUTUBE_VERSION }}-${{ env.UYOU_VERSION }}-(${{ github.run_number }})
+          files: main/packages/*.ipa
+          draft: true
