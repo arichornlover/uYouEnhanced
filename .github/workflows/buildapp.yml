@@ -76,17 +76,15 @@ jobs:
           set -euo pipefail
           brew update
           brew install ldid dpkg make wget unzip jq pipx || true
-          # ensure GNU make in PATH
           echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
 
-      - name: Set PATH Environment Variables
+      - name: Set THEOS path
         run: |
-          # THEOS path will be used by later steps
           echo "THEOS=${{ github.workspace }}/theos" >> $GITHUB_ENV
-          # ensure pipx binaries will be found
+          # make sure pipx binaries are found
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Setup Theos
+      - name: Setup Theos (pinned ref)
         uses: actions/checkout@v7
         with:
           repository: theos/theos
@@ -94,14 +92,14 @@ jobs:
           path: theos
           submodules: recursive
 
-      - name: SDK Caching
+      - name: SDK Caching (restored naming)
         id: SDK
         uses: actions/cache@v6
         with:
           path: theos/sdks/
           key: iOS-${{ inputs.sdk_version }}-SDK
 
-      - name: Download iOS SDK
+      - name: Download iOS SDK (if cache miss)
         if: steps.SDK.outputs.cache-hit != 'true'
         env:
           THEOS: ${{ github.workspace }}/theos
@@ -113,7 +111,7 @@ jobs:
           git checkout --quiet
           mv *.sdk "$THEOS/sdks"
 
-      - name: Setup Theos Jailed
+      - name: Install Theos Jailed (helper)
         uses: actions/checkout@v7
         with:
           repository: qnblackcat/theos-jailed
@@ -121,21 +119,21 @@ jobs:
           path: theos-jailed
           submodules: recursive
 
-      - name: Install Theos Jailed
+      - name: Run Theos Jailed installer
         run: |
           set -euo pipefail
           ./theos-jailed/install
         env:
           THEOS: ${{ github.workspace }}/theos
 
-      - name: Install cyan and tbd
+      - name: Install cyan (safe pipx path) and tbd
         run: |
           set -euo pipefail
-          # Use pipx installed via brew (pipx installed in Install Dependencies step)
+          # ensure pipx is ready and accessible
           pipx ensurepath || true
-          # Install cyan (pyzule-rw) via pipx so we have an isolated executable
+          # install cyan via pipx (isolated) — avoids PEP 668 system pip issues
           pipx install https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip || true
-          # Install tbd binary for tools that need it
+          # install tbd
           wget --quiet --no-verbose "https://github.com/inoahdev/tbd/releases/download/2.2/tbd-mac" -O /usr/local/bin/tbd || true
           chmod +x /usr/local/bin/tbd || true
 
@@ -147,10 +145,13 @@ jobs:
 
       - name: Prepare YouTube iPA
         id: prepare_youtube
+        env:
+          THEOS: ${{ github.workspace }}/theos
+          YOUTUBE_URL: ${{ env.URL_YT }}
         run: |
           set -euo pipefail
           mkdir -p main
-          wget "$URL_YT" --quiet -O main/YouTube.ipa
+          wget "$YOUTUBE_URL" --quiet -O main/YouTube.ipa
           cd main
           mv YouTube.ipa YouTube.zip
           unzip -q YouTube.zip
@@ -166,7 +167,7 @@ jobs:
         run: |
           set -euo pipefail
           cd main
-          # Update Makefile values; append if missing
+          # Update Makefile values; append if missing (macOS sed -i '' compatibility)
           if grep -q '^BUNDLE_ID' Makefile; then
             sed -i '' "s/^BUNDLE_ID *=.*$/BUNDLE_ID = ${{ inputs.bundle_id }}/" Makefile || true
           else
@@ -182,13 +183,17 @@ jobs:
           else
             echo "export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0" >> Makefile
           fi
-          # Set YTUHD flag
+          # Set YTUHD flag (Makefile will include YTUHD subproject if YTUHD_ENABLED=1)
           if [ "${{ inputs.ytuhd }}" = "true" ]; then
             echo "YTUHD_ENABLED=1" >> Makefile
+            # Ensure vendor libs exist under THEOS so theos/subprojects can use them
+            mkdir -p "$THEOS/vendor"
+            git clone --quiet --depth=1 https://code.videolan.org/videolan/dav1d.git "$THEOS/vendor/dav1d" || true
+            git clone --quiet --depth=1 https://chromium.googlesource.com/webm/libvpx "$THEOS/vendor/libvpx" || true
           else
             echo "YTUHD_ENABLED=0" >> Makefile
           fi
-          # Build package — let real compiler errors fail the job
+          # Run theos package — allow true errors to fail CI so problems are visible
           make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app FINALPACKAGE=1
           echo "package=$(ls -t packages | head -n1)" >> $GITHUB_OUTPUT
           echo "==> SHASUM256: $(shasum -a 256 packages/*.ipa | cut -f1 -d' ')"
@@ -203,31 +208,12 @@ jobs:
           git checkout --quiet || true
           mv *.appex "${{ github.workspace }}/" 2>/dev/null || true
 
-      - name: Prepare YTUHD vendor libs and build (conditional)
-        if: ${{ inputs.ytuhd }}
-        env:
-          THEOS: ${{ github.workspace }}/theos
+      - name: Normalize OpenYouTube.appex CFBundleIdentifier (only OpenYouTube)
         run: |
           set -euo pipefail
-          echo "⚠️ Installing YTUHD + required libraries (dav1d + libvpx)..."
-          mkdir -p "$THEOS/vendor"
-          git clone --quiet --depth=1 https://code.videolan.org/videolan/dav1d.git "$THEOS/vendor/dav1d" || true
-          git clone --quiet --depth=1 https://chromium.googlesource.com/webm/libvpx "$THEOS/vendor/libvpx" || true
-          rm -rf "${{ github.workspace }}/YTUHD" || true
-          git clone --quiet --depth=1 https://github.com/PoomSmart/YTUHD.git "${{ github.workspace }}/YTUHD" || true
-          cd "${{ github.workspace }}/YTUHD"
-          make clean package DEBUG=0 FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless || true
-          # copy any produced debs for later injection
-          find packages -type f -name '*.deb' -exec cp -n {} "${{ github.workspace }}/" \; || true
-          echo "YTUHD + libraries prepared."
-
-      - name: Normalize OpenYouTube.appex CFBundleIdentifier
-        run: |
-          set -euo pipefail
-          # Normalize any OpenYouTube appex to have the same prefix as the bundle id we pass to cyan
           BUNDLE_ID="${{ inputs.bundle_id }}"
-          for ap in OpenYouTubeSafariExtension.appex *.appex; do
-            [ -d "$ap" ] || continue
+          ap="OpenYouTubeSafariExtension.appex"
+          if [ -d "$ap" ]; then
             plist="$ap/Info.plist"
             if [ -f "$plist" ]; then
               old=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$plist" 2>/dev/null || echo "")
@@ -238,24 +224,12 @@ jobs:
                 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $new" "$plist" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $new" "$plist"
               fi
             fi
-          done
+          fi
 
-      - name: Collect built tweak packages
+      - name: Inject Tweaks Into IPA (cyan)
         run: |
           set -euo pipefail
-          # Copy .deb packages from likely locations into workflow root for cyan injection
-          for src in main/packages packages YTUHD/packages .; do
-            if [ -d "$src" ]; then
-              find "$src" -type f -name '*.deb' -print0 2>/dev/null | xargs -0 -I{} cp -n {} . || true
-            fi
-          done
-          echo "DEBs to be injected:"
-          ls -1 *.deb 2>/dev/null || echo "(none)"
-
-      - name: Inject Tweaks Into IPA
-        run: |
-          set -euo pipefail
-          # Determine IPA input
+          # find the produced IPA (prefer the package created by make)
           IPA_IN="main/packages/${{ steps.build_package.outputs.package }}"
           if [ ! -f "$IPA_IN" ]; then
             IPA_IN=$(ls -t main/packages/*.ipa 2>/dev/null | head -n1 || echo "")
@@ -266,14 +240,14 @@ jobs:
           fi
           OUTNAME="uYouEnhanced_${{ env.YT_VERSION }}_v${{ inputs.uyou_version }}.ipa"
           tweaks="OpenYouTubeSafariExtension.appex"
-          for f in *.deb; do
+          # include any .deb produced by theos package (packages dir)
+          for f in main/packages/*.deb packages/*.deb 2>/dev/null; do
             [ -f "$f" ] && tweaks="$tweaks $f" || true
           done
           echo "Injecting tweaks: $tweaks into $IPA_IN -> $OUTNAME"
           cyan -i "$IPA_IN" -o "$OUTNAME" -uwef $tweaks -n "${{ inputs.app_name }}" -b ${{ inputs.bundle_id }}
-          ls -la "$OUTNAME" || true
 
-      - name: Validate extension CFBundleIdentifiers match parent
+      - name: Validate embedded appex CFBundleIdentifiers (only .appex)
         run: |
           set -euo pipefail
           OUTIPA="uYouEnhanced_${{ env.YT_VERSION }}_v${{ inputs.uyou_version }}.ipa"
@@ -286,41 +260,32 @@ jobs:
           PARENT=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$tmpd/Payload"/*.app/Info.plist)
           echo "Parent ID: $PARENT"
           bad=0
-          find "$tmpd/Payload" -name Info.plist | while read -r p; do
-            # skip main app Info.plist
-            case "$p" in
-              "$tmpd"/Payload/*.app/Info.plist) continue ;;
-            esac
-            id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$p" 2>/dev/null || echo "")
+          # Only inspect .appex bundles (app extensions), not every bundle
+          find "$tmpd/Payload" -type d -name '*.appex' -print0 | while IFS= read -r -d '' d; do
+            plist="$d/Info.plist"
+            [ -f "$plist" ] || continue
+            id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$plist" 2>/dev/null || echo "")
             if [ -n "$id" ] && [[ "$id" != "$PARENT"* ]]; then
-              echo "::error::Extension id '$id' in $p does not start with parent '$PARENT'"
+              echo "::error::Extension id '$id' in $plist does not start with parent '$PARENT'"
               bad=1
             fi
           done
           rm -rf "$tmpd"
           if [ "$bad" -ne 0 ]; then
-            echo "::error::Extension ID validation failed; extension bundle ID(s) do not match parent prefix."
+            echo "::error::Appex validation failed; extension bundle ID(s) do not match parent prefix."
             exit 1
           fi
-          echo "Extension id validation OK."
+          echo "Appex validation OK."
 
-      - name: Create a Draft Release
-        uses: softprops/action-gh-release@v3
+      - name: Create Draft Release (original style)
         if: ${{ inputs.create_release }}
+        uses: softprops/action-gh-release@v3
         with:
-          tag_name: uYouEnhanced-ipa-${{ github.run_number }}
-          name: uYouEnhanced_${{ env.YT_VERSION }}_v${{ inputs.uyou_version }} (${{ github.run_number }})
+          tag_name: v${{ env.YT_VERSION }}-${{ inputs.uyou_version }}-(${{ github.run_number }})
+          name: v${{ env.YT_VERSION }}-${{ inputs.uyou_version }}-(${{ github.run_number }})
           files: uYouEnhanced_${{ env.YT_VERSION }}_v${{ inputs.uyou_version }}.ipa
           draft: true
 
-      - name: Job Summary - Build Complete
+      - name: Done - Summary
         run: |
-          echo -e '### 🛠️ Build IPA with tweaks Complete!' >> $GITHUB_STEP_SUMMARY
-
-      - name: Job Summary - Output the Draft Release Link
-        run: |
-          echo -e '### 🚀 Draft Release\n\nDraft release has been created successfully! You can view your release here: https://github.com/${{ github.repository }}/releases' >> $GITHUB_STEP_SUMMARY
-
-      - name: Job Summary - Cleanup
-        run: |
-          echo -e '### 🧹 Cleanup\n\nYou can remove previous GitHub Actions run here: https://github.com/${{ github.repository }}/actions/workflows/delete-old-workflows-run.yml' >> $GITHUB_STEP_SUMMARY
+          echo "Build job finished. If a draft release was created it will contain the built IPA if everything succeeded."
