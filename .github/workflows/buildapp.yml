@@ -64,24 +64,24 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout Main
+      - name: Checkout main
         uses: actions/checkout@v7
         with:
           path: main
           ref: ${{ github.event.inputs.commit_id || github.ref }}
           submodules: recursive
 
-      - name: Install Dependencies
+      - name: Install system deps
         run: |
           brew update
-          brew install ldid dpkg make wget unzip jq
+          brew install ldid dpkg make wget unzip jq pipx
 
       - name: Set GNU make PATH and THEOS
         run: |
           echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
           echo "THEOS=${{ github.workspace }}/theos" >> $GITHUB_ENV
 
-      - name: Setup Theos (pin to required ref)
+      - name: Setup Theos
         uses: actions/checkout@v7
         with:
           repository: theos/theos
@@ -89,15 +89,15 @@ jobs:
           path: theos
           submodules: recursive
 
-      - name: SDK Caching
-        id: SDK
+      - name: Cache SDK
+        id: sdk-cache
         uses: actions/cache@v6
         with:
           path: theos/sdks/
           key: iOS-${{ inputs.sdk_version }}-SDK
 
-      - name: Download iOS SDK (if cache miss)
-        if: steps.SDK.outputs.cache-hit != 'true'
+      - name: Download iOS SDK
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
         env:
           THEOS: ${{ github.workspace }}/theos
         run: |
@@ -107,7 +107,7 @@ jobs:
           git checkout --quiet
           mv *.sdk "$THEOS/sdks"
 
-      - name: Setup Theos Jailed (install helper)
+      - name: Install Theos jailed
         uses: actions/checkout@v7
         with:
           repository: qnblackcat/theos-jailed
@@ -120,6 +120,37 @@ jobs:
           ./theos-jailed/install
         env:
           THEOS: ${{ github.workspace }}/theos
+
+      - name: Install cyan (pyzule-rw) and tbd
+        run: |
+          # pipx is installed by brew above; make sure pipx's bin dir is on PATH
+          python3 -m pip install --upgrade pipx wheel setuptools
+          python3 -m pipx ensurepath || true
+          # install cyan tool (pyzule-rw)
+          pipx install https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip || true
+          # make pipx-installed binaries accessible
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          # install tbd binary
+          wget --quiet --no-verbose "https://github.com/inoahdev/tbd/releases/download/2.2/tbd-mac" -O /usr/local/bin/tbd || true
+          chmod +x /usr/local/bin/tbd || true
+
+      - name: Clone headers (YouTubeHeader & PSHeader)
+        if: always()
+        run: |
+          set -euo pipefail
+          THEOS=${{ github.workspace }}/theos
+          # YouTube headers
+          if [ ! -d "$THEOS/include/YouTubeHeader" ]; then
+            git clone --quiet --depth=1 https://github.com/aricloverEXTRA/YouTubeHeader.git "$THEOS/include/YouTubeHeader"
+          else
+            cd "$THEOS/include/YouTubeHeader" && git pull --quiet --rebase || true
+          fi
+          # PSHeader
+          if [ ! -d "$THEOS/include/PSHeader" ]; then
+            git clone --quiet --depth=1 https://github.com/PoomSmart/PSHeader.git "$THEOS/include/PSHeader"
+          else
+            cd "$THEOS/include/PSHeader" && git pull --quiet --rebase || true
+          fi
 
       - name: Hash YT ipa url
         run: |
@@ -153,8 +184,7 @@ jobs:
         run: |
           set -euo pipefail
           cd ${{ github.workspace }}/main
-          # Update Makefile values (macOS sed -i '' compatibility)
-          # If the Makefile doesn't contain the exact lines, append defaults
+          # Update Makefile reliably (macOS sed)
           if grep -q '^BUNDLE_ID' Makefile; then
             sed -i '' "s/^BUNDLE_ID *=.*$/BUNDLE_ID = $BUNDLE_ID/" Makefile || true
           else
@@ -170,19 +200,21 @@ jobs:
           else
             echo "export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0" >> Makefile
           fi
-          # Set YTUHD flag for the build
+          # Ensure YTUHD flag presence; use Makefile variable so subprojects pick it up
           if [ "${{ inputs.ytuhd }}" = "true" ]; then
             echo "YTUHD_ENABLED=1" >> Makefile
           else
             echo "YTUHD_ENABLED=0" >> Makefile
           fi
-          make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app FINALPACKAGE=1 || true
+          # Run package (do not swallow errors so CI fails on true compile problems)
+          make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app FINALPACKAGE=1
           echo "package=$(ls -t packages | head -n1)" >> $GITHUB_OUTPUT
           echo "==> SHASUM256: $(shasum -a 256 packages/*.ipa | cut -f1 -d' ')"
           echo "==> Bundle ID: $BUNDLE_ID"
 
-      - name: Clone Open in YouTube (Safari extension)
+      - name: Clone Open in YouTube
         run: |
+          set -euo pipefail
           git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/BillyCurtis/OpenYouTubeSafariExtension.git OpenYouTubeSafariExtension || true
           cd OpenYouTubeSafariExtension || exit 0
           git sparse-checkout set --no-cone OpenYouTubeSafariExtension.appex || true
@@ -199,16 +231,31 @@ jobs:
           mkdir -p "$THEOS/vendor"
           git clone --quiet --depth=1 https://code.videolan.org/videolan/dav1d.git "$THEOS/vendor/dav1d" || true
           git clone --quiet --depth=1 https://chromium.googlesource.com/webm/libvpx "$THEOS/vendor/libvpx" || true
+          # Ensure headers are present (we cloned them above), then clone YTUHD into workspace and build
           rm -rf "${{ github.workspace }}/YTUHD" || true
           git clone --quiet --depth=1 https://github.com/PoomSmart/YTUHD.git "${{ github.workspace }}/YTUHD" || true
-          cd "${{ github.workspace }}/YTUHD" && make clean package DEBUG=0 FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless || true
-          mv packages/*.deb "${{ github.workspace }}/" 2>/dev/null || true
+          cd "${{ github.workspace }}/YTUHD"
+          make clean package DEBUG=0 FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
+          # move deb(s) to workspace for injection convenience
+          find packages -type f -name '*.deb' -exec cp -n {} "${{ github.workspace }}/" \; || true
           echo "YTUHD + libraries prepared."
 
-      - name: Inject tweaks into IPA (cyan)
+      - name: Collect built tweak packages
         run: |
           set -euo pipefail
-          # Determine IPA input
+          # Copy any .deb from known package dirs into root for cyan injection
+          for src in main/packages packages YTUHD/packages main; do
+            if [ -d "$src" ]; then
+              find "$src" -type f -name '*.deb' -print0 2>/dev/null | xargs -0 -I{} cp -n {} . || true
+            fi
+          done
+          echo "DEBs present for injection:"
+          ls -1 *.deb 2>/dev/null || echo "(none)"
+
+      - name: Inject tweaks into IPA (cyan) and produce final IPA
+        run: |
+          set -euo pipefail
+          # Find produced IPA (prefer the package created by make)
           IPA_IN="main/packages/${{ steps.build_package.outputs.package }}"
           if [ ! -f "$IPA_IN" ]; then
             IPA_IN=$(ls -t main/packages/*.ipa 2>/dev/null | head -n1 || echo "")
@@ -217,22 +264,23 @@ jobs:
             echo "::error::No IPA found to inject"
             exit 1
           fi
+          OUTNAME="uYouEnhanced_${{ steps.prepare_youtube.outputs.youtube_version }}_v${{ inputs.uyou_version }}.ipa"
           tweaks="OpenYouTubeSafariExtension.appex"
           for f in *.deb; do
-            [ -f "$f" ] && tweaks="$tweaks $f" || true
+            [ -f "$f" ] && tweaks="$tweaks $f"
           done
-          echo "Injecting tweaks: $tweaks into $IPA_IN"
-          cyan -i "$IPA_IN" -o uYouEnhanced_${{ steps.prepare_youtube.outputs.youtube_version }}_v${{ inputs.uyou_version }}.ipa -uwef $tweaks -n "${{ inputs.app_name }}" -b ${{ inputs.bundle_id }} || true
-          ls -la *.ipa || true
+          echo "Injecting tweaks: $tweaks into $IPA_IN -> $OUTNAME"
+          cyan -i "$IPA_IN" -o "$OUTNAME" -uwef $tweaks -n "${{ inputs.app_name }}" -b ${{ inputs.bundle_id }}
+          ls -la "$OUTNAME" || true
 
-      - name: Upload Artifact
+      - name: Upload artifact
         if: ${{ inputs.upload_artifact }}
         uses: actions/upload-artifact@v7
         with:
-          name: uYouEnhanced-${{ steps.prepare_youtube.outputs.youtube_version }}-uYou${{ inputs.uyou_version }}
+          name: uYouEnhanced_${{ steps.prepare_youtube.outputs.youtube_version }}_v${{ inputs.uyou_version }}
           path: uYouEnhanced_*.ipa
 
-      - name: Create Release
+      - name: Create Draft Release
         if: ${{ inputs.create_release }}
         uses: softprops/action-gh-release@v3
         with:
