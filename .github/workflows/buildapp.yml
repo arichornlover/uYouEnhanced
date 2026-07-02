@@ -81,26 +81,20 @@ jobs:
           echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
           echo "THEOS=${{ github.workspace }}/theos" >> $GITHUB_ENV
 
-      - name: Cache Theos
-        id: cache-theos
-        uses: actions/cache@v6
+      - name: Setup Theos (pin to required ref)
+        uses: actions/checkout@v7
         with:
+          repository: theos/theos
+          ref: 9bc73406cf80b711ef4d02c15ff1dedc4478a275
           path: theos
-          key: theos-${{ inputs.sdk_version }}-v1
-
-      - name: Setup Theos (if cache miss)
-        if: steps.cache-theos.outputs.cache-hit != 'true'
-        run: |
-          git clone --quiet --depth=1 --recurse-submodules https://github.com/theos/theos.git theos
-          # Optionally pin logos vendor if you need old behavior:
-          # cd theos/vendor/logos && git checkout a62370066a97e36d59b200a9fa10c5091f5e8972 || true
+          submodules: recursive
 
       - name: SDK Caching
         id: SDK
         uses: actions/cache@v6
         with:
           path: theos/sdks/
-          key: ios-sdk-${{ inputs.sdk_version }}
+          key: iOS-${{ inputs.sdk_version }}-SDK
 
       - name: Download iOS SDK (if cache miss)
         if: steps.SDK.outputs.cache-hit != 'true'
@@ -113,7 +107,7 @@ jobs:
           git checkout --quiet
           mv *.sdk "$THEOS/sdks"
 
-      - name: Setup Theos Jailed
+      - name: Setup Theos Jailed (install helper)
         uses: actions/checkout@v7
         with:
           repository: qnblackcat/theos-jailed
@@ -159,11 +153,24 @@ jobs:
         run: |
           set -euo pipefail
           cd ${{ github.workspace }}/main
-          # Update Makefile values reliably (use sed -i compatible with macOS)
-          sed -i '' "s/^BUNDLE_ID *=.*$/BUNDLE_ID = $BUNDLE_ID/" Makefile || true
-          sed -i '' "s/^DISPLAY_NAME *=.*$/DISPLAY_NAME = $APP_NAME/" Makefile || true
-          sed -i '' "s/^export TARGET *=.*$/export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0/" Makefile || true
-          # Ensure YTUHD flag in Makefile is updated for the build
+          # Update Makefile values (macOS sed -i '' compatibility)
+          # If the Makefile doesn't contain the exact lines, append defaults
+          if grep -q '^BUNDLE_ID' Makefile; then
+            sed -i '' "s/^BUNDLE_ID *=.*$/BUNDLE_ID = $BUNDLE_ID/" Makefile || true
+          else
+            echo "BUNDLE_ID = $BUNDLE_ID" >> Makefile
+          fi
+          if grep -q '^DISPLAY_NAME' Makefile; then
+            sed -i '' "s/^DISPLAY_NAME *=.*$/DISPLAY_NAME = $APP_NAME/" Makefile || true
+          else
+            echo "DISPLAY_NAME = $APP_NAME" >> Makefile
+          fi
+          if grep -q '^export TARGET' Makefile; then
+            sed -i '' "s/^export TARGET *=.*$/export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0/" Makefile || true
+          else
+            echo "export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0" >> Makefile
+          fi
+          # Set YTUHD flag for the build
           if [ "${{ inputs.ytuhd }}" = "true" ]; then
             echo "YTUHD_ENABLED=1" >> Makefile
           else
@@ -171,12 +178,11 @@ jobs:
           fi
           make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app FINALPACKAGE=1 || true
           echo "package=$(ls -t packages | head -n1)" >> $GITHUB_OUTPUT
-          echo -e "==> SHASUM256: $(shasum -a 256 packages/*.ipa | cut -f1 -d' ')"
-          echo -e "==> Bundle ID: $BUNDLE_ID"
+          echo "==> SHASUM256: $(shasum -a 256 packages/*.ipa | cut -f1 -d' ')"
+          echo "==> Bundle ID: $BUNDLE_ID"
 
       - name: Clone Open in YouTube (Safari extension)
         run: |
-          # match YouMod: fetch the known extension and move it to workflow root for cyan injection
           git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/BillyCurtis/OpenYouTubeSafariExtension.git OpenYouTubeSafariExtension || true
           cd OpenYouTubeSafariExtension || exit 0
           git sparse-checkout set --no-cone OpenYouTubeSafariExtension.appex || true
@@ -193,31 +199,33 @@ jobs:
           mkdir -p "$THEOS/vendor"
           git clone --quiet --depth=1 https://code.videolan.org/videolan/dav1d.git "$THEOS/vendor/dav1d" || true
           git clone --quiet --depth=1 https://chromium.googlesource.com/webm/libvpx "$THEOS/vendor/libvpx" || true
-          # Clone/build YTUHD locally so Makefile's SUBPROJECTS can find binaries if needed
           rm -rf "${{ github.workspace }}/YTUHD" || true
           git clone --quiet --depth=1 https://github.com/PoomSmart/YTUHD.git "${{ github.workspace }}/YTUHD" || true
           cd "${{ github.workspace }}/YTUHD" && make clean package DEBUG=0 FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless || true
-          # move built packages up for later injection
           mv packages/*.deb "${{ github.workspace }}/" 2>/dev/null || true
           echo "YTUHD + libraries prepared."
 
       - name: Collect built tweak packages
         run: |
-          # Move any built .deb packages into the workflow root to be injected
-          for d in main/packages/*.deb YTUHD/packages/*.deb *.deb 2>/dev/null; do
-            [ -f "$d" ] && cp -n "$d" "$(basename "$d")" || true
+          set -euo pipefail
+          # Find and copy .deb files from expected locations to workspace root (avoid invalid redirections)
+          find main/packages YTUHD/packages . -type f -name '*.deb' -print0 2>/dev/null | while IFS= read -r -d '' f; do
+            cp -n "$f" "$(basename "$f")" || true
           done
           ls -la *.deb || true
 
       - name: Inject tweaks into IPA (cyan)
         run: |
           set -euo pipefail
+          # Determine IPA input
           IPA_IN="main/packages/${{ steps.build_package.outputs.package }}"
           if [ ! -f "$IPA_IN" ]; then
-            # fallback if package path isn't populated the same way
             IPA_IN=$(ls -t main/packages/*.ipa 2>/dev/null | head -n1 || echo "")
           fi
-          [ -n "$IPA_IN" ] || (echo "::error::No IPA found to inject" && exit 1)
+          if [ -z "$IPA_IN" ]; then
+            echo "::error::No IPA found to inject"
+            exit 1
+          fi
           tweaks="OpenYouTubeSafariExtension.appex"
           for f in *.deb; do
             [ -f "$f" ] && tweaks="$tweaks $f" || true
