@@ -205,15 +205,6 @@ jobs:
           mv packages/*.deb "${{ github.workspace }}/" 2>/dev/null || true
           echo "YTUHD + libraries prepared."
 
-      - name: Collect built tweak packages
-        run: |
-          set -euo pipefail
-          # Find and copy .deb files from expected locations to workspace root (avoid invalid redirections)
-          find main/packages YTUHD/packages . -type f -name '*.deb' -print0 2>/dev/null | while IFS= read -r -d '' f; do
-            cp -n "$f" "$(basename "$f")" || true
-          done
-          ls -la *.deb || true
-
       - name: Inject tweaks into IPA (cyan)
         run: |
           set -euo pipefail
