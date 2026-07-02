@@ -139,21 +139,6 @@ jobs:
           wget --quiet --no-verbose "https://github.com/inoahdev/tbd/releases/download/2.2/tbd-mac" -O /usr/local/bin/tbd || true
           chmod +x /usr/local/bin/tbd || true
 
-      - name: Clone headers
-        run: |
-          set -euo pipefail
-          THEOS=${{ github.workspace }}/theos
-          if [ ! -d "$THEOS/include/YouTubeHeader" ]; then
-            git clone --quiet --depth=1 https://github.com/aricloverEXTRA/YouTubeHeader.git "$THEOS/include/YouTubeHeader"
-          else
-            cd "$THEOS/include/YouTubeHeader" && git pull --quiet --force || true
-          fi
-          if [ ! -d "$THEOS/include/PSHeader" ]; then
-            git clone --quiet --depth=1 https://github.com/PoomSmart/PSHeader.git "$THEOS/include/PSHeader"
-          else
-            cd "$THEOS/include/PSHeader" && git pull --quiet --force || true
-          fi
-
       - name: Hash YT ipa url
         run: |
           URL_YT="$(jq -r '.inputs.decrypted_youtube_url' $GITHUB_EVENT_PATH)"
