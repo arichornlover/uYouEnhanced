@@ -188,12 +188,15 @@ jobs:
           git checkout --quiet
           mv *.appex ..
 
-      - name: Normalize Extension Bundle ID
+      - name: Normalize Extension Bundle ID for SideStore
         run: |
-          BUNDLE_ID="${{ inputs.bundle_id }}"
+          PARENT_BUNDLE="${{ inputs.bundle_id }}"
           for appex in *.appex; do
             if [ -f "$appex/Info.plist" ]; then
-              /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID.${appex%.appex}" "$appex/Info.plist" 2>/dev/null || true
+              # Set extension ID to parent + .Extension (common pattern)
+              EXT_ID="${PARENT_BUNDLE}.Extension"
+              /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $EXT_ID" "$appex/Info.plist" 2>/dev/null || true
+              echo "Set extension ID: $EXT_ID"
             fi
           done
 
