@@ -6,6 +6,7 @@
 # pragma mark - YouTube patches
 
 static NSString *accessGroupID() {
+    // Try standard keychain query first
     NSDictionary *query = [NSDictionary dictionaryWithObjectsAndKeys:
                            (__bridge NSString *)kSecClassGenericPassword, (__bridge NSString *)kSecClass,
                            @"bundleSeedID", kSecAttrAccount,
@@ -21,19 +22,58 @@ static NSString *accessGroupID() {
         }
     }
     NSString *accessGroup = [(__bridge NSDictionary *)result objectForKey:(__bridge NSString *)kSecAttrAccessGroup];
+    
+    // SideStore: extract the team ID prefix from the access group
+    // SideStore access groups follow the format: <TeamID>.<AppBundleID>
+    if (accessGroup) {
+        NSArray *components = [accessGroup componentsSeparatedByString:@"."];
+        if (components.count >= 2) {
+            return components[0]; // Return just the team ID prefix
+        }
+    }
+    
     return accessGroup;
 }
 
-// Fix Google Sign in Patch
+// Detect if running under SideStore
+static BOOL isSideStore() {
+    NSString *accessGroup = accessGroupID();
+    // SideStore uses its own team ID, which differs from the official YouTube team ID
+    // The official Google team ID for YouTube is typically "TEAM_GOOGLE" or similar
+    // If the access group doesn't start with the standard Google prefix, we're likely in SideStore/AltStore
+    if (accessGroup && ![accessGroup isEqualToString:@""]) {
+        // Check if the provisioning profile indicates SideStore
+        NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
+        NSString *embeddedProfile = [bundlePath stringByAppendingPathComponent:@"embedded.mobileprovision"];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:embeddedProfile]) {
+            NSData *profileData = [NSData dataWithContentsOfFile:embeddedProfile];
+            if (profileData) {
+                NSString *profileString = [[NSString alloc] initWithData:profileData encoding:NSASCIIStringEncoding];
+                if ([profileString containsString:@"SideStore"] || [profileString containsString:@"sidestore"]) {
+                    return YES;
+                }
+            }
+        }
+    }
+    return NO;
+}
+
+// Fix Google Sign in Patch - handles AltStore and SideStore bundle IDs
 %group gGoogleSignInPatch
 %hook NSBundle
 + (NSBundle *)bundleWithIdentifier:(NSString *)identifier {
     if ([identifier isEqualToString:YT_BUNDLE_ID])
         return NSBundle.mainBundle;
+    // SideStore: also handle alternative bundle ID formats
+    if (isSideStore() && [identifier hasSuffix:@".google.ios.youtube"])
+        return NSBundle.mainBundle;
     return %orig(identifier);
 }
 - (NSString *)bundleIdentifier {
-    return [self isEqual:NSBundle.mainBundle] ? YT_BUNDLE_ID : %orig;
+    if ([self isEqual:NSBundle.mainBundle])
+        return YT_BUNDLE_ID;
+    // SideStore: preserve the actual bundle ID for internal checks
+    return %orig;
 }
 - (NSDictionary *)infoDictionary {
     NSDictionary *dict = %orig;

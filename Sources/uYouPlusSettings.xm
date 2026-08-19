@@ -88,15 +88,7 @@ static NSString *GetCacheSize() { // YTLite - @dayanch96
     return [formatter stringFromByteCount:folderSize];
 }
 static int contrastMode() {
-    NSString *appVersion = [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleShortVersionString"];
-    NSComparisonResult result1 = [appVersion compare:@"17.33.2" options:NSNumericSearch];
-    NSComparisonResult result2 = [appVersion compare:@"17.38.10" options:NSNumericSearch];
-
-    if (result1 != NSOrderedAscending && result2 != NSOrderedDescending) {
-        return [[NSUserDefaults standardUserDefaults] integerForKey:@"lcm"];
-    } else {
-        return 0;
-    }
+    return [[NSUserDefaults standardUserDefaults] integerForKey:@"lcm"];
 }
 static int appVersionSpoofer() { // App Version Spoofer
     return [[NSUserDefaults standardUserDefaults] integerForKey:@"versionSpoofer"];
@@ -518,6 +510,10 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     SWITCH(LOC(@"HIDE_SUBCRIPTIONS"), LOC(@"HIDE_SUBCRIPTIONS_DESC"), kHideSubscriptions);
     // SWITCH(LOC(@"DISABLE_RESUME_TO_SHORTS"), LOC(@"DISABLE_RESUME_TO_SHORTS_DESC"), kDisableResumeToShorts);
     SWITCH2(LOC(@"SHORTS_QUALITY_PICKER"), LOC(@"SHORTS_QUALITY_PICKER_DESC"), kShortsQualityPicker);
+    SWITCH(LOC(@"HIDE_SHORTS_CLIP_BUTTON"), LOC(@"HIDE_SHORTS_CLIP_BUTTON_DESC"), kHideShortsClipButton);
+    SWITCH(LOC(@"HIDE_SHORTS_DOWNLOAD_BUTTON"), LOC(@"HIDE_SHORTS_DOWNLOAD_BUTTON_DESC"), kHideShortsDownloadButton);
+    SWITCH(LOC(@"HIDE_SHORTS_REMIX_BUTTON"), LOC(@"HIDE_SHORTS_REMIX_BUTTON_DESC"), kHideShortsRemixButton);
+    SWITCH(LOC(@"HIDE_SHORTS_STATS_BUTTON"), LOC(@"HIDE_SHORTS_STATS_BUTTON_DESC"), kHideShortsStatsButton);
 
     # pragma mark - Video player button options
     SECTION_HEADER(LOC(@"VIDEO_PLAYER_BUTTON_OPTIONS"));

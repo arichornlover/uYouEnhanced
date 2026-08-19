@@ -28,7 +28,7 @@ static inline BOOL isDarkMode() {
     return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
 }
 
-// Low Contrast Mode v1.8.0 (Compatible with YouTube v19.21.2-v20.44.2)
+// Low Contrast Mode v2.0.0 (Compatible with YouTube v19.21.2-v21.26+)
 %group gContrastModeShared
 
 %hook UIColor
@@ -108,6 +108,25 @@ static inline BOOL isDarkMode() {
 - (UIColor *)overlayFilledButtonActive {
     return isDarkMode() ? [activeContrastColor() colorWithAlphaComponent:0.2] : %orig;
 }
+// Modern YouTube v20+ additional palette properties
+- (UIColor *)primaryBackground {
+    return isDarkMode() ? activeContrastColor() : %orig;
+}
+- (UIColor *)secondaryBackground {
+    return isDarkMode() ? activeContrastColor() : %orig;
+}
+- (UIColor *)surface {
+    return isDarkMode() ? activeContrastColor() : %orig;
+}
+- (UIColor *)textOnBrand {
+    return isDarkMode() ? [UIColor blackColor] : %orig;
+}
+- (UIColor *)destructive {
+    return isDarkMode() ? activeContrastColor() : %orig;
+}
+- (UIColor *)iconSecondary {
+    return isDarkMode() ? [activeContrastColor() colorWithAlphaComponent:0.7] : %orig;
+}
 %end
 
 %hook YTColor
@@ -121,14 +140,35 @@ static inline BOOL isDarkMode() {
 + (UIColor *)grey2 { return activeContrastColor(); }
 %end
 
+// Modern YouTube v20+: Use view hierarchy traversal for action bar buttons
 %hook _ASDisplayView
 - (void)layoutSubviews {
     %orig;
     if (isDarkMode()) {
-        NSArray<NSString *> *targetLabels = @[@"connect account", @"Thanks", @"Save to playlist", @"Report", @"Share", @"Like", @"Dislike"];
         UIColor *contrastColor = activeContrastColor();
-        for (UIView *subview in self.subviews) {
-            if ([targetLabels containsObject:subview.accessibilityLabel]) {
+        NSString *accId = self.accessibilityIdentifier;
+        NSString *accLabel = self.accessibilityLabel;
+        // Target action bar buttons by their known identifiers
+        NSArray<NSString *> *targetIds = @[
+            @"id.video.share.button", @"id.video.remix.button",
+            @"id.ui.add_to.offline.button", @"clip_button.eml",
+            @"id.video.thanks.button", @"slim_video_action_bar_share",
+            @"slim_video_action_bar_download", @"slim_video_action_bar_remix",
+            @"slim_video_action_bar_thanks", @"slim_video_action_bar_clip"
+        ];
+        NSArray<NSString *> *targetLabels = @[
+            @"connect account", @"Thanks", @"Save to playlist",
+            @"Report", @"Share", @"Like", @"Dislike"
+        ];
+        BOOL shouldApply = NO;
+        if (accId && [targetIds containsObject:accId]) shouldApply = YES;
+        if (accLabel && [targetLabels containsObject:accLabel]) shouldApply = YES;
+        if (shouldApply) {
+            self.backgroundColor = contrastColor;
+            if ([self isKindOfClass:[UILabel class]]) {
+                ((UILabel *)self).textColor = [UIColor blackColor];
+            }
+            for (UIView *subview in self.subviews) {
                 subview.backgroundColor = contrastColor;
                 if ([subview isKindOfClass:[UILabel class]]) {
                     ((UILabel *)subview).textColor = [UIColor blackColor];

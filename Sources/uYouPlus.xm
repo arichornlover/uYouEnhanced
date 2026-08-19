@@ -119,31 +119,44 @@ static int getNotificationIconStyle() {
 %end
 %end
 
-// YTHidePlayerButtons 1.0.1 - v20.02.3+ - made by @aricloverEXTRA
+// YTHidePlayerButtons 1.1.0 - v20.02.3+ - made by @aricloverEXTRA
+// Updated for modern YouTube v20+ with renderer-based identifiers
 static NSDictionary<NSString *, NSString *> *HideToggleMap(void) {
     static NSDictionary<NSString *, NSString *> *map = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         map = @{
-            // identifiers
+            // Modern YouTube v20+ renderer-based identifiers
             @"id.video.share.button": @"hideShareButton_enabled",
+            @"id.video.share.button.wrapper": @"hideShareButton_enabled",
             @"id.ui.add_to.offline.button": @"hideDownloadButton_enabled",
             @"id.video.remix.button": @"hideRemixButton_enabled",
+            @"id.video.remix.button.wrapper": @"hideRemixButton_enabled",
             @"clip_button.eml": @"hideClipButton_enabled",
             @"id.ui.carousel_header": @"hideCommentSection_enabled",
-            // fallbacks
-            @"Like": @"hideLikeButton_enabled", // unidentified identifier
-            @"Dislike": @"hideDislikeButton_enabled", // unidentified identifier
-            @"Share": @"hideShareButton_enabled", // Share Button
-            @"Ask": @"hideAskButton_enabled", // unidentified identifier
-            @"Download": @"hideDownloadButton_enabled", // Download Button
-            @"Hype": @"hideHypeButton_enabled", // unidentified identifier
-            @"Thanks": @"hideThanksButton_enabled", // unidentified identifier
-            @"Remix": @"hideRemixButton_enabled", // Remix Button
-            @"Clip": @"hideClipButton_enabled", // Clip Button
-            @"Save to playlist": @"hideSaveToPlaylistButton_enabled", // unidentified identifier
-            @"Report": @"hideReportButton_enabled", // unidentified identifier
-            @"connect account": @"hideConnectButton_enabled" // unidentified identifier
+            @"id.video.thanks.button": @"hideThanksButton_enabled",
+            @"id.video.save_to.playlist.button": @"hideSaveToPlaylistButton_enabled",
+            @"id.video.report.button": @"hideReportButton_enabled",
+            @"id.video.connect.button": @"hideConnectButton_enabled",
+            // Modern YouTube v20+ action bar identifiers (protobuf-based)
+            @"slim_video_action_bar_share": @"hideShareButton_enabled",
+            @"slim_video_action_bar_download": @"hideDownloadButton_enabled",
+            @"slim_video_action_bar_remix": @"hideRemixButton_enabled",
+            @"slim_video_action_bar_thanks": @"hideThanksButton_enabled",
+            @"slim_video_action_bar_clip": @"hideClipButton_enabled",
+            // Legacy fallback labels
+            @"Like": @"hideLikeButton_enabled",
+            @"Dislike": @"hideDislikeButton_enabled",
+            @"Share": @"hideShareButton_enabled",
+            @"Ask": @"hideAskButton_enabled",
+            @"Download": @"hideDownloadButton_enabled",
+            @"Hype": @"hideHypeButton_enabled",
+            @"Thanks": @"hideThanksButton_enabled",
+            @"Remix": @"hideRemixButton_enabled",
+            @"Clip": @"hideClipButton_enabled",
+            @"Save to playlist": @"hideSaveToPlaylistButton_enabled",
+            @"Report": @"hideReportButton_enabled",
+            @"connect account": @"hideConnectButton_enabled"
         };
     });
     return map;
@@ -380,12 +393,16 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 %end
 
-// Fix App Group Directory by move it to document directory
+// Fix App Group Directory - handles both AltStore and SideStore
 %hook NSFileManager
 - (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
     if (groupIdentifier != nil) {
         NSArray *paths = [[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask];
         NSURL *documentsURL = [paths lastObject];
+        // SideStore: use a separate AppGroup directory to avoid conflicts
+        if (isSideStore()) {
+            return [documentsURL URLByAppendingPathComponent:@"SideStoreAppGroup"];
+        }
         return [documentsURL URLByAppendingPathComponent:@"AppGroup"];
     }
     return %orig(groupIdentifier);
@@ -1451,6 +1468,30 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     %orig;
     if ((IS_ENABLED(kHideBuySuperThanks)) && ([self.accessibilityIdentifier isEqualToString:@"id.elements.components.suggested_action"])) { 
         self.hidden = YES; 
+    }
+
+// Hide Shorts Buttons when Paused - Clip, Download, Remix, Stats for Nerds
+    if (IS_ENABLED(kHideShortsClipButton) && ([self.accessibilityIdentifier isEqualToString:@"clip_button.eml"])) {
+        self.hidden = YES;
+    }
+    if (IS_ENABLED(kHideShortsDownloadButton) && ([self.accessibilityIdentifier isEqualToString:@"id.ui.add_to.offline.button"])) {
+        self.hidden = YES;
+    }
+    if (IS_ENABLED(kHideShortsRemixButton) && ([self.accessibilityIdentifier isEqualToString:@"id.video.remix.button"])) {
+        self.hidden = YES;
+    }
+    if (IS_ENABLED(kHideShortsStatsButton) && ([self.accessibilityIdentifier isEqualToString:@"id.video.stats_for_nerds.button"])) {
+        self.hidden = YES;
+    }
+    // Fallback: hide by description for Shorts pause-state buttons
+    if (IS_ENABLED(kHideShortsClipButton) || IS_ENABLED(kHideShortsDownloadButton) || IS_ENABLED(kHideShortsRemixButton) || IS_ENABLED(kHideShortsStatsButton)) {
+        NSString *desc = self.accessibilityLabel;
+        if (desc) {
+            if (IS_ENABLED(kHideShortsClipButton) && [desc isEqualToString:@"Clip"]) self.hidden = YES;
+            if (IS_ENABLED(kHideShortsDownloadButton) && [desc isEqualToString:@"Download"]) self.hidden = YES;
+            if (IS_ENABLED(kHideShortsRemixButton) && [desc isEqualToString:@"Remix"]) self.hidden = YES;
+            if (IS_ENABLED(kHideShortsStatsButton) && [desc isEqualToString:@"Stats for nerds"]) self.hidden = YES;
+        }
     }
 
 // Hide Header Links under Channel Profile - @arichornlover

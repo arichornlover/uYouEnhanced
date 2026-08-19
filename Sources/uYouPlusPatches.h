@@ -12,6 +12,9 @@
 #import <YouTubeHeader/GPBUnknownFields.h>
 #import "uYouPlus.h"
 
+// SideStore detection
+BOOL isSideStore();
+
 @interface ELMPBProperties (uYouEnhanced)
 - (id)firstSubmessage;
 - (id)submessageAtIndex:(NSUInteger)index;
