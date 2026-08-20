@@ -318,6 +318,29 @@ And thanks to the developers qnblackcat, PoomSmart & others allowing me to expan
 
 - Issues related to **uYouEnhanced** can be found [here](https://github.com/arichornlover/uYouEnhanced/issues/).
 
+# Frequently asked questions
+
+**Q: Google Sign-In fails with "Google can't confirm that this app is safe".**
+If the app was installed via **TrollStore**, open uYouEnhanced's settings and enable **Fix Google Sign in (for TrollStore user only)**, then restart the app. Keep this option disabled if you can already sign in normally. For other sideloading methods (AltStore, Sideloadly, etc.), sign-in can also break when the bundle ID used at signing time doesn't match — re-signing with a consistent bundle ID usually resolves it.
+
+**Q: Casting to a TV/Chromecast stopped working.**
+Enable **Fix Casting** in uYouEnhanced's settings and restart the app. It adjusts the A/B flags that currently break casting in recent YouTube versions.
+
+**Q: YouTube shows an "Update required" / "Please update" screen.**
+Enable **Enable App Version Spoofer** in uYouEnhanced's settings, pick a newer YouTube version from **Version spoofer selector**, and restart the app.
+
+**Q: The app crashes on launch or misbehaves after an update.**
+Make sure you are on the [latest release](https://github.com/arichornlover/uYouEnhanced/releases/latest) and that your YouTube version matches the [version information](#download) table. Note that some **uYou** features do not work on newer YouTube versions (see the news note in the Download section).
+
+**Q: Is uYouEnhanced available for AltStore?**
+Yes — use the official AltStore source listed in the [Download](#download) section: `https://raw.githubusercontent.com/arichornlover/arichornlover.github.io/main/apps.json`
+
+**Q: Low Contrast Mode doesn't work.**
+This is a known incompatibility (see the Features list) — it only supports YouTube v17.33.2–v17.38.10 and currently does not work on recent versions.
+
+**Q: Where should I file a bug report?**
+On [this repo's issue tracker](https://github.com/arichornlover/uYouEnhanced/issues/) — including uYou-specific bugs. Please search the open issues first; many reports (sign-in, casting, update screen) are covered by the answers above.
+
 ## Download
 
 - The latest version of **uYouEnhanced** can be found under [Releases](https://github.com/arichornlover/uYouEnhanced/releases/latest).
