@@ -119,6 +119,8 @@ static int getNotificationIconStyle() {
 %end
 %end
 
+%group gAlwaysOn
+
 // YTHidePlayerButtons 1.1.0 - v20.02.3+ - made by @aricloverEXTRA
 // Updated for modern YouTube v20+ with renderer-based identifiers
 static NSDictionary<NSString *, NSString *> *HideToggleMap(void) {
@@ -420,6 +422,8 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     return YES;
 }
 %end
+
+%end // gAlwaysOn
 
 // uYou AdBlock Workaround LITE (This Version will only remove ads from only Videos/Shorts!) - @PoomSmart
 %group uYouAdBlockingWorkaroundLite
@@ -724,6 +728,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %end
 %end
 
+%group gMisc1
+
 // YTMiniPlayerEnabler: https://github.com/level3tjg/YTMiniplayerEnabler/
 %hook YTWatchMiniBarViewController
 - (void)updateMiniBarPlayerStateFromRenderer {
@@ -766,6 +772,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 - (BOOL)enableIosFloatingMiniplayerRepositioning { return IS_ENABLED(@"floatingMiniplayer2_enabled"); } // Floating Miniplayer (Repositioning Support, Removes Swiping Up Gesture) - deprecated fla[...]
 %end
 
+%end // gMisc1
+
 // Fix Casting: https://github.com/arichornlover/uYouEnhanced/issues/606#issuecomment-2098289942
 %group gFixCasting
 %hook YTColdConfig
@@ -777,6 +785,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 - (BOOL)isPromptForLocalNetworkPermissionsEnabled { return YES; } // deprecated flag ⚠️
 %end
 %end
+
+%group gMisc2
 
 // NOYTPremium - https://github.com/PoomSmart/NoYTPremium/
 %hook YTCommerceEventGroupHandler
@@ -833,6 +843,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 // }
 // %end
 
+%end // gMisc2
+
 // Hide "Get Youtube Premium" in "You" tab - @bhackel
 %group gHidePremiumPromos
 %hook YTAppCollectionViewController
@@ -871,6 +883,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 }
 %end
 %end
+
+%group gMisc3
 
 // YouTube Premium logo - @bhackel & @Tonwalter888
 %hook YTHeaderLogoController
@@ -950,6 +964,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 }
 %end
 
+%end // gMisc3
+
 // Classic Video Player (Restores the v16.xx.x Video Player Functionality) - @arichornlover
 // To-do: disabling "Precise Video Scrubbing" https://9to5google.com/2022/06/29/youtube-precise-video-scrubbing/
 %group gClassicVideoPlayer
@@ -1001,6 +1017,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %end
 %end
 
+%group gSection5
+
 // YTNoSuggestedVideo - https://github.com/bhackel/YTNoSuggestedVideo
 %hook YTMainAppVideoPlayerOverlayViewController
 - (bool)shouldShowAutonavEndscreen {
@@ -1010,6 +1028,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     return %orig;
 }
 %end
+
+%end // gSection5
 
 // YTTapToSeek - https://github.com/bhackel/YTTapToSeek
 %group gYTTapToSeek
@@ -1082,11 +1102,16 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %end
 
 # pragma mark - uYouPlus
+
+%group gSection6
+
 // Video Player Options
 // Skips content warning before playing *some videos - @PoomSmart
 %hook YTPlayabilityResolutionUserActionUIController
 - (void)showConfirmAlert { [self confirmAlertDidPressConfirm]; }
 %end
+
+%end // gSection6
 
 // Portrait Fullscreen - @Dayanch96
 %group gPortraitFullscreen
@@ -1109,6 +1134,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 }
 %end
 %end
+
+%group gSection7
 
 // Disable Double tap to skip chapter - @bhackel
 %hook YTDoubleTapToSeekController
@@ -1137,6 +1164,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 }
 %end
 
+%end // gSection7
+
 // Use stock iOS volume HUD
 // Use YTColdConfig's method, see https://x.com/PoomSmart/status/1756904290445332653
 %group gStockVolumeHUD
@@ -1151,6 +1180,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 }
 %end
 %end
+
+%group gSection8
 
 %hook YTColdConfig
 - (BOOL)speedMasterArm2FastForwardWithoutSeekBySliding {
@@ -1168,6 +1199,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     }
 }
 %end
+
+%end // gSection8
 
 // Disable pull to enter vertical/portrait fullscreen gesture - @bhackel
 // This was introduced in version 19.XX
@@ -1189,6 +1222,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 }
 %end
 %end
+
+%group gSection9
 
 // Video Controls Overlay Options
 // Hide CC / Hide Autoplay switch / Hide YTMusic Button / Enable Share Button / Enable Save to Playlist Button
@@ -1251,6 +1286,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 }
 %end
 
+%end // gSection9
+
 // Hide Fullscreen Button - @arichornlover
 %group gHideFullscreenButton
 %hook YTInlinePlayerBarContainerView
@@ -1269,6 +1306,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 }
 %end
 %end
+
+%group gSection10
 
 // Hide HUD Messages
 %hook YTHUDMessageView
@@ -1322,6 +1361,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 }
 %end
 
+%end // gSection10
+
 // Hide previous and next buttons in all videos - @bhackel
 %group gHidePreviousAndNextButton
 %hook YTColdConfig
@@ -1334,12 +1375,16 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %end
 %end
 
+%group gSection11
+
 // Hide Video Title when in Fullscreen - @arichornlover
 %hook YTMainAppControlsOverlayView
 - (BOOL)titleViewHidden {
     return IS_ENABLED(@"hideVideoTitle_enabled") ? YES : %orig;
 }
 %end
+
+%end // gSection11
 
 // Hide Dark Overlay Background - @Dayanch96
 %group gHideOverlayDarkBackground
@@ -1400,12 +1445,16 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %end
 %end
 
+%group gSection12
+
 // Disable the right panel in fullscreen mode
 %hook YTColdConfig
 - (BOOL)isLandscapeEngagementPanelEnabled {
     return IS_ENABLED(kHideRightPanel) ? NO : %orig;
 }
 %end
+
+%end // gSection12
 
 // Shorts Quality Picker - @arichornlover
 %group gShortsQualityPicker
@@ -1418,6 +1467,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 - (BOOL)iosEnableSimplerTitleInShortsVideoQualityPicker { return YES; }
 %end
 %end
+
+%group gSection13
 
 // YTShortsProgress - https://github.com/PoomSmart/YTShortsProgress/
 %hook YTShortsPlayerViewController
@@ -1608,6 +1659,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 }
 %end
 
+%end // gSection13
+
 // App Settings Overlay Options
 %group gDisableAccountSection
 %hook YTSettingsSectionItemManager
@@ -1705,12 +1758,16 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 %end
 %end
 
+%group gSection14
+
 // YT startup animation
 %hook YTColdConfig
 - (BOOL)mainAppCoreClientIosEnableStartupAnimation {
     return IS_ENABLED(kYTStartupAnimation) ? YES : NO;
 }
 %end
+
+%end // gSection14
 
 // Disable hints
 %group gDisableHints
@@ -1764,6 +1821,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
 // %end
 %end
 
+%group gSection15
+
 // Hide "Play next in queue" - qnblackcat/uYouPlus#1138
 %hook YTMenuItemVisibilityHandler
 - (BOOL)shouldShowServiceItemRenderer:(YTIMenuConditionalServiceItemRenderer *)renderer {
@@ -1782,6 +1841,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     return %orig;
 }
 %end
+
+%end // gSection15
 
 // Hide the Videos under the Video Player - @Dayanch96 & @arichornlover
 %group gNoRelatedWatchNexts
@@ -1879,6 +1940,21 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     // dlopen([[NSString stringWithFormat:@"%@/Frameworks/uYou.dylib", [[NSBundle mainBundle] bundlePath]] UTF8String], RTLD_LAZY);
 
     %init;
+    %init(gAlwaysOn);
+    %init(gMisc1);
+    %init(gMisc2);
+    %init(gMisc3);
+    %init(gSection5);
+    %init(gSection6);
+    %init(gSection7);
+    %init(gSection8);
+    %init(gSection9);
+    %init(gSection10);
+    %init(gSection11);
+    %init(gSection12);
+    %init(gSection13);
+    %init(gSection14);
+    %init(gSection15);
 //  if (IS_ENABLED(kSettingsStyle_enabled)) {
 //      %init(gSettingsStyle);
 //  }

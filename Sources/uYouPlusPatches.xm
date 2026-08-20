@@ -36,7 +36,7 @@ static NSString *accessGroupID() {
 }
 
 // Detect if running under SideStore
-static BOOL isSideStore() {
+BOOL isSideStore() {
     NSString *accessGroup = accessGroupID();
     // SideStore uses its own team ID, which differs from the official YouTube team ID
     // The official Google team ID for YouTube is typically "TEAM_GOOGLE" or similar
@@ -96,6 +96,8 @@ static BOOL isSideStore() {
 }
 %end
 %end
+
+%group gPatches
 
 // Workaround for MiRO92/uYou-for-YouTube#12, qnblackcat/uYouPlus#263
 %hook YTDataUtils
@@ -546,8 +548,11 @@ static void refreshUYouAppearance() {
 - (id)keychainAccessGroup { return accessGroupID(); }
 %end
 
+%end // gPatches
+
 %ctor {
     %init;
+    %init(gPatches);
     if (IS_ENABLED(kGoogleSignInPatch)) {
         %init(gGoogleSignInPatch);
     }
