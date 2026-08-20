@@ -47,11 +47,11 @@ on:
         required: false
         type: boolean
       ytuhd:
-        description: "Include YTUHD (clones dav1d + libvpx)"
+        description: "Include YTUHD (this will clone dav1d + libvpx libraries)"
         default: false
         required: false
         type: boolean
-
+  
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -72,11 +72,10 @@ jobs:
           submodules: recursive
 
       - name: Install Dependencies
-        run: |
-          brew install ldid dpkg make wget unzip jq pipx
+        run: brew install ldid dpkg make
 
-      - name: Set PATH
-        run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
+      - name: Set PATH environment variable
+        run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH 
 
       - name: Setup Theos
         uses: actions/checkout@v7
@@ -85,21 +84,24 @@ jobs:
           ref: master
           path: theos
           submodules: recursive
-
+      
       - name: SDK Caching
         id: SDK
         uses: actions/cache@v6
+        env:
+          cache-name: iOS-${{ inputs.sdk_version }}-SDK
         with:
           path: theos/sdks/
-          key: iOS-${{ inputs.sdk_version }}-SDK
+          key: ${{ env.cache-name }}
+          restore-keys: ${{ env.cache-name }}
 
       - name: Download iOS SDK
         if: steps.SDK.outputs.cache-hit != 'true'
         run: |
-          git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/aricloverALT/sdks/ sdks
+          git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/aricloverALT/sdks/
           cd sdks
           git sparse-checkout set --no-cone iPhoneOS${{ inputs.sdk_version }}.sdk
-          git checkout --quiet
+          git checkout
           mv *.sdk $THEOS/sdks
         env:
           THEOS: ${{ github.workspace }}/theos
@@ -110,32 +112,34 @@ jobs:
           repository: qnblackcat/theos-jailed
           ref: master
           path: theos-jailed
+          submodules: recursive
 
       - name: Install Theos Jailed
-        run: ./theos-jailed/install
+        run: |
+          ./theos-jailed/install
         env:
           THEOS: ${{ github.workspace }}/theos
 
-      - name: Fix Theos broken pipe issue
-        run: |
-          SCRIPT=$(find $THEOS -name convert_xml_plist.sh 2>/dev/null | head -1)
-          if [ -n "$SCRIPT" ]; then
-            sed -i '' 's/od -c "$i" | head/od -c "$i" 2>\/dev\/null | head/g' "$SCRIPT"
-            echo "Fixed broken pipe"
-          fi
-
-      - name: Install cyan and tbd
-        run: |
-          pipx install https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip
-          wget --quiet "https://github.com/inoahdev/tbd/releases/download/2.2/tbd-mac" -O /usr/local/bin/tbd
-          chmod +x /usr/local/bin/tbd
-
-      - name: YTUHD Libraries (only if enabled)
+      # YTUHD + Libraries (conditional)
+      - name: YTUHD + Libraries (dav1d + libvpx)
         if: ${{ inputs.ytuhd }}
         run: |
-          echo "Installing YTUHD + dav1d + libvpx"
+          echo "⚠️ Installing YTUHD + required libraries (dav1d + libvpx)..."
+          
+          # Clone YTUHD
+          git clone --quiet --depth=1 https://github.com/PoomSmart/YTUHD.git
+          
+          # Clone dav1d
           git clone --quiet --depth=1 https://code.videolan.org/videolan/dav1d.git $THEOS/vendor/dav1d
+          
+          # Clone libvpx
           git clone --quiet --depth=1 https://chromium.googlesource.com/webm/libvpx $THEOS/vendor/libvpx
+          
+          cd YTUHD
+          make clean package DEBUG=0 FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless || true
+          cd ..
+          
+          echo "YTUHD + libraries prepared."
 
       - name: Hash YT ipa url
         run: |
@@ -146,135 +150,43 @@ jobs:
       - name: Prepare YouTube iPA
         id: prepare_youtube
         run: |
-          wget "$YOUTUBE_URL" --quiet -O main/YouTube.ipa
-          cd main
+          wget "$YOUTUBE_URL" --quiet --no-verbose -O main/YouTube.ipa
+          cd ${{ github.workspace }}/main
           mv YouTube.ipa YouTube.zip
           unzip -q YouTube.zip
           youtube_version=$(defaults read "$(pwd)/Payload/YouTube.app/Info" CFBundleVersion)
-          echo "YT_VERSION=$youtube_version" >> $GITHUB_ENV
+          echo "==> YouTube v$youtube_version downloaded!"
+          sed -i '' "17s#.*#YOUTUBE_VERSION = ${youtube_version}#g" Makefile
           echo "youtube_version=${youtube_version}" >> $GITHUB_OUTPUT
 
         env:
+          THEOS: ${{ github.workspace }}/theos
           YOUTUBE_URL: ${{ env.URL_YT }}
 
       - name: Fix compiling & Build Package
         id: build_package
         run: |
-          cd main
-          sed -i '' "s/^BUNDLE_ID .*/BUNDLE_ID = ${{ inputs.bundle_id }}/" Makefile || echo "BUNDLE_ID = ${{ inputs.bundle_id }}" >> Makefile
-          sed -i '' "s/^DISPLAY_NAME .*/DISPLAY_NAME = ${{ inputs.app_name }}/" Makefile || echo "DISPLAY_NAME = ${{ inputs.app_name }}" >> Makefile
-          sed -i '' "s/^export TARGET .*/export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0/" Makefile || echo "export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0" >> Makefile
-          
-          # YTUHD flag
+          cd ${{ github.workspace }}/main
+          sed -i '' "30s#.*#BUNDLE_ID = ${{ env.BUNDLE_ID }}#g" Makefile                          # Modify the bundle ID
+          sed -i '' "29s#.*#DISPLAY_NAME = ${{ env.APP_NAME }}#g" Makefile                        # Modify the app name
+          sed -i '' "1s#.*#export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0#g" Makefile # Modify the SDK version
+          # YTUHD Condition
           if [ "${{ inputs.ytuhd }}" = "true" ]; then
             echo "YTUHD_ENABLED=1" >> Makefile
           else
             echo "YTUHD_ENABLED=0" >> Makefile
           fi
-          
+
           make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app FINALPACKAGE=1
-          echo "package=$(ls -t packages | head -n1)" >> $GITHUB_OUTPUT
+          echo "package=$(ls -t packages | head -n1)" >>$GITHUB_OUTPUT
+          echo -e "==> \033[1mSHASUM256: $(shasum -a 256 packages/*.ipa | cut -f1 -d' ')\033[0m"
+          echo -e "==> \033[1mBundle ID: ${{ env.BUNDLE_ID }}\033[0m"
 
         env:
           THEOS: ${{ github.workspace }}/theos
-
-      - name: Clone Open in YouTube (Safari Extension)
-        run: |
-          git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/BillyCurtis/OpenYouTubeSafariExtension.git OpenYouTubeSafariExtension
-          cd OpenYouTubeSafariExtension
-          git sparse-checkout set --no-cone OpenYouTubeSafariExtension.appex
-          git checkout --quiet
-          mv *.appex ..
-
-      - name: Normalize Extension Bundle ID for SideStore
-        run: |
-          set -euo pipefail
-
-          PARENT_BUNDLE="${{ inputs.bundle_id }}"
-          ORIG_PREFIX="com.google.ios.youtube"
-
-          echo "Normalizing extension CFBundleIdentifier(s) to use parent prefix: ${PARENT_BUNDLE}"
-
-          update_plist_id() {
-            PLIST_PATH="$1"
-            if [ ! -f "$PLIST_PATH" ]; then
-              return
-            fi
-            if /usr/bin/plutil -convert xml1 "$PLIST_PATH" >/dev/null 2>&1; then
-              :
-            fi
-            CURRENT_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$PLIST_PATH" 2>/dev/null || true)
-            if [ -z "$CURRENT_ID" ]; then
-              return
-            fi
-            if [[ "$CURRENT_ID" == "$ORIG_PREFIX"* ]]; then
-              SUFFIX="${CURRENT_ID#${ORIG_PREFIX}.}"
-              if [ "$SUFFIX" = "$CURRENT_ID" ]; then
-                SUFFIX="Extension"
-              fi
-              NEW_ID="${PARENT_BUNDLE}.${SUFFIX}"
-              echo "Updating $PLIST_PATH: $CURRENT_ID -> $NEW_ID"
-              /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $NEW_ID" "$PLIST_PATH" || \
-                /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $NEW_ID" "$PLIST_PATH" || true
-            else
-              echo "Skipping $PLIST_PATH (does not start with $ORIG_PREFIX): $CURRENT_ID"
-            fi
-          }
-
-          for appex in *.appex; do
-            if [ -d "$appex" ]; then
-              PLIST="$appex/Info.plist"
-              update_plist_id "$PLIST"
-              find "$appex" -type f -name "*.plist" -o -name "*.entitlements" | while read -r f; do
-                /usr/bin/plutil -convert xml1 "$f" >/dev/null 2>&1 || true
-                if grep -q "$ORIG_PREFIX" "$f" >/dev/null 2>&1; then
-                  echo "Replacing occurrences in $f"
-                  perl -0777 -pe "s/\Q${ORIG_PREFIX}\E/${PARENT_BUNDLE}/g" -i "$f" || true
-                fi
-              done
-            fi
-          done
-
-          APP_PLUGINS_DIR="main/Payload/YouTube.app/PlugIns"
-          if [ -d "$APP_PLUGINS_DIR" ]; then
-            for appex in "$APP_PLUGINS_DIR"/*.appex; do
-              if [ -d "$appex" ]; then
-                PLIST="$appex/Info.plist"
-                update_plist_id "$PLIST"
-                find "$appex" -type f -name "*.plist" -o -name "*.entitlements" | while read -r f; do
-                  /usr/bin/plutil -convert xml1 "$f" >/dev/null 2>&1 || true
-                  if grep -q "$ORIG_PREFIX" "$f" >/dev/null 2>&1; then
-                    echo "Replacing occurrences in $f"
-                    perl -0777 -pe "s/\Q${ORIG_PREFIX}\E/${PARENT_BUNDLE}/g" -i "$f" || true
-                  fi
-                done
-              fi
-            done
-          fi
-
-          MAIN_APP_DIR="main/Payload/YouTube.app"
-          if [ -d "$MAIN_APP_DIR" ]; then
-            find "$MAIN_APP_DIR" -type f -name "*.plist" -o -name "*.entitlements" | while read -r f; do
-              /usr/bin/plutil -convert xml1 "$f" >/dev/null 2>&1 || true
-              if grep -q "$ORIG_PREFIX" "$f" >/dev/null 2>&1; then
-                echo "Replacing occurrences in $f"
-                perl -0777 -pe "s/\Q${ORIG_PREFIX}\E/${PARENT_BUNDLE}/g" -i "$f" || true
-              fi
-            done
-          fi
-
-          echo "Normalization complete."
-        shell: bash
-
-      - name: Inject Tweaks Into IPA
-        run: |
-          IPA_IN="main/packages/${{ steps.build_package.outputs.package }}"
-          OUTNAME="uYouEnhanced_${{ env.YT_VERSION }}_v${{ inputs.uyou_version }}.ipa"
-          tweaks="OpenYouTubeSafariExtension.appex"
-          for f in main/packages/*.deb; do
-            [ -f "$f" ] && tweaks="$tweaks $f"
-          done
-          cyan -i "$IPA_IN" -o "$OUTNAME" -uwef $tweaks -n "${{ inputs.app_name }}" -b ${{ inputs.bundle_id }}
+          UYOU_VERSION: ${{ inputs.uyou_version }}
+          BUNDLE_ID: ${{ inputs.bundle_id }}
+          APP_NAME: ${{ inputs.app_name }}
 
       - name: Upload Artifact
         if: ${{ inputs.upload_artifact }}
