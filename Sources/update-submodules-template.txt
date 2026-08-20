@@ -20,13 +20,31 @@ jobs:
 
       - name: Add uYouEnhanced submodules
         run: |
-          git submodule add https://github.com/arichornloverALT/YTHoldForSpeed.git Tweaks/YTHoldForSpeed
-          git submodule add https://github.com/arichornloverALT/YouGroupSettings.git Tweaks/YouGroupSettings
-          git submodule add https://github.com/arichornloverALT/YouTimeStamp.git Tweaks/YouTimeStamp
+          git submodule add https://github.com/hbang/Alderis.git Tweaks/Alderis
+          git submodule add https://github.com/therealFoxster/DontEatMyContent.git Tweaks/DontEatMyContent
+          git submodule add https://github.com/PoomSmart/FLEXing.git Tweaks/FLEXing
+          git submodule add https://github.com/Galactic-Dev/iSponsorBlock.git Tweaks/iSponsorBlock
+          git submodule add https://github.com/PoomSmart/PSHeader.git Tweaks/PSHeader
+          git submodule add https://github.com/aricloverEXTRA/Return-YouTube-Dislikes.git Tweaks/Return-YouTube-Dislikes
+          git submodule add https://github.com/PoomSmart/YouGroupSettings.git Tweaks/YouGroupSettings
           git submodule add https://github.com/bhackel/YouLoop.git Tweaks/YouLoop
-          git submodule add https://github.com/dayanch96/uYouLocalization.git Tweaks/uYouLocalization
-          git submodule add https://github.com/PoomSmart/YTIcons Tweaks/YTIcons
+          git submodule add https://github.com/PoomSmart/YouMute.git Tweaks/YouMute
+          git submodule add https://github.com/PoomSmart/YouPiP.git Tweaks/YouPiP
+          git submodule add https://github.com/PoomSmart/YouQuality.git Tweaks/YouQuality
+          git submodule add https://github.com/PoomSmart/YouSlider.git Tweaks/YouSlider
+          git submodule add https://github.com/PoomSmart/YouSpeed.git Tweaks/YouSpeed
+          git submodule add https://github.com/aricloverEXTRA/YouTimeStamp.git Tweaks/YouTimeStamp
+          git submodule add https://github.com/aricloverEXTRA/YouTubeHeader.git Tweaks/YouTubeHeader
+          git submodule add https://github.com/PoomSmart/YTABConfig.git Tweaks/YTABConfig
+          git submodule add https://github.com/PoomSmart/YTClassicVideoQuality.git Tweaks/YTClassicVideoQuality
+          git submodule add https://github.com/aricloverEXTRA/YTHoldForSpeed.git Tweaks/YTHoldForSpeed
+          git submodule add https://github.com/aricloverEXTRA/YTIcons.git Tweaks/YTIcons
+          git submodule add https://github.com/PoomSmart/YTUHD.git Tweaks/YTUHD
+          git submodule add https://github.com/PoomSmart/YTVideoOverlay.git Tweaks/YTVideoOverlay
+          git submodule add https://github.com/fosterbarnes/YTweaks.git Tweaks/YTweaks
           git submodule add https://github.com/protocolbuffers/protobuf.git Tweaks/protobuf
+          git submodule add https://github.com/dayanch96/uYouLocalization.git Tweaks/uYouLocalization
+          git submodule add https://github.com/CrossiDev-Studio/OpenYoutubeAndShorts.git Extensions
           git add .
           git commit -m "added uYouEnhanced submodules"
           git push origin
@@ -81,6 +99,19 @@ jobs:
           git add .
           git submodule update --init --recursive --remote Tweaks/iSponsorBlock
           git add .
+          git submodule update --init --recursive --remote Tweaks/FLEXing
+          git add .
+          git submodule update --init --recursive --remote Tweaks/protobuf
+          git add .
+          git submodule update --init --recursive --remote Tweaks/YouSlider
+          git add .
+          git submodule update --init --recursive --remote Tweaks/YouSpeed
+          git add .
+          git submodule update --init --recursive --remote Tweaks/YouTimeStamp
+          git add .
+          git submodule update --init --recursive --remote Tweaks/YTweaks
+          git add .
+          git submodule update --init --recursive
           git commit -m "updated submodules"
           git push origin
         continue-on-error: true

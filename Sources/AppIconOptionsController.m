@@ -177,10 +177,23 @@ static NSString *BundlePath(void) {
     if (indexPath.row == 0) {
         self.selectedIconIndex = -1;
         prefs[kPrefEnableIconOverride] = @NO;
+        prefs[kPrefIconName] = @"";
         [prefs writeToFile:prefsPath atomically:YES];
         notify_post([kPrefNotifyName UTF8String]);
+
+        // Actually reset the alternate icon via the public API
+        if (@available(iOS 10.3, *)) {
+            if ([[UIApplication sharedApplication] respondsToSelector:@selector(setAlternateIconName:completionHandler:)]) {
+                [[UIApplication sharedApplication] setAlternateIconName:nil completionHandler:^(NSError * _Nullable error) {
+                    if (error) {
+                        NSLog(@"[uYouEnhanced] Error resetting app icon: %@", error.localizedDescription);
+                    }
+                }];
+            }
+        }
+
         [self.tableView reloadData];
-        [self showAlertWithTitle:@"Success" message:@"Icon reset requested."];
+        [self showAlertWithTitle:@"Success" message:@"Icon reset to default."];
         return;
     }
 
@@ -189,11 +202,22 @@ static NSString *BundlePath(void) {
 
     prefs[kPrefEnableIconOverride] = @YES;
     prefs[kPrefIconName] = iconName;
-
     [prefs writeToFile:prefsPath atomically:YES];
     notify_post([kPrefNotifyName UTF8String]);
+
+    // Actually apply the alternate icon via the public API
+    if (@available(iOS 10.3, *)) {
+        if ([[UIApplication sharedApplication] respondsToSelector:@selector(setAlternateIconName:completionHandler:)]) {
+            [[UIApplication sharedApplication] setAlternateIconName:iconName completionHandler:^(NSError * _Nullable error) {
+                if (error) {
+                    NSLog(@"[uYouEnhanced] Error setting app icon '%@': %@", iconName, error.localizedDescription);
+                }
+            }];
+        }
+    }
+
     [self.tableView reloadData];
-    [self showAlertWithTitle:@"Success" message:@"Icon change requested."];
+    [self showAlertWithTitle:@"Success" message:[NSString stringWithFormat:@"Icon changed to '%@'.", iconName]];
 }
 
 - (void)showAlertWithTitle:(NSString *)title message:(NSString *)message {

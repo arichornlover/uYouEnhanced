@@ -1,7 +1,7 @@
 #!/bin/bash
 # To build, either place the IPA file in the project's root directory, or get the path to the IPA, then run `./build.sh`
 
-read -p $'\e[34m==> \e[1;39mPath to the decrypted YouTube.ipa or YouTube.app. If nothing is provied, any ipa/app in the project\'s root directory will be used: ' PATHTOYT
+read -p $'\e[34m==> \e[1;39mPath to the decrypted YouTube.ipa or YouTube.app. If nothing is provided, any ipa/app in the project\'s root directory will be used: ' PATHTOYT
 
 # Check if PATHTOYT is empty
 if [ -z "$PATHTOYT" ]; then
@@ -12,14 +12,14 @@ if [ -z "$PATHTOYT" ]; then
     COUNT=$(echo "$IPAS" | wc -l)
     
     if [ "$COUNT" -ge 2 ]; then
-        echo "❌ Error: Multiple IPA/app files found in the project's root directory directory. Make sure there is only one ipa."
+        echo "❌ Error: Multiple IPA/app files found in the project's root directory. Make sure there is only one ipa."
         exit 1
         
     elif [ -n "$IPAS" ]; then
         PATHTOYT=$(echo "$IPAS" | head -n 1)
         
     else
-        echo "❌ Error: No IPA/app file found in the project's root directory directory."
+        echo "❌ Error: No IPA/app file found in the project's root directory."
         exit 1
     fi
 fi

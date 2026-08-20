@@ -550,9 +550,43 @@ static void refreshUYouAppearance() {
 
 %end // gPatches
 
+// Fix App Group Directory - handles both AltStore and SideStore
+%group gSideloadingPatches
+%hook NSFileManager
+- (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
+    if (groupIdentifier != nil) {
+        NSArray *paths = [[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask];
+        NSURL *documentsURL = [paths lastObject];
+        // SideStore: use a separate AppGroup directory to avoid conflicts
+        if (isSideStore()) {
+            return [documentsURL URLByAppendingPathComponent:@"SideStoreAppGroup"];
+        }
+        return [documentsURL URLByAppendingPathComponent:@"AppGroup"];
+    }
+    return %orig(groupIdentifier);
+}
+%end
+
+// Fixes uYou crash when trying to play video (#1422)
+%hook YTPlayerOverlayManager
+%property (nonatomic, assign) float currentPlaybackRate;
+
+%new
+- (void)setCurrentPlaybackRate:(float)rate {
+    [self varispeedSwitchController:self.varispeedController didSelectRate:rate];
+}
+
+%new
+- (void)setPlaybackRate:(float)rate {
+    [self varispeedSwitchController:self.varispeedController didSelectRate:rate];
+}
+%end
+%end
+
 %ctor {
     %init;
     %init(gPatches);
+    %init(gSideloadingPatches);
     if (IS_ENABLED(kGoogleSignInPatch)) {
         %init(gGoogleSignInPatch);
     }
