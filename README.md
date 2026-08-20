@@ -66,6 +66,7 @@ And thanks to the developers qnblackcat, PoomSmart & others allowing me to expan
   <a href="#credits"><img src="https://img.shields.io/badge/Credits-C6005A?style=for-the-badge&labelColor=C6005A" alt="Credits Badge"></a><br>
   <a href="#features"><img src="https://img.shields.io/badge/Features-C6005A?style=for-the-badge&labelColor=C6005A" alt="Features Badge"></a><br>
   <a href="#known-issues"><img src="https://img.shields.io/badge/Known%20Issues-C6005A?style=for-the-badge&labelColor=C6005A" alt="Known Issues Badge"></a><br>
+  <a href="#frequently-asked-questions"><img src="https://img.shields.io/badge/Frequently%20Asked%20Questions-C6005A?style=for-the-badge&labelColor=C6005A" alt="Known Issues Badge"></a><br>
   <a href="#download"><img src="https://img.shields.io/badge/Download-C6005A?style=for-the-badge&labelColor=C6005A" alt="Download Badge"></a><br>
   <a href="#building"><img src="https://img.shields.io/badge/Building-C6005A?style=for-the-badge&labelColor=C6005A" alt="Building Badge"></a><br>
   <a href="#installation"><img src="https://img.shields.io/badge/Installation-C6005A?style=for-the-badge&labelColor=C6005A" alt="Installation Badge"></a><br>
@@ -308,7 +309,7 @@ And thanks to the developers qnblackcat, PoomSmart & others allowing me to expan
 
 18. **YTAppVersionSpoofer:** This tweak allows users to spoof the version of the YouTube app they are using, this is designed to spoof to older YouTube App versions. This can be useful for bypassing certain version checks or retaining features that may have been removed/disabled in newer updates. **<-- uYouEnhanced Exclusive Feature (subject to change)**
 
-19. **LowContrastMode:** LowContrastMode is a tweak that allows users to darken the text in the YouTube app, making it easier to read. which sadly suffers from incompatibility issues and doesn't work right now as of March 19th 2025. **<-- uYouEnhanced Exclusive Feature (subject to change)**
+19. **LowContrastMode:** LowContrastMode is a tweak that allows users to darken the text in the YouTube app, making it easier to read. **<-- uYouEnhanced Exclusive Feature (subject to change)**
 
 </details>
 
@@ -334,9 +335,6 @@ Make sure you are on the [latest release](https://github.com/arichornlover/uYouE
 
 **Q: Is uYouEnhanced available for AltStore?**
 Yes — use the official AltStore source listed in the [Download](#download) section: `https://raw.githubusercontent.com/arichornlover/arichornlover.github.io/main/apps.json`
-
-**Q: Low Contrast Mode doesn't work.**
-This is a known incompatibility (see the Features list) — it only supports YouTube v17.33.2–v17.38.10 and currently does not work on recent versions.
 
 **Q: Where should I file a bug report?**
 On [this repo's issue tracker](https://github.com/arichornlover/uYouEnhanced/issues/) — including uYou-specific bugs. Please search the open issues first; many reports (sign-in, casting, update screen) are covered by the answers above.
