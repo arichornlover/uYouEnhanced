@@ -4,18 +4,18 @@
 "VERSION" = "当前 uYouPlus 版本：%@";
 "VERSION_CHECK" = "点击此处前往 GitHub 查看最新版本信息！";
 
-"REPORT_AN_ISSUE" = "Report an issue";
-"ADD_TITLE" = "Add your title here...";
+"REPORT_AN_ISSUE" = "报告一个 issue";
+"ADD_TITLE" = "在这里添加标题...";
 
-"QUIT_YOUTUBE" = "Quit YouTube";
+"QUIT_YOUTUBE" = "退出YouTube";
 
-"RESTART_YOUTUBE" = "Restart YouTube to apply changes";
+"RESTART_YOUTUBE" = "重启 YouTube 以应用更改";
 
 // App appearance
-"APP_THEME" = "🎨 App appearance";
+"APP_THEME" = "🎨 App 主题";
 "THEME_OPTIONS" = "主题选项";
 
-"DARK_THEME" = "Dark theme";
+"DARK_THEME" = "深色模式主题";
 
 "DEFAULT_THEME" = "默认深色模式";
 "DEFAULT_THEME_DESC" = "使用当前版本 YouTube 的默认深色模式（比灰色稍暗）。更改本设置后需要重启 App。";
@@ -33,7 +33,7 @@
 // Video player options
 "VIDEO_PLAYER_OPTIONS" = "⏯️ 视频播放器选项";
 
-"SLIDE_TO_SEEK" = "Enable Slide to seek";
+"SLIDE_TO_SEEK" = "启用Slide以搜索";
 "SLIDE_TO_SEEK_DESC" = "Bring back the Slide to seek gesture";
 
 "DISABLE_DOUBLE_TAP_TO_SEEK" = "禁用双击快进和快退";
@@ -48,13 +48,13 @@
 "YT_MINIPLAYER" = "为所有 YouTube 视频启用迷你播放器";
 "YT_MINIPLAYER_DESC" = "例如：面向儿童的视频。";
 
-"HIDE_REMIX_BUTTON" = "Hides Remix button";
+"HIDE_REMIX_BUTTON" = "隐藏 Remix 按钮";
 "HIDE_REMIX_BUTTON_DESC" = "";
 
-"HIDE_CLIP_BUTTON" = "Hide Clip button";
+"HIDE_CLIP_BUTTON" = "隐藏 Clip 按钮";
 "HIDE_CLIP_BUTTON_DESC" = "";
 
-"HIDE_DOWNLOAD_BUTTON" = "Hide Download button";
+"HIDE_DOWNLOAD_BUTTON" = "隐藏下载按钮";
 "HIDE_DOWNLOAD_BUTTON_DESC" = "";
 
 "STOCK_VOLUME_HUD" = "使用 iOS 自带音量指示";
@@ -66,14 +66,17 @@
 "HIDE_AUTOPLAY_SWITCH" = "隐藏自动播放模式开关";
 "HIDE_AUTOPLAY_SWITCH_DESC" = "隐藏视频播放器控制界面上的自动播放开关。";
 
-"HIDE_YTMUSIC_BUTTON" = "Hide Youtube Music button";
-"HIDE_YTMUSIC_BUTTON_DESC" = "Hides Youtube Music button that appears with Premium";
+"HIDE_YTMUSIC_BUTTON" = "隐藏Youtube Music按钮";
+"HIDE_YTMUSIC_BUTTON_DESC" = "隐藏 Youtube Music 这个随YouTube Premium出现的按钮";
 
 "HIDE_SUBTITLES_BUTTON" = "隐藏字幕按钮";
 "HIDE_SUBTITLES_BUTTON_DESC" = "隐藏视频播放器控制界面上的字幕按钮。";
 
 "HIDE_HUD_MESSAGES" = "隐藏系统提醒";
 "HIDE_HUD_MESSAGES_DESC" = "例如：“已启用/停用字幕”、“已开启视频循环播放”等。";
+
+"REPLACE_YT_DOWNLOAD_WITH_UYOU" = "用uYou的下载功能替换YouTube原生下载功能";
+"REPLACE_YT_DOWNLOAD_WITH_UYOU_DESC" = "";
 
 "HIDE_PAID_PROMOTION_CARDS" = "隐藏付费宣传内容提醒横幅";
 "HIDE_PAID_PROMOTION_CARDS_DESC" = "隐藏出现在部分视频中的“包含付费宣传内容”横幅。";
@@ -111,8 +114,8 @@
 // Miscellaneous
 "MISCELLANEOUS" = "🔎 其它选项";
 
-"HIDE_UYOU" = "Hide uYou tab";
-"HIDE_ISPONSORBLOCK" = "Hide iSponsorBlock button";
+"HIDE_UYOU" = "隐藏 uYou 标签页";
+"HIDE_ISPONSORBLOCK" = "隐藏 iSponsorBlock 按钮";
 
 "CAST_CONFIRM" = "投屏前确认 （YTCastConfirm）";
 "CAST_CONFIRM_DESC" = "在投屏前显示确认对话框以防意外劫屏。";
@@ -130,7 +133,7 @@
 "HIDE_CHIP_BAR" = "隐藏顶部标签栏";
 "HIDE_CHIP_BAR_DESC" = "隐藏首页和订阅内容页顶部的标签栏（例如：首页顶部的“音乐”、“游戏”、“新闻”以及订阅内容页顶部的“今天”、“继续观看”、“未观看”等）。更改本设置后需要重启 App。";
 
-"HIDE_PLAY_NEXT_IN_QUEUE" = "Hide \"Play next in queue\"";
+"HIDE_PLAY_NEXT_IN_QUEUE" = "隐藏 \"Play next in queue\"";
 "HIDE_PLAY_NEXT_IN_QUEUE_DESC" = "";
 
 "IPHONE_LAYOUT" = "iPhone 视图";
@@ -150,75 +153,75 @@
 
 // uYouEnhanced Localization ➕
 "SUPPORT_THE_DEVELOPERS" = "Support the Developers";
-"COPY_SETTINGS" = "Copy Settings";
-"COPY_SETTINGS_DESC" = "Copy all current settings to the clipboard";
-"PASTE_SETTINGS" = "Paste Settings";
-"PASTE_SETTINGS_DESC" = "Paste settings from clipboard and apply";
-"EXPORT_SETTINGS" = "Export Settings";
-"EXPORT_SETTINGS_DESC" = "Exports all current settings into a .txt file";
-"IMPORT_SETTINGS" = "Import Settings";
-"IMPORT_SETTINGS_DESC" = "Press to import settings (.txt)";
-"REPLACE_COPY_AND_PASTE_BUTTONS" = "Replace 'Copy Settings' & 'Paste Settings' Buttons";
-"REPLACE_COPY_AND_PASTE_BUTTONS_DESC" = "Replaces the Buttons to 'Export Settings' and 'Import Settings'";
+"COPY_SETTINGS" = "复制配置到剪切板";
+"COPY_SETTINGS_DESC" = "仅支持uYouEnhanced本体配置";
+"PASTE_SETTINGS" = "从剪切板导入配置";
+"PASTE_SETTINGS_DESC" = "仅支持uYouEnhanced本体配置";
+"EXPORT_SETTINGS" = "导出设置到txt文件";
+"EXPORT_SETTINGS_DESC" = "支持整个软件的配置";
+"IMPORT_SETTINGS" = "从txt文件导入设置";
+"IMPORT_SETTINGS_DESC" = "支持整个软件的配置";
+"REPLACE_COPY_AND_PASTE_BUTTONS" = "替换 '制配置到剪切板' 和 '从剪切板导入配置' 按钮";
+"REPLACE_COPY_AND_PASTE_BUTTONS_DESC" = "分别替换成'导出设置到txt文件' 和 '从txt文件导入设置'";
 
-"UYOUENHANCED_ESSENTIAL_MENU" = "uYouEnhanced Essential Menu";
-"CHANGE_APP_ICON" = "Change App Icon";
-"CLEAR_NOTIFICATIONS" = "Clear Notifications";
-"CLEAR_NOTIFICATIONS_DESC" = "Force clear all app notifications (Recommended when Sideloaded)";
+"UYOUENHANCED_ESSENTIAL_MENU" = "uYouEnhanced 必要设置目录";
+"CHANGE_APP_ICON" = "改变App图标";
+"CLEAR_NOTIFICATIONS" = "强制清除所有app通知";
+"CLEAR_NOTIFICATIONS_DESC" = "建议在该应用以侧载的形式安装时使用";
 
-"CUSTOM_DARK_THEME" = "Custom Dark Theme";
+"CUSTOM_DARK_THEME" = "自定义暗色模式主题";
 
-"ENABLE_PORTRAIT_FULLSCREEN" = "Enable Portrait Fullscreen";
-"ENABLE_PORTRAIT_FULLSCREEN_DESC" = "Enables Portrait Fullscreen on the YouTube App. App restart is required.";
-"ENABLE_TAP_TO_SEEK" = "Enable Tap To Seek";
-"ENABLE_TAP_TO_SEEK_DESC" = "Jump to anywhere in a video by single-tapping the seek bar";
-"DISABLE_PULL_TO_FULLSCREEN_GESTURE" = "Disable pull-to-fullscreen gesture";
-"DISABLE_PULL_TO_FULLSCREEN_GESTURE_DESC" = "Disable the drag gesture to enter vertical fullscreen. Only applies to landscape videos.";
-"DISABLE_DOUBLE_TAP_TO_SKIP_CHAPTER" = "Disable Double tap to skip chapter";
-"DISABLE_DOUBLE_TAP_TO_SKIP_CHAPTER_DESC" = "Disable the 2-finger double tap gesture that skips forward/backward by a chapter.";
-"ALWAYS_USE_REMAINING_TIME" = "Always use remaining time";
-"ALWAYS_USE_REMAINING_TIME_DESC" = "Change the default to show time remaining in the player bar.";
+"ENABLE_PORTRAIT_FULLSCREEN" = "在YouTube应用启用 Portrait Fullscreen";
+"ENABLE_PORTRAIT_FULLSCREEN_DESC" = "更改后需要重启应用";
+"ENABLE_TAP_TO_SEEK" = "启用点击进度条跳转";
+"ENABLE_TAP_TO_SEEK_DESC" = "通过轻点进度条跳转到视频的任意位置";
+"DISABLE_PULL_TO_FULLSCREEN_GESTURE" = "禁用拖拽全屏手势";
+"DISABLE_PULL_TO_FULLSCREEN_GESTURE_DESC" = "禁用拖拽手势以避免进入竖屏全屏。 只对landscape 视频有效。";
+"DISABLE_DOUBLE_TAP_TO_SKIP_CHAPTER" = "禁用双指双击跳过章节";
+"DISABLE_DOUBLE_TAP_TO_SKIP_CHAPTER_DESC" = "禁用双指双击手势以免向前/后跳过一章节。";
+"ALWAYS_USE_REMAINING_TIME" = "总是显示视频剩余时间";
+"ALWAYS_USE_REMAINING_TIME_DESC" = "改变默认选项以便在播放器控件上显示视频剩余时间";
 "DISABLE_TOGGLE_TIME_REMAINING" = "Disable toggle time remaining";
 "DISABLE_TOGGLE_TIME_REMAINING_DESC" = "Disables changing time elapsed to time remaining. Use with other setting to always show remaining time.";
 
-"ENABLE_SHARE_BUTTON" = "Enable Share Button";
-"ENABLE_SHARE_BUTTON_DESC" = "Enable the Share Button in video controls overlay.";
-"ENABLE_SAVE_TO_PLAYLIST_BUTTON" = "Enable Save To Playlist Button";
-"ENABLE_SAVE_TO_PLAYLIST_BUTTON_DESC" = "Enable the Save To Playlist Button in video controls overlay.";
-"HIDE_YTMUSIC_BUTTON" = "Hide Youtube Music button";
-"HIDE_YTMUSIC_BUTTON_DESC" = "Hides Youtube Music button that appears with Premium";
-"HIDE_VIDEO_TITLE_IN_FULLSCREEN" = "Hide Video Title in Fullscreen";
-"HIDE_VIDEO_TITLE_IN_FULLSCREEN_DESC" = "Hides the Video Title along with the functionality in the Top Left of the Fullscreen Video Player.";
-"HIDE_COLLAPSE_BUTTON" = "Hide Collapse Button";
-"HIDE_COLLAPSE_BUTTON_DESC" = "Hides the Arrow Collapse Button that was shown in the Top Left of the Video Player.";
-"HIDE_FULLSCREEN_BUTTON" = "Hide Fullscreen Button";
-"HIDE_FULLSCREEN_BUTTON_DESC" = "Hides the Fullscreen Button that was shown at the Bottom Right of the Video Player.";
-"HIDE_SHADOW_OVERLAY_BUTTONS" = "Hide Shadow Overlay Buttons";
-"HIDE_SHADOW_OVERLAY_BUTTONS_DESC" = "Hide the Shadow Overlay on the Play/Pause, Previous, Next, Forward & Rewind Buttons.";
+"ENABLE_SHARE_BUTTON" = "启用分享按钮";
+"ENABLE_SHARE_BUTTON_DESC" = "在播放器控制器层启用分享按钮。";
+"ENABLE_SAVE_TO_PLAYLIST_BUTTON" = "启用保存到播放列表按钮";
+"ENABLE_SAVE_TO_PLAYLIST_BUTTON_DESC" = "在播放器控制器层启用保存到播放列表按钮。";
+"HIDE_YTMUSIC_BUTTON" = "隐藏Youtube Music按钮";
+"HIDE_YTMUSIC_BUTTON_DESC" = "隐藏 Youtube Music 这个随YouTube Premium出现的按钮";
+"HIDE_VIDEO_TITLE_IN_FULLSCREEN" = "全屏时隐藏视频标题";
+"HIDE_VIDEO_TITLE_IN_FULLSCREEN_DESC" = "隐藏在全屏视频播放器左上角的视频标题及其功能性控件。";
+"HIDE_COLLAPSE_BUTTON" = "隐藏“收起”按钮";
+"HIDE_COLLAPSE_BUTTON_DESC" = "隐藏在视频播放器左上角的箭头式“收起”按钮。";
+"HIDE_FULLSCREEN_BUTTON" = "隐藏全屏按钮";
+"HIDE_FULLSCREEN_BUTTON_DESC" = "隐藏视频播放器右下角的全屏按钮。";
+"HIDE_SHADOW_OVERLAY_BUTTONS" = "隐藏叠加层按钮";
+"HIDE_SHADOW_OVERLAY_BUTTONS_DESC" = "隐藏叠加层按钮，包括开始/暂停，上一个，下一个，快进和快退按钮。 ";
 "HIDE_FULLSCREEN_ACTION_BUTTONS" = "Hide Fullscreen Action Buttons";
 "HIDE_FULLSCREEN_ACTION_BUTTONS_DESC" = "Hides the buttons at the bottom of the screen when in landscape.";
-"HIDE_SUGGESTED_VIDEO" = "Hide Suggested Video";
-"HIDE_SUGGESTED_VIDEO_DESC" = "Remove the suggested video popup when finishing a video. Note that this will prevent autoplay from working.";
+"HIDE_SUGGESTED_VIDEO" = "隐藏推荐视频";
+"HIDE_SUGGESTED_VIDEO_DESC" = "隐藏在看完一个视频后会弹出的推荐视频。警告：这会阻止自动播放工作。";
 "HIDE_HEATWAVES_BAR" = "Hide Heatwaves Bar";
-"HIDE_HEATWAVES_BAR_DESC" = "Hides the Heatwaves Bar that is originally shown in the Progress Bar by Default in the video player. App restart is required.";
+"HIDE_HEATWAVES_BAR_DESC" = "Hides the Heatwaves Bar that is originally shown in the Progress Bar by Default in the video player. 更改后需要重启应用。";
 "HIDE_DOUBLE_TAP_TO_SEEK_OVERLAY" = "Hide Double Tap to Seek Overlay";
-"HIDE_DOUBLE_TAP_TO_SEEK_OVERLAY_DESC" = "This hides the animated double tap to seek overlay in the video player. App restart is required.";
+"HIDE_DOUBLE_TAP_TO_SEEK_OVERLAY_DESC" = "This hides the animated double tap to seek overlay in the video player. 更改后需要重启应用。";
 "HIDE_DARK_OVERLAY_BACKGROUND" = "Hide Dark Overlay Background";
-"HIDE_DARK_OVERLAY_BACKGROUND_DESC" = "Hide the Dark Overlay Background in the video player. App restart is required.";
+"HIDE_DARK_OVERLAY_BACKGROUND_DESC" = "Hide the Dark Overlay Background in the video player. 更改后需要重启应用。";
 "HIDE_AMBIENT_MODE_IN_FULLSCREEN" = "Hide Ambient Mode in Fullscreen";
-"HIDE_AMBIENT_MODE_IN_FULLSCREEN_DESC" = "Hides and Prevents Ambient Mode from being used in the Video Player when in Fullscreen. App restart is required.";
-"HIDE_SUGGESTED_VIDEOS_IN_FULLSCREEN" = "Hide Suggested Videos in Fullscreen";
-"HIDE_SUGGESTED_VIDEOS_IN_FULLSCREEN_DESC" = "Hide the suggested videos whenever in the Fullscreen Video Player. App restart is required.";
+"HIDE_AMBIENT_MODE_IN_FULLSCREEN_DESC" = "Hides and Prevents Ambient Mode from being used in the Video Player when in Fullscreen. 更改后需要重启应用。";
+"HIDE_SUGGESTED_VIDEOS_IN_FULLSCREEN" = "全屏时隐藏推荐视频";
+"HIDE_SUGGESTED_VIDEOS_IN_FULLSCREEN_DESC" = "Hide the suggested videos whenever in the Fullscreen Video Player. 更改后需要重启应用。";
 "HIDE_ALL_VIDEOS_UNDER_PLAYER" = "Hide all videos under player";
 "HIDE_ALL_VIDEOS_UNDER_PLAYER_DESC" = "Remove all videos under the video player. Depends on which Device Orientation.";
 
-"SHORTS_QUALITY_PICKER" = "Shorts Quality Picker";
-"SHORTS_QUALITY_PICKER_DESC" = "Enables the YouTube Shorts Quality Picker";
+"SHORTS_QUALITY_PICKER" = "Shorts视频质量选择器";
+"SHORTS_QUALITY_PICKER_DESC" = "启用 YouTube Shorts视频质量选择器";
 
-"VIDEO_PLAYER_BUTTON_OPTIONS" = "Video Player Button Options";
+"VIDEO_PLAYER_BUTTON_OPTIONS" = "视频播放按钮修改选项";
 
-"RED_SUBSCRIBE_BUTTON" = "Red Subscribe Button";
-"RED_SUBSCRIBE_BUTTON_DESC" = "Restores the Subscribe Button Color to be Red.";
+"RED_SUBSCRIBE_BUTTON" = "关注按钮恢复成红色";
+"RED_SUBSCRIBE_BUTTON_DESC" = "";
 "HIDE_BUTTON_CONTAINERS_UNDER_PLAYER" = "Hide Button Containers under player";
 "HIDE_BUTTON_CONTAINERS_UNDER_PLAYER_DESC" = "Hides the Button Containers under the video player.";
 "HIDE_CONNECT_BUTTON" = "Hide the Connect Button under player";
@@ -238,38 +241,38 @@
 
 "APP_SETTINGS_OVERLAY_OPTIONS" = "App Settings Overlay Options";
 
-"HIDE_ACCOUNT_SECTION" = "Hide `Account` Section";
-"HIDE_AUTOPLAY_SECTION" = "Hide `Autoplay` Section";
-"HIDE_TRY_NEW_FEATURES_SECTION" = "Hide `Try New Features` Section";
-"HIDE_VIDEO_QUALITY_PREFERENCES_SECTION" = "Hide `Video quality preferences` Section";
-"HIDE_NOTIFICATIONS_SECTION" = "Hide `Notifications` Section";
-"HIDE_MANAGE_ALL_HISTORY_SECTION" = "Hide `Manage all history` Section";
-"HIDE_YOUR_DATA_IN_YOUTUBE_SECTION" = "Hide `Your data in YouTube` Section";
-"HIDE_PRIVACY_SECTION" = "Hide `Privacy` Section";
-"HIDE_LIVE_CHAT_SECTION" = "Hide `Live Chat` Section";
-"HIDE_GET_YOUTUBE_PREMIUM_SECTION" = "Hide `Get Youtube Premium` Section";
+"HIDE_ACCOUNT_SECTION" = "隐藏 `账户` 项";
+"HIDE_AUTOPLAY_SECTION" = "隐藏 `自动播放` 项";
+"HIDE_TRY_NEW_FEATURES_SECTION" = "隐藏 `尝试新功能` 项";
+"HIDE_VIDEO_QUALITY_PREFERENCES_SECTION" = "隐藏 `偏好的视频质量` 项";
+"HIDE_NOTIFICATIONS_SECTION" = "隐藏 `通知` 项";
+"HIDE_MANAGE_ALL_HISTORY_SECTION" = "隐藏 `管理所有历史` 项";
+"HIDE_YOUR_DATA_IN_YOUTUBE_SECTION" = "隐藏 `你在YouTube的数据` 项";
+"HIDE_PRIVACY_SECTION" = "隐藏 `隐私` 项";
+"HIDE_LIVE_CHAT_SECTION" = "隐藏 `Live Chat` 项";
+"HIDE_GET_YOUTUBE_PREMIUM_SECTION" = "隐藏 `获取 Youtube Premium` 项";
 
 "UI_INTERFACE_OPTIONS" = "UI Interface Options";
 
-"HIDE_HOME_TAB" = "Hide Home Tab";
-"LOW_CONTRAST_MODE" = "Low Contrast Mode";
-"LOW_CONTRAST_MODE_DESC" = "This will lower the color contrast on texts and buttons, similar to YouTube's pre-2020 App Interface.";
-"LOW_CONTRAST_MODE_SELECTOR" = "Low Contrast Mode Selector";
-"LOW_CONTRAST_MODE_ERROR_1" = "You are using v%@ which is a discontinued version of YouTube that no longer works. Please use v17.33.2-17.38.10 in order to use LowContrastMode.";
-"LOW_CONTRAST_MODE_ERROR_2" = "LowContrastMode is only available for app versions v17.33.2-v17.38.10. \nYou are currently using v%@. \nWorkaround: if you want to use this then I recommend enabling \"Fix LowContrastMode\" Option.";
-"FIX_LOWCONTRASTMODE" = "Fix LowContrastMode";
-"FIX_LOWCONTRASTMODE_DESC" = "This will fix and enable the LowContrastMode functionality by Spoofing to YouTube v17.38.10. App restart is required.";
-"DISABLE_MODERN_BUTTONS" = "Disable Modern Buttons";
-"DISABLE_MODERN_BUTTONS_DESC" = "This will remove the some of the new Modern/Chip Buttons in the YouTube App. App restart is required.";
-"DISABLE_ROUNDED_CORNERS_ON_HINTS" = "Disable Rounded Corners on Hints";
-"DISABLE_ROUNDED_CORNERS_ON_HINTS_DESC" = "This will make the Hints in the App to not include Rounded Corners. App restart is required.";
-"DISABLE_MODERN_FLAGS" = "Disable Modern A/B Flags";
-"DISABLE_MODERN_FLAGS_DESC" = "This will turn off any Modern Flag that was enabled by default. App restart is required.";
-"YTNOMODERNUI" = "Enable Specific UI Related Options (YTNoModernUI)";
-"YTNOMODERNUI_DESC" = "This will specifically enable other options to make the app look and feel less-modern. App restart is required.";
-"ENABLE_APP_VERSION_SPOOFER" = "Enable App Version Spoofer";
-"ENABLE_APP_VERSION_SPOOFER_DESC" = "Enable this to use the Version Spoofer and select your perferred version below. App restart is required.";
-"VERSION_SPOOFER_SELECTOR" = "Version spoofer selector";
+"HIDE_HOME_TAB" = "隐藏 Home Tab";
+"LOW_CONTRAST_MODE" = "低对比度模式";
+"LOW_CONTRAST_MODE_DESC" = "这会降低按钮与文本的色彩对比度， 类似于YouTube的2020年之前的应用程序界面。";
+"LOW_CONTRAST_MODE_SELECTOR" = "低对比度模式选择器";
+"LOW_CONTRAST_MODE_ERROR_1" = "你正使用 v%@ 版本的YouTube。这个版本不再受支持，这个选项也不再能工作。请使用v17.33.2-17.38.10 以便使用低对比度模式。";
+"LOW_CONTRAST_MODE_ERROR_2" = "LowContrastMode仅适用于版本为v17.33.2-v17.38.10的YouTube。 \n您目前正在使用 v%@. \n解决方法：如果你想使用这个，那么我建议启用 \"修复低对比度模式\" 选项。";
+"FIX_LOWCONTRASTMODE" = "修复低对比度模式";
+"FIX_LOWCONTRASTMODE_DESC" = "这将通过欺骗YouTube版本为v17.38.10以修复并启用低对比度模式功能。更改后需要重启应用。";
+"DISABLE_MODERN_BUTTONS" = "禁用现代按钮";
+"DISABLE_MODERN_BUTTONS_DESC" = "这将删除YouTube应用程序中一些新的现代/Chip按钮。更改后需要重启应用。";
+"DISABLE_ROUNDED_CORNERS_ON_HINTS" = "在提示上禁用圆角";
+"DISABLE_ROUNDED_CORNERS_ON_HINTS_DESC" = "这将使应用程序中的提示框不包括圆角。更改后需要重启应用。";
+"DISABLE_MODERN_FLAGS" = "禁用现代灰度测试选项（ A/B Flags）";
+"DISABLE_MODERN_FLAGS_DESC" = "这将关闭任何默认启用的现代功能项（flags）。更改后需要重启应用。";
+"YTNOMODERNUI" = "启用特定的UI相关选项 (YTNoModernUI)";
+"YTNOMODERNUI_DESC" = "这将特别启用其他选项，使应用程序看起来和感觉不那么现代。更改后需要重启应用。";
+"ENABLE_APP_VERSION_SPOOFER" = "启用 App 版本欺骗器";
+"ENABLE_APP_VERSION_SPOOFER_DESC" = "启用此功能以使用版本欺骗器，并在下面选择目标版本。更改后需要重启应用。";
+"VERSION_SPOOFER_SELECTOR" = "欺骗器目标版本选择器";
 
 "ADBLOCK_WORKAROUND_LITE" = "AdBlock Workaround (Lite)";
 "ADBLOCK_WORKAROUND_LITE_DESC" = "Uses weaker adblocking code, this will disable uYou's Adblocking Option.";
@@ -281,23 +284,25 @@
 "FAKE_YOUR_PREMIUM_BENEFITS" = "Your Premium benefits";
 "FAKE_DOWNLOADS" = "Downloads";
 "DISABLE_ANIMATED_YOUTUBE_LOGO" = "Disable Animated YouTube Logo";
-"CENTER_YOUTUBE_LOGO" = "Center YouTube Logo";
-"CENTER_YOUTUBE_LOGO_DESC" = "Toggle this to reposition the official YouTube Logo to the Center. App restart is required.";
-"HIDE_YOUTUBE_LOGO" = "Hide YouTube Logo";
-"HIDE_YOUTUBE_LOGO_DESC" = "Toggle this to hide the YouTube Logo in the YouTube App.";
+"CENTER_YOUTUBE_LOGO" = "居中官方YouTube Logo";
+"CENTER_YOUTUBE_LOGO_DESC" = " 更改后需要重启应用。";
+"HIDE_YOUTUBE_LOGO" = "在YouTube App隐藏 YouTube Logo";
+"HIDE_YOUTUBE_LOGO_DESC" = "";
 "STICK_NAVIGATION_BAR" = "Stick Navigation Bar";
 "STICK_NAVIGATION_BAR_DESC" = "This will make the Navigation Bar stay when scrolling throughout the App.";
-"HIDE_COMMUNITY_POSTS" = "Hide Community Posts";
-"HIDE_COMMUNITY_POSTS_DESC" = "Hides the Community Posts. App restart is required.";
-"HIDE_HEADER_LINKS_UNDER_PROFILE" = "Hide Header Links under channel profile";
-"HIDE_HEADER_LINKS_UNDER_PROFILE_DESC" = "Hides the Header Links under any channel profile.";
-"AUTO_HIDE_HOME_INDICATOR" = "Auto-Hide Home Indicator";
-"AUTO_HIDE_HOME_INDICATOR_DESC" = "Automatically Hides the iOS Home Indicator when not interacting with the App.";
-"HIDE_INDICATORS" = "Hide Indicators";
+"HIDE_COMMUNITY_POSTS" = "隐藏 Community Posts";
+"HIDE_COMMUNITY_POSTS_DESC" = "隐藏Community Posts. 更改后需要重启应用。";
+"HIDE_HEADER_LINKS_UNDER_PROFILE" = "隐藏 Header Links under channel profile";
+"HIDE_HEADER_LINKS_UNDER_PROFILE_DESC" = "隐藏sthe Header Links under any channel profile.";
+"AUTO_HIDE_HOME_INDICATOR" = "自动隐藏主页面小白条";
+"AUTO_HIDE_HOME_INDICATOR_DESC" = "当不与应用程序交互时自动隐藏 iOS 自动隐藏主页面小白条。";
+"HIDE_INDICATORS" = "隐藏 Indicators";
 "HIDE_INDICATORS_DESC" = "Hides all Indicators that are currently in the App.";
-"FIX_CASTING" = "Fix Casting";
-"FIX_CASTING_DESC" = "Changes certain A/B flags to fix casting.";
+"FIX_CASTING" = "修复投屏功能";
+"FIX_CASTING_DESC" = "改变特定 A/B flags（灰度测试选项） 以便修复投屏功能。";
+"NEW_SETTINGS_UI" = "使用新版设置UI";
+"NEW_SETTINGS_UI_DESC" = "通过调整某些项目启用新版设置UI。";
 
-"DEFAULT" = "Default";
-"CUSTOM_COLOR" = "Custom Color";
-"RESTART_REQUIRED" = "App restart is required.";
+"DEFAULT" = "默认";
+"CUSTOM_COLOR" = "自定义颜色";
+"RESTART_REQUIRED" = "需要重启应用。";
