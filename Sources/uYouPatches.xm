@@ -2,8 +2,6 @@
 #import "uYouPatches.h"
 
 # pragma mark - uYou Patches
-// All uYou-specific fixes consolidated here.
-// Split from uYouPlusPatches.xm for better maintainability.
 // Uses reverse-engineered uYou 3.0.4 source for reference.
 //
 // Comprehensive download system rework addressing:
