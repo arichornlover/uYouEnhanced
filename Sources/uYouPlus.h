@@ -161,6 +161,7 @@ static NSString *const kEnableVersionSpoofer = @"enableVersionSpoofer_enabled";
 static NSString *const kGoogleSignInPatch = @"googleSignInPatch_enabled";
 static NSString *const kAdBlockWorkaroundLite = @"adBlockWorkaroundLite_enabled";
 static NSString *const kAdBlockWorkaround = @"adBlockWorkaround_enabled";
+static NSString *const kFixPlaybackIssues = @"fixPlaybackIssues_enabled";
 static NSString *const kYTPremiumLogo = @"ytPremiumLogo_enabled";
 static NSString *const kDisableAnimatedYouTubeLogo = @"disableAnimatedYouTubeLogo_enabled";
 static NSString *const kCenterYouTubeLogo = @"centerYouTubeLogo_enabled";

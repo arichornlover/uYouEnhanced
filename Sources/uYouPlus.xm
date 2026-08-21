@@ -349,7 +349,12 @@ YTMainAppControlsOverlayView *controlsOverlayView;
         %orig;
     }
 }
-- (BOOL)isPremiumLogo { return IS_ENABLED(kYTPremiumLogo) ? YES : %orig; }
+- (BOOL)isPremiumLogo {
+    if (IS_ENABLED(kYTPremiumLogo)) {
+        return YES;
+    }
+    return %orig;
+}
 %end
 
 %hook YTHeaderLogoControllerImpl
@@ -373,7 +378,12 @@ YTMainAppControlsOverlayView *controlsOverlayView;
         %orig;
     }
 }
-- (BOOL)isPremiumLogo { return IS_ENABLED(kYTPremiumLogo) ? YES : %orig; }
+- (BOOL)isPremiumLogo {
+    if (IS_ENABLED(kYTPremiumLogo)) {
+        return YES;
+    }
+    return %orig;
+}
 %end
 
 // Disable animated YouTube Logo - @bhackel
