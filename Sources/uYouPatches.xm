@@ -195,7 +195,8 @@ static void refreshUYouAppearance() {
 %hook GOODialogView
 - (id)imageView {
     UIImageView *imageView = %orig;
-    if ([[self titleLabel].text containsString:@"uYou\n"]) {
+    UILabel *dialogTitleLabel = [self valueForKey:@"titleLabel"];
+    if ([dialogTitleLabel.text containsString:@"uYou\n"]) {
         // Load icon_clipped.png from uYouBundle.bundle
         NSString *bundlePath = [[NSBundle mainBundle] pathForResource:@"uYouBundle" ofType:@"bundle"];
         NSBundle *bundle = [NSBundle bundleWithPath:bundlePath];
@@ -264,7 +265,7 @@ static void refreshUYouAppearance() {
             bgConfig.timeoutIntervalForResource = 86400; // 24 hours
             bgConfig.sessionSendsLaunchEvents = YES;
             bgConfig.discretionary = NO;
-            bgConfig.shouldUseExtendedBackgroundIdleTime = YES;
+            bgConfig.shouldUseExtendedBackgroundIdleMode = YES;
 
             NSURLSession *bgSession = [NSURLSession sessionWithConfiguration:bgConfig delegate:nil delegateQueue:nil];
             [sm performSelector:@selector(setSession:) withObject:bgSession];
@@ -311,7 +312,7 @@ static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
             m4aPath
         ];
 
-        int returnCode = (int)[NSClassFromString(@"MobileFFmpeg") performSelector:@selector(executeWithArguments:) withObject:arguments];
+        int returnCode = [MobileFFmpeg executeWithArguments:arguments];
 
         if (returnCode == 0 && [fm fileExistsAtPath:m4aPath]) {
             unsigned long long fileSize = [[fm attributesOfItemAtPath:m4aPath error:nil] fileSize];

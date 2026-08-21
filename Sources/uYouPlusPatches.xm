@@ -64,8 +64,9 @@
 // Workaround for issue #54 - Hide related videos at end of videos
 %hook YTMainAppVideoPlayerOverlayViewController
 - (void)updateRelatedVideos {
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"relatedVideosAtTheEndOfYTVideos"] == NO) {}
-    else { return %orig; }
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"relatedVideosAtTheEndOfYTVideos"]) {
+        %orig;
+    }
 }
 %end
 

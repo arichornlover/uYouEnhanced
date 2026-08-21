@@ -90,6 +90,29 @@ BOOL uYouIsSideStore();
 // ============================================================================
 
 // ============================================================================
+// MARK: - Missing Selectors & Minimal Interfaces
+// Categories below add selectors that exist at runtime but are missing from
+// the dump headers. Standalone interfaces cover classes with no declaration.
+// ============================================================================
+
+@interface YTPlayerViewController (uYouPatches)
+- (void)setPlaybackRate:(float)rate;
+@end
+
+@interface HAMPlayerInternal (uYouPatches)
+- (float)rate;
+@end
+
+// Bundled inside uYou's payload; used for webm -> m4a audio conversion (#771/#465)
+@interface MobileFFmpeg : NSObject
++ (int)executeWithArguments:(NSArray *)arguments;
+@end
+
+// Minimal declaration so touch-forwarding hooks can use UIView's nextResponder
+@interface YTFullScreenEngagementOverlayView : UIView
+@end
+
+// ============================================================================
 // MARK: - uYou UI Classes
 // ============================================================================
 
