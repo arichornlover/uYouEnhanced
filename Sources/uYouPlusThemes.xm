@@ -5,45 +5,63 @@
 #define IS_OLED_DARK_THEME_SELECTED (APP_THEME_IDX == 2)
 #define IS_CUSTOM_DARK_THEME_SELECTED (APP_THEME_IDX == 3)
 
+// Theme palette helper — inspired by Tonwalter888/YouMod (Files/Apperence.x).
+// YouMod sends `self.pageStyle` unconditionally; newer YouTube builds may have
+// removed that property, so probe with respondsToSelector: first (same guard
+// as the brandBackgroundSolid fix in uYouPlusPatches.xm) and fall back to the
+// current trait collection. Uses an IMP cast so we never depend on a header
+// declaring pageStyle.
+static inline BOOL themePageStyleIsDark(id palette) {
+    if (palette && [palette respondsToSelector:@selector(pageStyle)]) {
+        SEL sel = @selector(pageStyle);
+        Method pageStyleMethod = class_getInstanceMethod(object_getClass(palette), sel);
+        if (pageStyleMethod) {
+            NSInteger (*pageStyleIMP)(id, SEL) = (NSInteger (*)(id, SEL))method_getImplementation(pageStyleMethod);
+            return pageStyleIMP(palette, sel) == 1;
+        }
+    }
+    return UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+}
+
 # pragma mark - Old dark theme (lighter grey)
 
 %group gOldDarkTheme
 %hook YTCommonColorPalette
 - (UIColor *)background1 {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)background2 {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)background3 {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)baseBackground {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)brandBackgroundSolid {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)brandBackgroundPrimary {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)brandBackgroundSecondary {
-    return self.pageStyle == 1 ? [[UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] colorWithAlphaComponent:0.9] : %orig;
+    return themePageStyleIsDark(self) ? [[UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] colorWithAlphaComponent:0.9] : %orig;
 }
 - (UIColor *)raisedBackground {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)staticBrandBlack {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)generalBackgroundA {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)generalBackgroundB {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)menuBackground {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 %end
 
@@ -88,27 +106,48 @@
 UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:1.0];
 
 %group gOLED
+// YTColor black ramp — adapted from Tonwalter888/YouMod (Files/Apperence.x):
+// newer YouTube builds also pull colors through YTColor's black0–black4
+// tokens, so pin those to true black alongside the classic palette hooks.
+%hook YTColor
++ (UIColor *)black0 {
+    return [UIColor blackColor];
+}
++ (UIColor *)black1 {
+    return [UIColor blackColor];
+}
++ (UIColor *)black2 {
+    return [UIColor blackColor];
+}
++ (UIColor *)black3 {
+    return [UIColor blackColor];
+}
++ (UIColor *)black4 {
+    return [UIColor blackColor];
+}
+%end
+
 %hook YTCommonColorPalette
 - (UIColor *)baseBackground {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
 - (UIColor *)brandBackgroundSolid {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
 - (UIColor *)brandBackgroundPrimary {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
 - (UIColor *)brandBackgroundSecondary {
-    return self.pageStyle == 1 ? [[UIColor blackColor] colorWithAlphaComponent:0.9] : %orig;
+    return themePageStyleIsDark(self) ? [[UIColor blackColor] colorWithAlphaComponent:0.9] : %orig;
 }
 - (UIColor *)raisedBackground {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
 - (UIColor *)staticBrandBlack {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
 - (UIColor *)generalBackgroundA {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
 %end
 
@@ -311,25 +350,25 @@ UIColor *customHexColor;
 %group gCustomTheme
 %hook YTCommonColorPalette
 - (UIColor *)baseBackground {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)brandBackgroundSolid {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)brandBackgroundPrimary {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)brandBackgroundSecondary {
-    return self.pageStyle == 1 ? [customHexColor colorWithAlphaComponent:0.9] : %orig;
+    return themePageStyleIsDark(self) ? [customHexColor colorWithAlphaComponent:0.9] : %orig;
 }
 - (UIColor *)raisedBackground {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)staticBrandBlack {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)generalBackgroundA {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 %end
 
@@ -633,55 +672,85 @@ UIColor *customHexColor;
 %end
 
 
-# pragma mark - OLED keyboard by @ichitaso <3 - http://gist.github.com/ichitaso/935100fd53a26f18a9060f7195a1be0e
+# pragma mark - OLED keyboard (adapted from Tonwalter888/YouMod — OledKeyboard by dayanch96, https://github.com/dayanch96/OledKeyboard)
+// Replaces the older ichitaso gist version. Hooks that touch private,
+// potentially-vanishing selectors live in their own groups and are gated in
+// %ctor so a removed selector can't be silently class_addMethod'd (which
+// would make respondsToSelector: lie and crash callers).
+
+// Dark-mode probe for keyboard views. YouMod's original calls the private
+// _viewControllerForAncestor/_mapkit_isDarkModeEnabled helpers; rewritten
+// here with public API only.
+static inline BOOL oledKBDarkMode(UIView *view) {
+    UIResponder *responder = view;
+    while (responder != nil) {
+        if ([responder isKindOfClass:[UIViewController class]]) {
+            return ((UIViewController *)responder).traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+        }
+        responder = [responder nextResponder];
+    }
+    if (view.window != nil) {
+        return view.window.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+    }
+    return UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+}
 
 %group gOLEDKB
-%hook TUIEmojiSearchView
-- (void)didMoveToWindow {
-    %orig;
-    self.backgroundColor = [UIColor blackColor];
-}
-%end
-%hook UIPredictionViewController
-- (void)loadView {
-    %orig;
-    [self.view setBackgroundColor:[UIColor blackColor]];
-}
-%end
-
-%hook UICandidateViewController
-- (void)loadView {
-    %orig;
-    [self.view setBackgroundColor:[UIColor blackColor]];
-}
-%end
-
+// Always-safe hooks: layoutSubviews is inherited from UIView, so these can
+// never become class_addMethod traps.
 %hook UIKeyboardDockView
-- (void)didMoveToWindow {
+- (void)layoutSubviews {
     %orig;
-    self.backgroundColor = [UIColor blackColor];
+    self.backgroundColor = oledKBDarkMode(self) ? [UIColor blackColor] : [UIColor clearColor];
 }
 %end
 
-%hook UIKeyboardLayoutStar 
-- (void)didMoveToWindow {
+// Since we can't hook a private framework class from UIKit, we check the class
+// name through the nearest available UIKit class.
+%hook UIInputView
+- (void)layoutSubviews {
     %orig;
-    self.backgroundColor = [UIColor blackColor];
+    if ([self isKindOfClass:NSClassFromString(@"TUIEmojiSearchInputView")]   // Emoji searching panel
+     || [self isKindOfClass:NSClassFromString(@"_SFAutoFillInputView")]) {  // Autofill password
+        self.backgroundColor = oledKBDarkMode(self) ? [UIColor blackColor] : [UIColor clearColor];
+    }
 }
 %end
 
-%hook UIKBRenderConfig // Prediction text color
-- (void)setLightKeyboard:(BOOL)arg1 {
-    %orig(NO);
+%hook UIKBVisualEffectView
+- (void)layoutSubviews {
+    %orig;
+    if (oledKBDarkMode(self)) {
+        [self setValue:nil forKey:@"backgroundEffects"]; // KVC — property isn't in the public SDK
+        self.backgroundColor = [UIColor blackColor];
+    }
+}
+%end
+%end
+
+%group gOLEDKBKeyboard
+%hook UIKeyboard
+- (void)displayLayer:(CALayer *)layer {
+    %orig;
+    self.backgroundColor = oledKBDarkMode(self) ? [UIColor blackColor] : [UIColor clearColor];
+}
+%end
+%end
+
+%group gOLEDKBPrediction
+%hook UIPredictionViewController
+- (id)_currentTextSuggestions {
+    [self.view setBackgroundColor:oledKBDarkMode(self.view) ? [UIColor blackColor] : [UIColor clearColor]];
+    return %orig;
 }
 %end
 %end
 
 %ctor {
-    // The theme groups below send `self.pageStyle` on YTCommonColorPalette.
-    // Newer YouTube builds may have removed that property; registering the
-    // hooks anyway would then crash every layout pass. Skip registration
-    // instead — graceful degradation beats a boot loop.
+    // Belt-and-braces: every palette getter also probes pageStyle via
+    // themePageStyleIsDark() before sending it, so these gates are a second
+    // line of defence (and skip whole view-hook groups when the palette API
+    // is gone). Graceful degradation beats a boot loop.
     Class paletteClass = %c(YTCommonColorPalette);
     BOOL pageStyleAvailable = paletteClass && [paletteClass instancesRespondToSelector:@selector(pageStyle)];
 
@@ -691,17 +760,29 @@ UIColor *customHexColor;
     if (IS_OLD_DARK_THEME_SELECTED && pageStyleAvailable) {
         %init(gOldDarkTheme)
     }
+    if (IS_CUSTOM_DARK_THEME_SELECTED && pageStyleAvailable) {
+        NSData *colorData = [[NSUserDefaults standardUserDefaults] objectForKey:@"kCustomThemeColor"];
+        NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:colorData error:nil];
+        [unarchiver setRequiresSecureCoding:NO];
+        NSString *hexString = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
+        if (hexString != nil) {
+            customHexColor = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
+            %init(gCustomTheme);
+        }
+    }
+
+    // OLED keyboard — layoutSubviews-based group is always safe; the private-
+    // selector groups are gated on the selectors actually existing.
     if (IS_ENABLED(@"oledKeyBoard_enabled")) {
         %init(gOLEDKB);
-    }
-    if (IS_CUSTOM_DARK_THEME_SELECTED && pageStyleAvailable) {
-    NSData *colorData = [[NSUserDefaults standardUserDefaults] objectForKey:@"kCustomThemeColor"];
-    NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:colorData error:nil];
-    [unarchiver setRequiresSecureCoding:NO];
-    NSString *hexString = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
-    if (hexString != nil) {
-        customHexColor = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
-        %init(gCustomTheme);
+
+        Class keyboardClass = %c(UIKeyboard);
+        if (keyboardClass && [keyboardClass instancesRespondToSelector:@selector(displayLayer:)]) {
+            %init(gOLEDKBKeyboard);
+        }
+        Class predictionClass = %c(UIPredictionViewController);
+        if (predictionClass && [predictionClass instancesRespondToSelector:@selector(_currentTextSuggestions)]) {
+            %init(gOLEDKBPrediction);
         }
     }
 }
