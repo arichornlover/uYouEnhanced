@@ -110,9 +110,20 @@ BOOL uYouIsSideStore() {
 
 // Fix navigation bar showing a lighter grey with default dark mode
 // https://github.com/therealFoxster/uYouPlus/commit/8db8197
+// NOTE: `pageStyle` may not exist on newer YouTube builds (suspected missing
+// on 21.14.4). This hook runs UNCONDITIONALLY and palette getters are called
+// during EVERY layout pass, so an unguarded `self.pageStyle` send aborts the
+// app at startup with "unrecognized selector sent to instance". Guard the
+// send and fall back to the system dark-mode trait when pageStyle is gone.
 %hook YTCommonColorPalette
 - (UIColor *)brandBackgroundSolid {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.05882352941176471 green:0.05882352941176471 blue:0.05882352941176471 alpha:1.0] : %orig;
+    BOOL darkPageStyle = NO;
+    if ([self respondsToSelector:@selector(pageStyle)]) {
+        darkPageStyle = (self.pageStyle == 1);
+    } else {
+        darkPageStyle = (UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark);
+    }
+    return darkPageStyle ? [UIColor colorWithRed:0.05882352941176471 green:0.05882352941176471 blue:0.05882352941176471 alpha:1.0] : %orig;
 }
 %end
 
@@ -817,10 +828,49 @@ static void uYouUncaughtExceptionHandler(NSException *exception) {
     HBLogError(@"[uYouPatches] UNCAUGHT EXCEPTION \u2192 %@", report);
     NSString *path = [NSTemporaryDirectory() stringByAppendingPathComponent:@"uYouCrash.log"];
     [report writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+
+    // Persist a short summary so the NEXT successful launch can display it
+    // on-device (no macOS/Xcode needed to read crash reasons).
+    NSArray<NSString *> *frames = exception.callStackSymbols;
+    NSUInteger frameCount = MIN((NSUInteger)8, frames.count);
+    NSString *summary = [NSString stringWithFormat:@"%@\n%@\n\nTop frames:\n%@",
+                         exception.name, exception.reason,
+                         [frames subarrayWithRange:NSMakeRange(0, frameCount)] componentsJoinedByString:@"\n"];
+    [[NSUserDefaults standardUserDefaults] setObject:summary forKey:@"uYouLastCrashSummary"];
+    CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
 }
 
 %ctor {
     NSSetUncaughtExceptionHandler(&uYouUncaughtExceptionHandler);
+
+    // If the PREVIOUS run crashed, surface the exact reason on-device.
+    // The alert has a Copy button so the selector can be pasted straight
+    // back into the build chat — no macOS required.
+    NSString *lastCrash = [[NSUserDefaults standardUserDefaults] stringForKey:@"uYouLastCrashSummary"];
+    if (lastCrash) {
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"uYouLastCrashSummary"];
+        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            UIViewController *topVC = nil;
+            for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+                if ([scene isKindOfClass:[UIWindowScene class]]) {
+                    topVC = [(UIWindowScene *)scene keyWindow].rootViewController;
+                    if (topVC) break;
+                }
+            }
+            if (!topVC) return;
+            while (topVC.presentedViewController) topVC = topVC.presentedViewController;
+
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"uYouEnhanced: previous run crashed"
+                                                                           message:lastCrash
+                                                                    preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Copy report" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *a) {
+                UIPasteboard.generalPasteboard.string = lastCrash;
+            }]];
+            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+            [topVC presentViewController:alert animated:YES completion:nil];
+        });
+    }
 
     // Load saved playback rate
     float savedRate = [[NSUserDefaults standardUserDefaults] floatForKey:@"uYouSavedPlaybackRate"];

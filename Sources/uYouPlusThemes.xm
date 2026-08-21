@@ -678,16 +678,23 @@ UIColor *customHexColor;
 %end
 
 %ctor {
-    if (IS_OLED_DARK_THEME_SELECTED) {
+    // The theme groups below send `self.pageStyle` on YTCommonColorPalette.
+    // Newer YouTube builds may have removed that property; registering the
+    // hooks anyway would then crash every layout pass. Skip registration
+    // instead — graceful degradation beats a boot loop.
+    Class paletteClass = %c(YTCommonColorPalette);
+    BOOL pageStyleAvailable = paletteClass && [paletteClass instancesRespondToSelector:@selector(pageStyle)];
+
+    if (IS_OLED_DARK_THEME_SELECTED && pageStyleAvailable) {
         %init(gOLED);
     }
-    if (IS_OLD_DARK_THEME_SELECTED) {
+    if (IS_OLD_DARK_THEME_SELECTED && pageStyleAvailable) {
         %init(gOldDarkTheme)
     }
     if (IS_ENABLED(@"oledKeyBoard_enabled")) {
         %init(gOLEDKB);
     }
-    if (IS_CUSTOM_DARK_THEME_SELECTED) {
+    if (IS_CUSTOM_DARK_THEME_SELECTED && pageStyleAvailable) {
     NSData *colorData = [[NSUserDefaults standardUserDefaults] objectForKey:@"kCustomThemeColor"];
     NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:colorData error:nil];
     [unarchiver setRequiresSecureCoding:NO];
