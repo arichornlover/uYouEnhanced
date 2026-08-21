@@ -692,12 +692,12 @@ static float uYouSavedPlaybackRate = 0.0f;
 %end
 
 // --- Initialize saved rate from preferences ---
-static void uYouSpeedFixesInit() {
-    float saved = [[NSUserDefaults standardUserDefaults] floatForKey:@"uYouSavedPlaybackRate"];
-    if (saved > 0.0f) {
-        uYouSavedPlaybackRate = saved;
-    }
-}
+// static void uYouSpeedFixesInit() {
+//     float saved = [[NSUserDefaults standardUserDefaults] floatForKey:@"uYouSavedPlaybackRate"];
+//     if (saved > 0.0f) {
+//         uYouSavedPlaybackRate = saved;
+//     }
+// }
 
 %end // gYouSpeedFixes
 
