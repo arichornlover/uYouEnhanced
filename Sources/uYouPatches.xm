@@ -310,7 +310,16 @@ static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
             m4aPath
         ];
 
-        int returnCode = [MobileFFmpeg executeWithArguments:arguments];
+        // IMPORTANT: MobileFFmpeg ships inside uYou.dylib's payload and is NOT
+        // linked against this tweak. A bare [MobileFFmpeg ...] reference emits
+        // _OBJC_CLASS_$_MobileFFmpeg and breaks linking; %c() resolves the
+        // class at runtime from uYou's own copy instead.
+        Class mobileFFmpegClass = %c(MobileFFmpeg);
+        if (!mobileFFmpegClass) {
+            HBLogWarn(@"[uYouPatches] MobileFFmpeg not found in app payload; skipping WebM→M4A conversion");
+            return NO;
+        }
+        int returnCode = [mobileFFmpegClass executeWithArguments:arguments];
 
         if (returnCode == 0 && [fm fileExistsAtPath:m4aPath]) {
             unsigned long long fileSize = [[fm attributesOfItemAtPath:m4aPath error:nil] fileSize];

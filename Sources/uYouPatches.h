@@ -92,6 +92,8 @@ BOOL uYouIsSideStore();
 @end
 
 // Bundled inside uYou's payload; used for webm -> m4a audio conversion (#771/#465)
+// NOT linked against this tweak: always call via %c(MobileFFmpeg) runtime lookup.
+// A bare [MobileFFmpeg ...] reference emits _OBJC_CLASS_$_MobileFFmpeg and fails to link.
 @interface MobileFFmpeg : NSObject
 + (int)executeWithArguments:(NSArray *)arguments;
 @end
