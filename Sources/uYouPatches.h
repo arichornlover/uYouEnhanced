@@ -5,11 +5,7 @@
 NSString *uYouAccessGroupID();
 BOOL uYouIsSideStore();
 
-// ============================================================================
-// MARK: - uYou Reverse-Engineered Class Interfaces
 // From uYou 3.0.4 source (a0zhar/uYou-3.0.4-src)
-// ============================================================================
-
 @interface PlayerManager : NSObject
 + (id)sharedInstance;
 - (float)progress;
@@ -80,21 +76,6 @@ BOOL uYouIsSideStore();
 @property (nonatomic, strong) NSString *title;
 @end
 
-// ============================================================================
-// MARK: - YouTube Internal Class Interfaces
-// NOTE: YTIStreamingData, YTIFormatStream, YTPlaybackData, YTSingleVideoController,
-// YTPlayerResponse, YTIPlayerResponse, YTPlayerOverlayManager,
-// YTMainAppVideoPlayerOverlayViewController, YTPlayerViewController are already
-// declared in Tweaks/YouTubeHeader/. HAMPlayerInternal and MLHAMQueuePlayer
-// are already declared in Sources/uYouPlus.h. Do NOT re-declare them here.
-// ============================================================================
-
-// ============================================================================
-// MARK: - Missing Selectors & Minimal Interfaces
-// Categories below add selectors that exist at runtime but are missing from
-// the dump headers. Standalone interfaces cover classes with no declaration.
-// ============================================================================
-
 @interface YTPlayerViewController (uYouPatches)
 - (void)setPlaybackRate:(float)rate;
 @end
@@ -103,18 +84,12 @@ BOOL uYouIsSideStore();
 - (float)rate;
 @end
 
-// Bundled inside uYou's payload; used for webm -> m4a audio conversion (#771/#465)
 @interface MobileFFmpeg : NSObject
 + (int)executeWithArguments:(NSArray *)arguments;
 @end
 
-// Minimal declaration so touch-forwarding hooks can use UIView's nextResponder
 @interface YTFullScreenEngagementOverlayView : UIView
 @end
-
-// ============================================================================
-// MARK: - uYou UI Classes
-// ============================================================================
 
 @interface DownloadsPagerVC : UIViewController
 - (NSArray<UIViewController *> *)viewControllers;
