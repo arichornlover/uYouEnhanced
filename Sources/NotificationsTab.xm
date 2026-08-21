@@ -2,6 +2,12 @@
 
 // Notifications Tab appearance - @arichornlover & @dayanch96
 
+// Forward declare YTPivotBarItemView as UIView subclass so it can be used
+// as a %hook receiver type (only @class forward decl from YouTubeHeader is
+// insufficient for receiver usage).
+@interface YTPivotBarItemView : UIView
+@end
+
 UIImage *resizeImage(UIImage *image, CGSize newSize) {
     UIGraphicsBeginImageContextWithOptions(newSize, NO, 0.0);
     [image drawInRect:CGRectMake(0, 0, newSize.width, newSize.height)];

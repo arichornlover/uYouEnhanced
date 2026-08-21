@@ -81,83 +81,13 @@ BOOL uYouIsSideStore();
 @end
 
 // ============================================================================
-// MARK: - YouTube Internal Class Interfaces (for patches)
+// MARK: - YouTube Internal Class Interfaces
+// NOTE: YTIStreamingData, YTIFormatStream, YTPlaybackData, YTSingleVideoController,
+// YTPlayerResponse, YTIPlayerResponse, YTPlayerOverlayManager,
+// YTMainAppVideoPlayerOverlayViewController, YTPlayerViewController are already
+// declared in Tweaks/YouTubeHeader/. HAMPlayerInternal and MLHAMQueuePlayer
+// are already declared in Sources/uYouPlus.h. Do NOT re-declare them here.
 // ============================================================================
-
-@interface YTIStreamingData : NSObject
-- (NSArray *)formatsArray;
-- (NSArray *)adaptiveFormatsArray;
-- (NSString *)hlsManifestURL;
-- (NSString *)dashManifestURL;
-@end
-
-@interface YTIFormatStream : NSObject
-@property (nonatomic, copy) NSString *URL;
-@property (nonatomic, copy) NSString *qualityLabel;
-- (BOOL)isAudio;
-- (BOOL)isVideo;
-@end
-
-@interface YTPlaybackData : NSObject
-- (id)video;
-- (id)playerResponse;
-@end
-
-@interface YTSingleVideoController : NSObject
-- (id)playbackData;
-- (NSArray *)selectableVideoFormats;
-@end
-
-@interface YTPlayerResponse : NSObject
-- (id)playerData;
-@end
-
-@interface YTIPlayerResponse : NSObject
-@property (nonatomic, strong) id videoDetails;
-@property (nonatomic, strong) YTIStreamingData *streamingData;
-@end
-
-@interface YTPlayerOverlayManager : NSObject
-- (id)varispeedController;
-- (void)didPressToggleFullscreen;
-@property (nonatomic, assign) float currentPlaybackRate;
-@end
-
-@interface YTMainAppVideoPlayerOverlayViewController : UIViewController
-@property (nonatomic, strong) id playerBarController;
-- (void)setPlaybackRate:(CGFloat)rate;
-- (CGFloat)currentPlaybackRate;
-- (BOOL)isFullscreen;
-- (CGFloat)totalTime;
-- (void)updateRelatedVideos;
-@end
-
-@interface YTPlayerViewController : UIViewController
-@property (nonatomic, strong) YTPlayerOverlayManager *overlayManager;
-- (id)activeVideo;
-- (id)activeVideoPlayerOverlay;
-- (id)varispeedController;
-- (CGFloat)currentVideoMediaTime;
-- (CGFloat)currentVideoTotalMediaTime;
-- (NSString *)currentVideoID;
-@end
-
-@interface HAMPlayerInternal : NSObject
-- (void)setRate:(float)rate;
-- (float)rate;
-@end
-
-@interface MLHAMQueuePlayer : NSObject
-@property id playerEventCenter;
-@property id delegate;
-- (void)setRate:(float)rate;
-- (void)internalSetRate;
-@end
-
-@interface MLPlayerStickySettings : NSObject
-- (float)playbackRate;
-- (void)setPlaybackRate:(float)rate;
-@end
 
 // ============================================================================
 // MARK: - uYou UI Classes
