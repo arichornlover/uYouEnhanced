@@ -186,6 +186,106 @@ jobs:
           git checkout --quiet
           mv *.appex ..
 
+      - name: Normalize Extension Bundle ID for SideStore
+        run: |
+          set -euo pipefail
+
+          PARENT_BUNDLE="${{ inputs.bundle_id }}"
+          ORIG_PREFIX="com.google.ios.youtube"
+
+          echo "Normalizing extension CFBundleIdentifier(s) to use parent prefix: ${PARENT_BUNDLE}"
+
+          update_plist_id() {
+            PLIST_PATH="$1"
+            if [ ! -f "$PLIST_PATH" ]; then
+              return
+            fi
+            if /usr/bin/plutil -convert xml1 "$PLIST_PATH" >/dev/null 2>&1; then
+              :
+            fi
+            CURRENT_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$PLIST_PATH" 2>/dev/null || true)
+            if [ -z "$CURRENT_ID" ]; then
+              return
+            fi
+            if [[ "$CURRENT_ID" == "$ORIG_PREFIX"* ]]; then
+              SUFFIX="${CURRENT_ID#${ORIG_PREFIX}.}"
+              if [ "$SUFFIX" = "$CURRENT_ID" ]; then
+                SUFFIX="Extension"
+              fi
+              NEW_ID="${PARENT_BUNDLE}.${SUFFIX}"
+              echo "Updating $PLIST_PATH: $CURRENT_ID -> $NEW_ID"
+              /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $NEW_ID" "$PLIST_PATH" || \
+                /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $NEW_ID" "$PLIST_PATH" || true
+            else
+              echo "Skipping $PLIST_PATH (does not start with $ORIG_PREFIX): $CURRENT_ID"
+            fi
+          }
+
+          for appex in *.appex; do
+            if [ -d "$appex" ]; then
+              PLIST="$appex/Info.plist"
+              update_plist_id "$PLIST"
+              find "$appex" -type f -name "*.plist" -o -name "*.entitlements" | while read -r f; do
+                /usr/bin/plutil -convert xml1 "$f" >/dev/null 2>&1 || true
+                if grep -q "$ORIG_PREFIX" "$f" >/dev/null 2>&1; then
+                  echo "Replacing occurrences in $f"
+                  perl -0777 -pe "s/\Q${ORIG_PREFIX}\E/${PARENT_BUNDLE}/g" -i "$f" || true
+                fi
+              done
+            fi
+          done
+
+          APP_BUNDLE_DIR="main/Payload/YouTube.app"
+
+          # --- Remove extensions that SideStore/AltStore resigners CANNOT rename ---
+          # Resigners only rewrite CFBundleIdentifier for PlugIns/*.appex.
+          # ExtensionKit-style extensions stored elsewhere (e.g. <App>.app/Extensions/)
+          # keep their original ID while the parent app gets a per-Apple-ID suffix,
+          # which makes iOS reject the install with:
+          #   IXErrorDomain Code=8 "Mismatched bundle IDs" (minimuxer error 15)
+          APP_EXTENSIONS_DIR="$APP_BUNDLE_DIR/Extensions"
+          if [ -d "$APP_EXTENSIONS_DIR" ]; then
+            echo "Removing ExtensionKit-style extensions (unresignable):"
+            ls -1 "$APP_EXTENSIONS_DIR" || true
+            rm -rf "$APP_EXTENSIONS_DIR"
+          fi
+
+          # Defensive: YouTube 21.x ships an undocumented AppMigrationExtension
+          # that resigners skip entirely; it is not needed when sideloaded.
+          find "$APP_BUNDLE_DIR" -depth -type d -name "*AppMigration*" -print0 2>/dev/null \
+            | xargs -0 -I{} sh -c 'echo "Removing {}"; rm -rf "{}"' || true
+
+          # --- Normalize CFBundleIdentifier(s) of every remaining .appex (recursive) ---
+          if [ -d "$APP_BUNDLE_DIR" ]; then
+            find "$APP_BUNDLE_DIR" -type d -name "*.appex" | while read -r appex; do
+              if [ -d "$appex" ]; then
+                PLIST="$appex/Info.plist"
+                update_plist_id "$PLIST"
+                find "$appex" -type f \( -name "*.plist" -o -name "*.entitlements" \) | while read -r f; do
+                  /usr/bin/plutil -convert xml1 "$f" >/dev/null 2>&1 || true
+                  if grep -q "$ORIG_PREFIX" "$f" >/dev/null 2>&1; then
+                    echo "Replacing occurrences in $f"
+                    perl -0777 -pe "s/\Q${ORIG_PREFIX}\E/${PARENT_BUNDLE}/g" -i "$f" || true
+                  fi
+                done
+              fi
+            done
+          fi
+
+          MAIN_APP_DIR="main/Payload/YouTube.app"
+          if [ -d "$MAIN_APP_DIR" ]; then
+            find "$MAIN_APP_DIR" -type f -name "*.plist" -o -name "*.entitlements" | while read -r f; do
+              /usr/bin/plutil -convert xml1 "$f" >/dev/null 2>&1 || true
+              if grep -q "$ORIG_PREFIX" "$f" >/dev/null 2>&1; then
+                echo "Replacing occurrences in $f"
+                perl -0777 -pe "s/\Q${ORIG_PREFIX}\E/${PARENT_BUNDLE}/g" -i "$f" || true
+              fi
+            done
+          fi
+
+          echo "Normalization complete."
+        shell: bash
+
       - name: Inject Tweaks Into IPA
         run: |
           IPA_IN="main/packages/${{ steps.build_package.outputs.package }}"
@@ -195,6 +295,40 @@ jobs:
             [ -f "$f" ] && tweaks="$tweaks $f"
           done
           cyan -i "$IPA_IN" -o "$OUTNAME" -uwef $tweaks -n "${{ inputs.app_name }}" -b ${{ inputs.bundle_id }}
+
+      - name: Strip Unresignable Extensions From Final IPA
+        run: |
+          set -euo pipefail
+
+          OUTNAME="uYouEnhanced_${{ env.YT_VERSION }}_v${{ inputs.uyou_version }}.ipa"
+          if [ ! -f "$OUTNAME" ]; then
+            OUTNAME="$(find . -maxdepth 3 -name 'uYouEnhanced_*.ipa' -print -quit)"
+          fi
+          echo "Final IPA: $OUTNAME"
+
+          echo "--- .appex bundles contained in final IPA ---"
+          unzip -Z1 "$OUTNAME" | grep '\.appex/' | sed 's|^\(.*\.appex\)/.*|\1|' | sort -u | tee appex_list.txt || true
+
+          # Any .appex outside PlugIns/ keeps its original bundle ID when
+          # SideStore/AltStore resigns the app, causing:
+          #   IXErrorDomain Code=8 "Mismatched bundle IDs" (minimuxer error 15)
+          BAD="$(grep -v '/PlugIns/' appex_list.txt || true)"
+          if [ -n "$BAD" ]; then
+            echo "Removing unresignable extensions:"
+            printf '%s\n' "$BAD"
+            printf '%s\n' "$BAD" | while IFS= read -r d; do
+              zip -q -d "$OUTNAME" "${d}/*" || true
+            done
+          else
+            echo "All extensions are under PlugIns/ - OK for SideStore."
+          fi
+
+          # Publish the cleaned FINAL ipa where the release/artifact steps look,
+          # replacing any intermediate (pre-injection) ipa emitted by Theos.
+          mkdir -p main/packages
+          cp -f "$OUTNAME" "main/packages/$OUTNAME"
+          find main/packages -maxdepth 1 -name "*.ipa" ! -name "$OUTNAME" -delete || true
+          echo "Final SideStore-compatible IPA: main/packages/$OUTNAME"
 
       - name: Upload Artifact
         if: ${{ inputs.upload_artifact }}
