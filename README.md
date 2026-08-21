@@ -3,33 +3,44 @@
 <details>
     <summary>Read more</summary><br>
 
-# Switch from uYouEnhanced to YouMod (optional)
+# Looking for a Lighter Option? Check Out YouMod
 
-Hello, this is here to showcase this tweak. I have been seeing the posts about the YouMod tweak on GitHub for a little bit of time now and decided to add it here. Before you download or check out the tweak, you should take a look at the pros and cons below to learn more about YouMod before you transition to it!
+[YouMod](https://github.com/Tonwalter888/YouMod) is a lightweight, open-source alternative that aims to recreate the most popular [YTLite](https://github.com/dayanch96/YTLite) features after YTLite became paid. If you prefer a simpler, single-tweak approach over uYouEnhanced's all-in-one bundle, YouMod may be worth considering.
 
-https://github.com/Tonwalter888/YouMod
+### YouMod — Pros
 
-**YouMod - Pros**
+- **Fully open source** (GPLv3) — unlike uYou 3.0.4 (closed source), YouMod's entire codebase makes more sense for doing PRs and etc.
+- **Lightweight architecture** — single tweak with fewer dependencies, less chance of tweak conflicts.
+- **UI customization** — OLED theme, OLED keyboard, tab bar reordering, navigation bar and player element hiding.
+- **Built-in downloading** — supports video and audio downloads with quality selection.
+- **Element hiding** — hide Shorts, posts, premium upsells, fullscreen action buttons, and more.
+- **Modern feature set** — recreates many YTLite-era features (feed mods, player controls, Shorts customization). And features are more stable than uYouEnahanced!
 
-TBA
+### YouMod — Cons
 
-**YouMod - Cons**
+- **No uYou integration** — lacks uYou's feaatures such as download manager, native PiP, and media playback engine, though I believe YouMod carries alternative features.
+- **No SponsorBlock** (iSponsorBlock) — does not include automatic sponsor-segment skipping. (This may change in the future)
+- **No version spoofing** — cannot spoof the YouTube app version to bypass update prompts and as a need to "fix" some features that break.
+- **No exclusive features** — lacks LowContrastMode, NotificationsTab, YTAppVersionSpoofer, and other uYouEnhanced extras.
+- **Some reported UI bugs** — open issues include problems with fullscreen action hiding, Shorts feed visibility, and time slider positioning on certain YouTube versions.
 
-TBA
+> **TL;DR:** YouMod is a great choice if you want a lightweight, open-source tweak focused on UI customization and basic downloading. If you need advanced download reliability, SponsorBlock, PiP, dislike counts, or comprehensive YouTube-bug fixes, uYouEnhanced remains as a different feature-complete option.
 
 </details>
 
-## About the future of the uYouEnhanced Project (Updated, June 13, 2025)
+## About the Future of uYouEnhanced (Updated June 13, 2025)
+
 Hey everyone,
 
-Just wanted to give you an update about uYouEnhanced. I’m not 100% leaving or anything, but I won’t be maintaining this tweak much like before. I’ll still drop some github commits now and then to try and improve uYouEnhanced, but there’s just no way I can ever get through and solve the 300+ known existing issues in this github repository.
+I wanted to give you an update on the status of uYouEnhanced. I'm not leaving the project entirely, but I won't be maintaining it as actively as before. I'll still push commits from time to time to improve things — but realistically, there's no way I can work through all 300+ open issues in this repository.
 
-I do my best to fix stuff when some issues pop up, but it sometimes usually doesn’t work out. I do even suggest workarounds, but they might not work perfectly or might mot even work, especially with the latest YouTube version changes.
+I do my best to address problems when they come up, and I often suggest workarounds, but they don't always work perfectly — especially as YouTube keeps changing with each update.
 
-I’d even recommend using uYouEnhanced with a YouTube version at least v21.14.4 or higher.
+I'd recommend using uYouEnhanced with **YouTube v21.14.4 or higher** for the best compatibility.
+
 Thanks for understanding!
 
-And thanks to the developers qnblackcat, PoomSmart & others allowing me to expand this fork from where it is today!
+And a huge thank you to **qnblackcat**, **PoomSmart**, and all the other developers whose work made this fork possible!
 
 <p align="center">
   <a href="https://user-images.githubusercontent.com/78001398/271790092-006e81cc-715a-4fbc-aff6-15832e2da8c4.png">
