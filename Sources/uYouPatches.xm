@@ -130,6 +130,7 @@ static NSUInteger selectedTabIndex;
 %end
 static void refreshUYouAppearance() {
     if (!downloadsPagerVC) return;
+    @try {
     [downloadsPagerVC updatePageStyles];
     for (UIViewController *vc in [downloadsPagerVC viewControllers]) {
         if ([vc isKindOfClass:%c(DownloadingVC)]) {
@@ -158,6 +159,9 @@ static void refreshUYouAppearance() {
                 }
             }
         }
+    }
+    } @catch (NSException *e) {
+        HBLogWarn(@"[uYouPatches] refreshUYouAppearance failed: %@", e);
     }
 }
 %hook UIViewController
@@ -193,7 +197,8 @@ static void refreshUYouAppearance() {
 %hook GOODialogView
 - (id)imageView {
     UIImageView *imageView = %orig;
-    UILabel *dialogTitleLabel = [self valueForKey:@"titleLabel"];
+    UILabel *dialogTitleLabel = nil;
+    @try { dialogTitleLabel = [self valueForKey:@"titleLabel"]; } @catch (NSException *e) {}
     if ([dialogTitleLabel.text containsString:@"uYou\n"]) {
         // Load icon_clipped.png from uYouBundle.bundle
         NSString *bundlePath = [[NSBundle mainBundle] pathForResource:@"uYouBundle" ofType:@"bundle"];
@@ -224,17 +229,30 @@ static void refreshUYouAppearance() {
 }
 %end
 
-// Fix uYou varispeed controller fallback
+%end // gYouFixes
+
+// Fix uYou varispeed controller fallback.
+// Kept in its own group and registered ONLY when YTPlayerViewController truly
+// implements varispeedController: hooking a selector the class lacks would
+// add a method whose %orig is NULL (null-IMP crash) and make
+// respondsToSelector: lie to every caller.
+%group gVarispeedFallbackFix
 %hook YTPlayerViewController
 - (id)varispeedController {
     id controller = %orig;
-    if (controller == nil && [self respondsToSelector:@selector(overlayManager)])
-        controller = [self.overlayManager varispeedController];
+    if (controller == nil && [self respondsToSelector:@selector(overlayManager)]) {
+        @try {
+            id overlayManager = [self overlayManager];
+            if (overlayManager && [overlayManager respondsToSelector:@selector(varispeedController)])
+                controller = [overlayManager varispeedController];
+        } @catch (NSException *e) {
+            HBLogWarn(@"[uYouPatches] varispeedController fallback failed: %@", e);
+        }
+    }
     return controller;
 }
 %end
-
-%end // gYouFixes
+%end // gVarispeedFallbackFix
 
 // ============================================================================
 // MARK: - uYou Download Fixes (Comprehensive Rework)
@@ -256,7 +274,7 @@ static void refreshUYouAppearance() {
 
     // After the original setup, reconfigure the session to support background transfers
     @try {
-        id sm = self.sessionManager;
+        id sm = [self respondsToSelector:@selector(sessionManager)] ? self.sessionManager : nil;
         if (sm && [sm respondsToSelector:@selector(setSession:)]) {
             NSURLSessionConfiguration *bgConfig = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:@"com.miro.uyou.bg"];
             bgConfig.timeoutIntervalForRequest = 30;
@@ -787,7 +805,23 @@ static float uYouSavedPlaybackRate = 0.0f;
 // MARK: - Module Constructors
 // ============================================================================
 
+// --- Diagnostic uncaught-exception logger ----------------------------------
+// Stock crash reports redact the exception reason ("-[%s %s]" placeholders),
+// hiding WHICH selector was missing. This handler dumps the full reason +
+// stack to os_log and to a file in the app sandbox so a crashing build tells
+// us exactly what broke.
+static void uYouUncaughtExceptionHandler(NSException *exception) {
+    NSString *report = [NSString stringWithFormat:@"%@: %@\nUserInfo: %@\n%@",
+                        exception.name, exception.reason, exception.userInfo,
+                        [exception.callStackSymbols componentsJoinedByString:@"\n"]];
+    HBLogError(@"[uYouPatches] UNCAUGHT EXCEPTION \u2192 %@", report);
+    NSString *path = [NSTemporaryDirectory() stringByAppendingPathComponent:@"uYouCrash.log"];
+    [report writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+}
+
 %ctor {
+    NSSetUncaughtExceptionHandler(&uYouUncaughtExceptionHandler);
+
     // Load saved playback rate
     float savedRate = [[NSUserDefaults standardUserDefaults] floatForKey:@"uYouSavedPlaybackRate"];
     if (savedRate > 0.0f) {
@@ -797,13 +831,38 @@ static float uYouSavedPlaybackRate = 0.0f;
     // Always initialize core uYou fixes
     %init(gYouFixes);
 
+    // Varispeed fallback: only when YTPlayerViewController really implements
+    // varispeedController (otherwise %orig would be NULL -> null-IMP crash).
+    Class playerVCClass = %c(YTPlayerViewController);
+    if (playerVCClass && [playerVCClass instancesRespondToSelector:@selector(varispeedController)]) {
+        %init(gVarispeedFallbackFix);
+    }
+
     // Initialize download fixes when uYou downloads are enabled
     if (IS_ENABLED(kReplaceYTDownloadWithuYou)) {
         %init(gYouDownloadFixes);
     }
 
-    // Initialize speed control fixes (always, since speed is a core uYou feature)
-    %init(gYouSpeedFixes);
+    // Speed fixes: only register when EVERY hooked selector exists on this
+    // YouTube build. Hooking a missing selector silently adds it, making
+    // respondsToSelector: lie; the next caller then dies with
+    // "unrecognized selector sent to instance" (the startup SIGABRT).
+    Class overlayVCClass = %c(YTMainAppVideoPlayerOverlayViewController);
+    Class hamPlayerClass = %c(HAMPlayerInternal);
+    BOOL speedFixesSafe =
+        overlayVCClass != nil &&
+        [overlayVCClass instancesRespondToSelector:@selector(setPlaybackRate:)] &&
+        [overlayVCClass instancesRespondToSelector:@selector(currentPlaybackRate)] &&
+        playerVCClass != nil &&
+        [playerVCClass instancesRespondToSelector:@selector(setPlaybackRate:)] &&
+        hamPlayerClass != nil &&
+        [hamPlayerClass instancesRespondToSelector:@selector(setRate:)] &&
+        [hamPlayerClass instancesRespondToSelector:@selector(rate)];
+    if (speedFixesSafe) {
+        %init(gYouSpeedFixes);
+    } else {
+        HBLogWarn(@"[uYouPatches] Skipping gYouSpeedFixes: playback-rate selectors missing on this YouTube build");
+    }
 
     // Initialize fullscreen fixes (always active when noSuggestedVideo is used)
     %init(gYouFullscreenFixes);

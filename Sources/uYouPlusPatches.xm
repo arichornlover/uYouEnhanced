@@ -231,17 +231,39 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 %end
 
 // Fixes uYou crash when trying to play video (#1422)
+// NOTE: Newer YouTube builds (21.x+) may no longer implement the varispeed
+// plumbing below. Every send is guarded so a missing selector degrades to a
+// no-op instead of throwing "unrecognized selector sent to instance" during
+// playback setup (observed as a startup SIGABRT on YT 21.14.4).
 %hook YTPlayerOverlayManager
 %property (nonatomic, assign) float currentPlaybackRate;
 
 %new
 - (void)setCurrentPlaybackRate:(float)rate {
-    [self varispeedSwitchController:self.varispeedController didSelectRate:rate];
+    if (![self respondsToSelector:@selector(varispeedSwitchController:didSelectRate:)])
+        return;
+    id varispeed = [self respondsToSelector:@selector(varispeedController)] ? [self varispeedController] : nil;
+    if (!varispeed)
+        return;
+    @try {
+        [self varispeedSwitchController:varispeed didSelectRate:rate];
+    } @catch (NSException *e) {
+        // Swallow: this shim is best-effort compatibility for uYou.
+    }
 }
 
 %new
 - (void)setPlaybackRate:(float)rate {
-    [self varispeedSwitchController:self.varispeedController didSelectRate:rate];
+    if (![self respondsToSelector:@selector(varispeedSwitchController:didSelectRate:)])
+        return;
+    id varispeed = [self respondsToSelector:@selector(varispeedController)] ? [self varispeedController] : nil;
+    if (!varispeed)
+        return;
+    @try {
+        [self varispeedSwitchController:varispeed didSelectRate:rate];
+    } @catch (NSException *e) {
+        // Swallow: this shim is best-effort compatibility for uYou.
+    }
 }
 %end
 %end // gSideloadingPatches
