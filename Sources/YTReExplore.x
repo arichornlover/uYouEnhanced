@@ -21,7 +21,6 @@ static void replaceTab(YTIGuideResponse *response) {
                 YTIPivotBarSupportedRenderers *exploreTab = [%c(YTIPivotBarRenderer) pivotSupportedRenderersWithBrowseId:[%c(YTIBrowseRequest) browseIDForExploreTab] title:@"Explore" iconType:292];
                 [items insertObject:exploreTab atIndex:1];
             }
-            break;
         }
     }
 }
@@ -37,6 +36,16 @@ static void replaceTab(YTIGuideResponse *response) {
 %end
 %hook YTAppGuideServiceCoordinator
 - (void)handleResponse:(YTIGuideResponse *)response error:(id)error completion:(id)completion {
+    replaceTab(response);
+    %orig;
+}
+%end
+%hook YTGuideServiceCoordinatorImpl
+- (void)handleResponse:(YTIGuideResponse *)response error:(id)error completion:(id)completion {
+    replaceTab(response);
+    %orig;
+}
+- (void)handleLegacyResponse:(YTIGuideResponse *)response error:(id)error completion:(id)completion {
     replaceTab(response);
     %orig;
 }
