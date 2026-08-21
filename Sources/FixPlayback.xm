@@ -27,12 +27,12 @@ static MLAVPlayer *makeAVPlayer(id self, MLVideo *video, MLInnerTubePlayerConfig
 
 static void forceRenderViewTypeBase(YTIHamplayerConfig *hamplayerConfig) {
     if (!hamplayerConfig) return;
-    hamplayerConfig.renderViewType = 2;
+    hamplayerConfig.renderViewType = (HAMPlayerRenderViewType)2;
 }
 
 static void forceRenderViewTypeHot(YTIHamplayerHotConfig *hamplayerHotConfig) {
     if (!hamplayerHotConfig) return;
-    hamplayerHotConfig.renderViewType = 2;
+    hamplayerHotConfig.renderViewType = (HAMPlayerRenderViewType)2;
 }
 
 static void forceRenderViewType(YTHotConfig *hotConfig) {
