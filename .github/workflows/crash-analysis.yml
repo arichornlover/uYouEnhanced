@@ -1,18 +1,3 @@
-# Static crash analysis for uYouEnhanced IPAs.
-#
-# WHY THIS EXISTS: iOS crash reports redact NSException reasons ("-[%s %s]"),
-# and a crash-looping app can't surface our in-app reporter reliably. This
-# workflow never runs the app — instead it pulls the built IPA from a build
-# run's artifacts, extracts the YouTube binary + injected tweak dylib(s), and:
-#
-#   1. SYMBOLICATES crash-frame offsets (.ips imageOffset values) against the
-#      dylib's symbol table / LC_FUNCTION_STARTS -> names the crashing function.
-#   2. AUDITS every selector the tweak references against what YouTube's own
-#      classes implement -> candidates for "unrecognized selector sent to instance".
-#
-# Pure static analysis: safe for App Store binaries, nothing is executed.
-# The analyzer (Scripts/crash_analyzer.py) is dependency-free Python and also
-# runs locally on Windows against a manually downloaded IPA.
 
 name: Crash Analysis
 
@@ -85,7 +70,6 @@ jobs:
           for DY in $DYLIBS; do
             echo "=== symbolicate $DY (offsets: $OFFSETS) ===" | tee -a "$REPORT"
             python3 Scripts/crash_analyzer.py info "$DY" 2>&1 | tee -a "$REPORT"
-            # shellcheck disable=SC2086
             python3 Scripts/crash_analyzer.py symbolicate "$DY" $OFFSETS 2>&1 | tee -a "$REPORT"
           done
 

@@ -237,12 +237,6 @@ jobs:
 
           APP_BUNDLE_DIR="main/Payload/YouTube.app"
 
-          # --- Remove extensions that SideStore/AltStore resigners CANNOT rename ---
-          # Resigners only rewrite CFBundleIdentifier for PlugIns/*.appex.
-          # ExtensionKit-style extensions stored elsewhere (e.g. <App>.app/Extensions/)
-          # keep their original ID while the parent app gets a per-Apple-ID suffix,
-          # which makes iOS reject the install with:
-          #   IXErrorDomain Code=8 "Mismatched bundle IDs" (minimuxer error 15)
           APP_EXTENSIONS_DIR="$APP_BUNDLE_DIR/Extensions"
           if [ -d "$APP_EXTENSIONS_DIR" ]; then
             echo "Removing ExtensionKit-style extensions (unresignable):"
@@ -250,12 +244,9 @@ jobs:
             rm -rf "$APP_EXTENSIONS_DIR"
           fi
 
-          # Defensive: YouTube 21.x ships an undocumented AppMigrationExtension
-          # that resigners skip entirely; it is not needed when sideloaded.
           find "$APP_BUNDLE_DIR" -depth -type d -name "*AppMigration*" -print0 2>/dev/null \
             | xargs -0 -I{} sh -c 'echo "Removing {}"; rm -rf "{}"' || true
 
-          # --- Normalize CFBundleIdentifier(s) of every remaining .appex (recursive) ---
           if [ -d "$APP_BUNDLE_DIR" ]; then
             find "$APP_BUNDLE_DIR" -type d -name "*.appex" | while read -r appex; do
               if [ -d "$appex" ]; then
@@ -310,9 +301,6 @@ jobs:
           echo "--- .appex bundles contained in final IPA ---"
           unzip -Z1 "$OUTNAME" | grep '\.appex/' | sed 's|^\(.*\.appex\)/.*|\1|' | sort -u | tee appex_list.txt || true
 
-          # Any .appex outside PlugIns/ keeps its original bundle ID when
-          # SideStore/AltStore resigns the app, causing:
-          #   IXErrorDomain Code=8 "Mismatched bundle IDs" (minimuxer error 15)
           BAD="$(grep -v '/PlugIns/' appex_list.txt || true)"
           if [ -n "$BAD" ]; then
             echo "Removing unresignable extensions:"
@@ -324,8 +312,6 @@ jobs:
             echo "All extensions are under PlugIns/ - OK for SideStore."
           fi
 
-          # Publish the cleaned FINAL ipa where the release/artifact steps look,
-          # replacing any intermediate (pre-injection) ipa emitted by Theos.
           mkdir -p main/packages
           cp -f "$OUTNAME" "main/packages/$OUTNAME"
           find main/packages -maxdepth 1 -name "*.ipa" ! -name "$OUTNAME" -delete || true
