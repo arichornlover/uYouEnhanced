@@ -1,0 +1,158 @@
+# Static crash analysis for uYouEnhanced IPAs.
+#
+# WHY THIS EXISTS: iOS crash reports redact NSException reasons ("-[%s %s]"),
+# and a crash-looping app can't surface our in-app reporter reliably. This
+# workflow never runs the app — instead it pulls the built IPA (draft release
+# or artifact), extracts the YouTube binary + injected tweak dylib(s), and:
+#
+#   1. SYMBOLICATES crash-frame offsets (.ips imageOffset values) against the
+#      dylib's symbol table / LC_FUNCTION_STARTS -> names the crashing function.
+#   2. AUDITS every selector the tweak references against what YouTube's own
+#      classes implement -> candidates for "unrecognized selector sent to instance".
+#
+# Pure static analysis: safe for App Store binaries, nothing is executed.
+# The analyzer (Scripts/crash_analyzer.py) is dependency-free Python and also
+# runs locally on Windows against a manually downloaded IPA.
+
+name: Crash Analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Where to fetch the IPA from"
+        required: true
+        default: "latest-draft-release"
+        type: choice
+        options:
+          - latest-draft-release
+          - artifact
+      run_id:
+        description: "(artifact source only) Actions run ID that uploaded the IPA"
+        required: false
+        type: string
+      offsets:
+        description: "Crash frame offsets into the tweak dylib (.ips imageOffset), comma-separated, e.g. 81012 or 0x13C94"
+        required: false
+        type: string
+      app_binary_name:
+        description: "Name of the app binary inside Payload/<App>.app/"
+        required: false
+        default: "YouTube"
+        type: string
+
+jobs:
+  analyze:
+    name: Analyze IPA statically
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Fetch IPA from latest draft release
+        if: ${{ inputs.source == 'latest-draft-release' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p ipa
+          ASSET_ID=$(gh api "repos/$REPO/releases" \
+            --jq '[.[] | select(.draft == true)] | sort_by(.created_at) | reverse | .[0].assets[0].id') \
+            || { echo "::error::No draft release with assets found"; exit 1; }
+          echo "Downloading release asset id=$ASSET_ID"
+          gh api "repos/$REPO/releases/assets/$ASSET_ID" \
+            -H "Accept: application/octet-stream" > ipa/uYouEnhanced.ipa
+          ls -la ipa/
+
+      - name: Fetch IPA from artifact
+        if: ${{ inputs.source == 'artifact' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          RID="${{ inputs.run_id }}"
+          if [ -z "$RID" ]; then
+            echo "::error::artifact source requires the run_id input"
+            exit 1
+          fi
+          gh run download "$RID" --repo "$REPO" --dir artifact
+          mkdir -p ipa
+          FOUND=$(find artifact -type f -name '*.ipa' | head -n1)
+          [ -n "$FOUND" ] || { echo "::error::No .ipa in that run's artifacts"; exit 1; }
+          cp "$FOUND" ipa/uYouEnhanced.ipa
+          ls -la ipa/
+
+      - name: Extract IPA
+        run: |
+          set -euo pipefail
+          mkdir -p work
+          unzip -q ipa/uYouEnhanced.ipa -d work
+          APP_BIN=$(find work -type f -path '*Payload/*.app/*' -name '${{ inputs.app_binary_name }}' | head -n1)
+          [ -n "$APP_BIN" ] || { echo "::error::App binary '${{ inputs.app_binary_name }}' not found in Payload"; exit 1; }
+          echo "APP_BIN=$APP_BIN" >> $GITHUB_ENV
+          DYLIBS=$(find work -type f -name '*.dylib' || true)
+          echo "Injected dylibs:"
+          echo "$DYLIBS"
+          {
+            echo "DYLIBS<<EOF"
+            echo "$DYLIBS"
+            echo "EOF"
+          } >> $GITHUB_ENV
+
+      - name: Symbolicate crash offsets (if provided)
+        if: ${{ inputs.offsets != '' }}
+        run: |
+          set -uo pipefail
+          REPORT=analysis_report.txt
+          : > "$REPORT"
+          OFFSETS=$(echo "${{ inputs.offsets }}" | tr ',;' '  ')
+          for DY in $DYLIBS; do
+            echo "=== symbolicate $DY (offsets: $OFFSETS) ===" | tee -a "$REPORT"
+            python3 Scripts/crash_analyzer.py info "$DY" 2>&1 | tee -a "$REPORT"
+            # shellcheck disable=SC2086
+            python3 Scripts/crash_analyzer.py symbolicate "$DY" $OFFSETS 2>&1 | tee -a "$REPORT"
+          done
+
+      - name: Audit tweak selectors vs YouTube binary
+        run: |
+          set -uo pipefail
+          REPORT=analysis_report.txt
+          touch "$REPORT"
+          for DY in $DYLIBS; do
+            echo "" | tee -a "$REPORT"
+            echo "=== audit: $DY vs $APP_BIN ===" | tee -a "$REPORT"
+            python3 Scripts/crash_analyzer.py audit "$APP_BIN" "$DY" 2>&1 | tee -a "$REPORT"
+          done
+
+      - name: Dump reference data (selectors/symbols) for offline digging
+        run: |
+          set -uo pipefail
+          REPORT=analysis_report.txt
+          touch "$REPORT"
+          mkdir -p refdata
+          echo "" >> "$REPORT"
+          echo "=== YouTube selector count ===" >> "$REPORT"
+          python3 Scripts/crash_analyzer.py selectors "$APP_BIN" > refdata/youtube_selectors.txt 2>&1 || true
+          wc -l refdata/youtube_selectors.txt >> "$REPORT"
+          i=0
+          for DY in $DYLIBS; do
+            i=$((i+1))
+            python3 Scripts/crash_analyzer.py selectors "$DY" > "refdata/dylib${i}_defined_selectors.txt" 2>&1 || true
+            python3 Scripts/crash_analyzer.py syms "$DY"       > "refdata/dylib${i}_symbols.txt" 2>&1 || true
+            python3 Scripts/crash_analyzer.py funcstarts "$DY" > "refdata/dylib${i}_funcstarts.txt" 2>&1 || true
+          done
+
+      - name: Upload analysis report
+        uses: actions/upload-artifact@v7
+        with:
+          name: crash-analysis-report
+          path: |
+            analysis_report.txt
+            refdata/
+          if-no-files-found: error
