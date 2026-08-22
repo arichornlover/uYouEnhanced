@@ -519,10 +519,11 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     if (IS_ENABLED(@"hideNotificationButton_enabled")) {
         self.notificationButton.hidden = YES;
     }
-    if (IS_ENABLED(kHideiSponsorBlockButton)) { 
-        self.sponsorBlockButton.hidden = YES;
-        self.sponsorBlockButton.frame = CGRectZero;
-    }
+    // iSponsorBlock integration temporarily disabled for stability.
+    // if (IS_ENABLED(kHideiSponsorBlockButton) && [self respondsToSelector:@selector(sponsorBlockButton)]) {
+    //     self.sponsorBlockButton.hidden = YES;
+    //     self.sponsorBlockButton.frame = CGRectZero;
+    // }
 }
 %end
 
