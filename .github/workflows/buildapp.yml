@@ -324,6 +324,27 @@ jobs:
           echo "Final SideStore-compatible IPA: main/packages/$OUTNAME"
           echo "final_ipa=$OUTNAME" >> "$GITHUB_OUTPUT"
 
+      - name: Register Alternate App Icons
+        run: |
+          set -euo pipefail
+          IPA="main/packages/${{ steps.strip_ipa.outputs.final_ipa }}"
+          rm -rf iconwork && mkdir -p iconwork && cd iconwork
+          unzip -q "../$IPA" "Payload/YouTube.app/Info.plist"
+          PLIST="Payload/YouTube.app/Info.plist"
+          ICON_SRC="../main/Localizations/uYouPlus.bundle/AppIcons"
+          for f in "$ICON_SRC"/*.png; do
+            NAME="$(basename "$f" .png)"
+            cp -f "$f" "Payload/YouTube.app/$NAME.png"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleIcons:CFBundleAlternateIcons:$NAME dict" "$PLIST" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Add :CFBundleIcons:CFBundleAlternateIcons:$NAME:CFBundleIconFiles array" "$PLIST" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Add :CFBundleIcons:CFBundleAlternateIcons:$NAME:CFBundleIconFiles:0 string $NAME" "$PLIST" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Add :CFBundleIcons:CFBundleAlternateIcons:$NAME:CFBundleIconName string $NAME" "$PLIST" 2>/dev/null || true
+            echo "Registered alternate icon: $NAME"
+          done
+          zip -q "../$IPA" "$PLIST" Payload/YouTube.app/*.png
+          cd .. && rm -rf iconwork
+          echo "Alternate icons registered into $(basename "$IPA")"
+
       - name: Upload Artifact
         if: ${{ inputs.upload_artifact }}
         uses: actions/upload-artifact@v7
