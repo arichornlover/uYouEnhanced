@@ -47,7 +47,12 @@ on:
         required: false
         type: boolean
       ytuhd:
-        description: "Include YTUHD (clones dav1d + libvpx)"
+        description: "Include YTUHD"
+        default: false
+        required: false
+        type: boolean
+      sponsorblock:
+        description: "Include iSponsorBlock (DISABLED - unstable)"
         default: false
         required: false
         type: boolean
@@ -130,13 +135,6 @@ jobs:
           wget --quiet "https://github.com/inoahdev/tbd/releases/download/2.2/tbd-mac" -O /usr/local/bin/tbd
           chmod +x /usr/local/bin/tbd
 
-      - name: YTUHD Libraries (only if enabled)
-        if: ${{ inputs.ytuhd }}
-        run: |
-          echo "Installing YTUHD + dav1d + libvpx"
-          git clone --quiet --depth=1 https://code.videolan.org/videolan/dav1d.git $THEOS/vendor/dav1d
-          git clone --quiet --depth=1 https://chromium.googlesource.com/webm/libvpx $THEOS/vendor/libvpx
-
       - name: Hash YT ipa url
         run: |
           URL_YT="$(jq -r '.inputs.decrypted_youtube_url' $GITHUB_EVENT_PATH)"
@@ -171,12 +169,20 @@ jobs:
           else
             echo "YTUHD_ENABLED=0" >> Makefile
           fi
-          
+
+          # iSponsorBlock flag (DISABLED by default)
+          if [ "${{ inputs.sponsorblock }}" = "true" ]; then
+            echo "SPONSORBLOCK_ENABLED=1" >> Makefile
+          else
+            echo "SPONSORBLOCK_ENABLED=0" >> Makefile
+          fi
+
           make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app FINALPACKAGE=1
           echo "package=$(ls -t packages | head -n1)" >> $GITHUB_OUTPUT
 
         env:
           THEOS: ${{ github.workspace }}/theos
+          UYOU_VERSION: ${{ inputs.uyou_version }}
 
       - name: Clone Open in YouTube (Safari Extension)
         run: |
