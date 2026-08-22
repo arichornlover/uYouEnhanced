@@ -10,6 +10,20 @@ body:
     - label: I have searched the existing issues
       required: true
 
+- type: input
+  attributes:
+    label: YouTube version
+    placeholder: "21.xx.x"
+  validations:
+    required: false
+
+- type: input
+  attributes:
+    label: uYouEnhanced version
+    placeholder: "21.xx.x-3.0.4"
+  validations:
+    required: false
+
 - type: dropdown
   attributes:
     label: Do you think this is a bug?

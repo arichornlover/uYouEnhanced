@@ -1,6 +1,6 @@
 name: Feature Request
 description: Request a new feature to be added
-title: "[Request] Replace with your question"
+title: "[Request] Replace this with your title"
 labels: enhancement
 body:
 - type: checkboxes
@@ -10,23 +10,41 @@ body:
     - label: I have searched the existing issues
       required: true
 
+- type: input
+  attributes:
+    label: YouTube version
+    placeholder: "21.xx.x"
+  validations:
+    required: false
+
+- type: input
+  attributes:
+    label: uYouEnhanced version
+    placeholder: "21.xx.x-3.0.4"
+  validations:
+    required: true
+
 - type: dropdown
   attributes:
     label: Do you use YouTube Premium?
     options:
-      - ❌ No, I don't use YouTube Premium
-      - ✅ Yes, I do use YouTube Premium
+      - "No, I don't use YouTube Premium"
+      - "Yes, I do use YouTube Premium"
   validations:
     required: true
 
 - type: textarea
   attributes:
     label: My feature request
+    description: |
+      What should it do, and why is it useful? If the feature exists in another
+      tweak (YouMod, YTLite, uYou...), mention where you saw it.
   validations:
     required: true
 
 - type: textarea
   attributes:
     label: Additional context
+    description: Screenshots or mockups welcome.
   validations:
     required: false
