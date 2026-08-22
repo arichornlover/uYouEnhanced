@@ -12,6 +12,16 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
 @property (assign, nonatomic) NSInteger selectedIconIndex;
 @end
 
+@implementation UIImage (CustomImages)
+
++ (UIImage *)customBackButtonImage {
+    NSString *bundlePath = [[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"];
+    NSBundle *bundle = [NSBundle bundleWithPath:bundlePath] ?: [NSBundle mainBundle];
+    return [UIImage imageNamed:@"Back.png" inBundle:bundle compatibleWithTraitCollection:nil];
+}
+
+@end
+
 @implementation AppIconOptionsController
 
 - (void)viewDidLoad {
