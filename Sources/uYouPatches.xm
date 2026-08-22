@@ -110,11 +110,6 @@ BOOL uYouIsSideStore() {
 
 // Fix navigation bar showing a lighter grey with default dark mode
 // https://github.com/therealFoxster/uYouPlus/commit/8db8197
-// NOTE: `pageStyle` may not exist on newer YouTube builds (suspected missing
-// on 21.14.4). This hook runs UNCONDITIONALLY and palette getters are called
-// during EVERY layout pass, so an unguarded `self.pageStyle` send aborts the
-// app at startup with "unrecognized selector sent to instance". Guard the
-// send and fall back to the system dark-mode trait when pageStyle is gone.
 %hook YTCommonColorPalette
 - (UIColor *)brandBackgroundSolid {
     BOOL darkPageStyle = NO;
@@ -243,10 +238,6 @@ static void refreshUYouAppearance() {
 %end // gYouFixes
 
 // Fix uYou varispeed controller fallback.
-// Kept in its own group and registered ONLY when YTPlayerViewController truly
-// implements varispeedController: hooking a selector the class lacks would
-// add a method whose %orig is NULL (null-IMP crash) and make
-// respondsToSelector: lie to every caller.
 %group gVarispeedFallbackFix
 %hook YTPlayerViewController
 - (id)varispeedController {
@@ -815,12 +806,6 @@ static float uYouSavedPlaybackRate = 0.0f;
 // ============================================================================
 // MARK: - Module Constructors
 // ============================================================================
-
-// Crash reporting lives in Sources/CrashReporter.xm — standalone and always
-// on. It registers the uncaught-exception handler and delivers the full
-// report straight to the pasteboard DURING the crash (before abort() runs),
-// with a next-launch fallback. Kept separate so crash diagnostics evolve
-// independently of tweak fixes.
 
 %ctor {
     // Load saved playback rate

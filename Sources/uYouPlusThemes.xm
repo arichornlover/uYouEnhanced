@@ -5,12 +5,6 @@
 #define IS_OLED_DARK_THEME_SELECTED (APP_THEME_IDX == 2)
 #define IS_CUSTOM_DARK_THEME_SELECTED (APP_THEME_IDX == 3)
 
-// Theme palette helper — inspired by Tonwalter888/YouMod (Files/Apperence.x).
-// YouMod sends `self.pageStyle` unconditionally; newer YouTube builds may have
-// removed that property, so probe with respondsToSelector: first (same guard
-// as the brandBackgroundSolid fix in uYouPlusPatches.xm) and fall back to the
-// current trait collection. Uses an IMP cast so we never depend on a header
-// declaring pageStyle.
 static inline BOOL themePageStyleIsDark(id palette) {
     if (palette && [palette respondsToSelector:@selector(pageStyle)]) {
         SEL sel = @selector(pageStyle);
@@ -106,9 +100,6 @@ static inline BOOL themePageStyleIsDark(id palette) {
 UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:1.0];
 
 %group gOLED
-// YTColor black ramp — adapted from Tonwalter888/YouMod (Files/Apperence.x):
-// newer YouTube builds also pull colors through YTColor's black0–black4
-// tokens, so pin those to true black alongside the classic palette hooks.
 %hook YTColor
 + (UIColor *)black0 {
     return [UIColor blackColor];
@@ -152,12 +143,6 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 %end
 
 // uYou settings
-// NOTE: the UITableViewCell _layoutSystemBackgroundView tint hooks moved to
-// gOLEDCellTint below — CI static analysis (crash-analysis-report) flagged that
-// this UIKit-private selector is absent from YouTube 21.14.4, and if iOS 26
-// UIKit dropped it too, logos would force-add it to every cell and UIKit's own
-// layout pass would forward into a nonexistent original -> SIGABRT
-// (unrecognized selector during layoutSublayersOfLayer:).
 
 %hook settingsReorderTable
 - (void)viewDidLayoutSubviews {
@@ -365,8 +350,6 @@ UIColor *customHexColor;
     return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 %end
-
-// Cell-background tint hooks extracted from gCustomTheme — see gOLEDCellTint.
 
 %hook settingsReorderTable
 - (void)viewDidLayoutSubviews {
@@ -654,10 +637,8 @@ UIColor *customHexColor;
 %end
 
 
-# pragma mark - OLED keyboard (from Tonwalter888/YouMod — OledKeyboard by dayanch96, https://github.com/dayanch96/OledKeyboard)
+# pragma mark - OLED keyboard
 
-// These UIKit keyboard internals aren't in the public SDK. YouMod pulls them
-// from its Headers.h; we declare just the pieces we touch here.
 @interface UIKeyboard : UIView
 + (UIKeyboard *)activeKeyboard;
 @end
@@ -666,9 +647,6 @@ UIColor *customHexColor;
 @property (nonatomic, copy) NSArray *backgroundEffects;
 @end
 
-// Dark-mode probe for keyboard views. YouMod calls the private
-// _viewControllerForAncestor/_mapkit_isDarkModeEnabled helpers, which aren't
-// cheaply declarable here — walking the responder chain instead.
 static inline BOOL oledKBDarkMode(UIView *view) {
     UIResponder *responder = view;
     while (responder != nil) {
@@ -734,11 +712,6 @@ static inline BOOL oledKBDarkMode(UIView *view) {
 %end
 %end
 
-// Cell-background tint hooks (uYou settings rows). Registered ONLY when
-// UITableViewCell really implements _layoutSystemBackgroundView on the current
-// iOS — otherwise logos would add the missing method to every cell and UIKit's
-// own layout pass would forward into a nonexistent original (SIGABRT,
-// unrecognized selector during layoutSublayersOfLayer:).
 %group gOLEDCellTint
 %hook UITableViewCell
 - (void)_layoutSystemBackgroundView {
@@ -770,14 +743,9 @@ static inline BOOL oledKBDarkMode(UIView *view) {
 %end
 
 %ctor {
-    // Belt-and-braces: every palette getter also probes pageStyle via
-    // themePageStyleIsDark() before sending it, so these gates are a second
-    // line of defence (and skip whole view-hook groups when the palette API
-    // is gone). Graceful degradation beats a boot loop.
     Class paletteClass = %c(YTCommonColorPalette);
     BOOL pageStyleAvailable = paletteClass && [paletteClass instancesRespondToSelector:@selector(pageStyle)];
 
-    // Only tint cells through _layoutSystemBackgroundView when UIKit still has it.
     Class cellClass = %c(UITableViewCell);
     BOOL cellLayoutAPIPresent = cellClass && ([cellClass instancesRespondToSelector:@selector(_layoutSystemBackgroundView)]
                                            || [cellClass instancesRespondToSelector:@selector(_layoutSystemBackgroundView:)]);
