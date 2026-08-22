@@ -90,24 +90,20 @@ internal-clean::
 
 ifneq ($(JAILBROKEN),1)
 before-all::
-	@if [ ! -f "$(UYOU_DEB)" ]; then \
-		$(PRINT_FORMAT_BLUE) "No local uYou deb found; downloading $(UYOU_VERSION)"; \
-		curl -fsS -L "https://www.dropbox.com/scl/fi/01vvu5lm8nkkicrznku9v/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb?rlkey=efgz7po8kqqvha8doplk1s3ky&dl=1" -o "$(UYOU_DEB)"; \
-	else \
-		$(PRINT_FORMAT_BLUE) "Using preserved uYou deb: $(UYOU_DEB)"; \
+	@if [[ ! -f $(UYOU_DEB) ]]; then \
+		rm -rf $(UYOU_PATH)/*; \
+		$(PRINT_FORMAT_BLUE) "Downloading uYou"; \
 	fi
 before-all::
-	@if [ ! -f "$(UYOU_DYLIB)" ] || [ ! -d "$(UYOU_BUNDLE)" ]; then \
-		tar -xf "$(UYOU_DEB)" -C "$(UYOU_PATH)"; \
-		for f in "$(UYOU_PATH)"/data.tar.*; do \
-			[ -e "$$f" ] && tar -xf "$$f" -C "$(UYOU_PATH)"; \
-		done; \
-	fi
-	@if [ ! -f "$(UYOU_DYLIB)" ] || [ ! -d "$(UYOU_BUNDLE)" ]; then \
-		echo "==> Tweaks/uYou contents after failed extraction:"; \
-		ls -la "$(UYOU_PATH)/"; \
-		$(PRINT_FORMAT_ERROR) "Failed to download/extract uYou $(UYOU_VERSION)"; exit 1; \
-	fi
+	@if [[ ! -f $(UYOU_DEB) ]]; then \
+ 		curl -s -L "https://www.dropbox.com/scl/fi/01vvu5lm8nkkicrznku9v/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb?rlkey=efgz7po8kqqvha8doplk1s3ky&dl=1" -o $(UYOU_DEB); \
+ 	fi; \
+	if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
+		tar -xf Tweaks/uYou/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb -C Tweaks/uYou; tar -xf Tweaks/uYou/data.tar* -C Tweaks/uYou; \
+		if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
+			$(PRINT_FORMAT_ERROR) "Failed to extract uYou"; exit 1; \
+		fi; \
+	fi;
 
 else
 before-package::
