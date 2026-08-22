@@ -835,7 +835,7 @@ static void uYouUncaughtExceptionHandler(NSException *exception) {
     NSUInteger frameCount = MIN((NSUInteger)8, frames.count);
     NSString *summary = [NSString stringWithFormat:@"%@\n%@\n\nTop frames:\n%@",
                          exception.name, exception.reason,
-                         [frames subarrayWithRange:NSMakeRange(0, frameCount)] componentsJoinedByString:@"\n"];
+                         [[frames subarrayWithRange:NSMakeRange(0, frameCount)] componentsJoinedByString:@"\n"]];
     [[NSUserDefaults standardUserDefaults] setObject:summary forKey:@"uYouLastCrashSummary"];
     CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
 }
