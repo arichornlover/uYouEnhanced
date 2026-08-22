@@ -816,70 +816,13 @@ static float uYouSavedPlaybackRate = 0.0f;
 // MARK: - Module Constructors
 // ============================================================================
 
-// --- Diagnostic uncaught-exception logger ----------------------------------
-// Stock crash reports redact the exception reason ("-[%s %s]" placeholders),
-// hiding WHICH selector was missing. This handler dumps the full reason +
-// stack to os_log and to a file in the app sandbox so a crashing build tells
-// us exactly what broke.
-static void uYouUncaughtExceptionHandler(NSException *exception) {
-    NSString *report = [NSString stringWithFormat:@"%@: %@\nUserInfo: %@\n%@",
-                        exception.name, exception.reason, exception.userInfo,
-                        [exception.callStackSymbols componentsJoinedByString:@"\n"]];
-    HBLogError(@"[uYouPatches] UNCAUGHT EXCEPTION \u2192 %@", report);
-    NSString *path = [NSTemporaryDirectory() stringByAppendingPathComponent:@"uYouCrash.log"];
-    [report writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
-
-    // Persist a short summary so the NEXT successful launch can display it
-    // on-device (no macOS/Xcode needed to read crash reasons).
-    NSArray<NSString *> *frames = exception.callStackSymbols;
-    NSUInteger frameCount = MIN((NSUInteger)8, frames.count);
-    NSString *summary = [NSString stringWithFormat:@"%@\n%@\n\nTop frames:\n%@",
-                         exception.name, exception.reason,
-                         [[frames subarrayWithRange:NSMakeRange(0, frameCount)] componentsJoinedByString:@"\n"]];
-    [[NSUserDefaults standardUserDefaults] setObject:summary forKey:@"uYouLastCrashSummary"];
-    CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
-}
+// Crash reporting lives in Sources/CrashReporter.xm — standalone and always
+// on. It registers the uncaught-exception handler and delivers the full
+// report straight to the pasteboard DURING the crash (before abort() runs),
+// with a next-launch fallback. Kept separate so crash diagnostics evolve
+// independently of tweak fixes.
 
 %ctor {
-    NSSetUncaughtExceptionHandler(&uYouUncaughtExceptionHandler);
-
-    // If the PREVIOUS run crashed, deliver the exact reason on-device.
-    // DELIVERY BUG FIX: this app can die ~3s after launch — BEFORE a delayed
-    // alert can ever appear — and the old code deleted the stored summary
-    // up front, destroying the evidence every launch. Now the report is
-    // pushed to the PASTEBOARD at 0.5s (well inside the crash window, so it
-    // survives whatever happens next); the alert at 2s is just a visual hint.
-    // After a crash: open Notes (or anywhere) → Paste → send it back.
-    NSString *lastCrash = [[NSUserDefaults standardUserDefaults] stringForKey:@"uYouLastCrashSummary"];
-    if (lastCrash) {
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            UIPasteboard.generalPasteboard.string =
-                [NSString stringWithFormat:@"[uYouEnhanced crash report]\n%@", lastCrash];
-        });
-        [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"uYouLastCrashSummary"];
-        CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            UIViewController *topVC = nil;
-            for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-                if ([scene isKindOfClass:[UIWindowScene class]]) {
-                    topVC = [(UIWindowScene *)scene keyWindow].rootViewController;
-                    if (topVC) break;
-                }
-            }
-            if (!topVC) return;
-            while (topVC.presentedViewController) topVC = topVC.presentedViewController;
-
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"uYouEnhanced: previous run crashed"
-                                                                           message:lastCrash
-                                                                    preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:[UIAlertAction actionWithTitle:@"Copy report" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *a) {
-                UIPasteboard.generalPasteboard.string = lastCrash;
-            }]];
-            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
-            [topVC presentViewController:alert animated:YES completion:nil];
-        });
-    }
-
     // Load saved playback rate
     float savedRate = [[NSUserDefaults standardUserDefaults] floatForKey:@"uYouSavedPlaybackRate"];
     if (savedRate > 0.0f) {
