@@ -458,11 +458,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %hook YTInlinePlayerBarContainerView
 - (BOOL)canShowHeatwave { return NO; }
 %end
-%hook YTPlayerBarHeatwaveView
-- (id)initWithFrame:(CGRect)frame heatmap:(id)heat {
-    return NULL;
-}
-%end
 %hook YTPlayerBarController
 - (void)setHeatmap:(id)arg1 {
     %orig(NULL);
@@ -763,24 +758,12 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
 %group gSection10
 
-// Hide HUD Messages
-%hook YTHUDMessageView
-- (id)initWithMessage:(id)arg1 dismissHandler:(id)arg2 {
-    return IS_ENABLED(kHideHUD) ? nil : %orig;
-}
-%end
-
 // Hide Channel Watermark
+// (YTHUDMessageView / YTAnnotationsViewController removed — classes no longer
+// exist in YouTube 21.x per PoomSmart/YouTubeHeader)
 %hook YTColdConfig
 - (BOOL)iosEnableFeaturedChannelWatermarkOverlayFix {
     return IS_ENABLED(kHideChannelWatermark) ? NO : %orig;
-}
-%end
-%hook YTAnnotationsViewController
-- (void)loadFeaturedChannelWatermark {
-    if (!IS_ENABLED(kHideChannelWatermark)) {
-        %orig;
-    }
 }
 %end
 
