@@ -152,18 +152,12 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 %end
 
 // uYou settings
-%hook UITableViewCell
-- (void)_layoutSystemBackgroundView {
-    %orig;
-    UIView *systemBackgroundView = [self valueForKey:@"_systemBackgroundView"];
-    NSString *backgroundViewKey = class_getInstanceVariable(systemBackgroundView.class, "_colorView") ? @"_colorView" : @"_backgroundView";
-    ((UIView *)[systemBackgroundView valueForKey:backgroundViewKey]).backgroundColor = [UIColor blackColor];
-}
-- (void)_layoutSystemBackgroundView:(BOOL)arg1 {
-    %orig;
-    ((UIView *)[[self valueForKey:@"_systemBackgroundView"] valueForKey:@"_colorView"]).backgroundColor = [UIColor blackColor];
-}
-%end
+// NOTE: the UITableViewCell _layoutSystemBackgroundView tint hooks moved to
+// gOLEDCellTint below — CI static analysis (crash-analysis-report) flagged that
+// this UIKit-private selector is absent from YouTube 21.14.4, and if iOS 26
+// UIKit dropped it too, logos would force-add it to every cell and UIKit's own
+// layout pass would forward into a nonexistent original -> SIGABRT
+// (unrecognized selector during layoutSublayersOfLayer:).
 
 %hook settingsReorderTable
 - (void)viewDidLayoutSubviews {
@@ -372,19 +366,7 @@ UIColor *customHexColor;
 }
 %end
 
-// uYou settings
-%hook UITableViewCell
-- (void)_layoutSystemBackgroundView {
-    %orig;
-    UIView *systemBackgroundView = [self valueForKey:@"_systemBackgroundView"];
-    NSString *backgroundViewKey = class_getInstanceVariable(systemBackgroundView.class, "_colorView") ? @"_colorView" : @"_backgroundView";
-    ((UIView *)[systemBackgroundView valueForKey:backgroundViewKey]).backgroundColor = customHexColor;
-}
-- (void)_layoutSystemBackgroundView:(BOOL)arg1 {
-    %orig;
-    ((UIView *)[[self valueForKey:@"_systemBackgroundView"] valueForKey:@"_colorView"]).backgroundColor = customHexColor;
-}
-%end
+// Cell-background tint hooks extracted from gCustomTheme — see gOLEDCellTint.
 
 %hook settingsReorderTable
 - (void)viewDidLayoutSubviews {
@@ -752,6 +734,41 @@ static inline BOOL oledKBDarkMode(UIView *view) {
 %end
 %end
 
+// Cell-background tint hooks (uYou settings rows). Registered ONLY when
+// UITableViewCell really implements _layoutSystemBackgroundView on the current
+// iOS — otherwise logos would add the missing method to every cell and UIKit's
+// own layout pass would forward into a nonexistent original (SIGABRT,
+// unrecognized selector during layoutSublayersOfLayer:).
+%group gOLEDCellTint
+%hook UITableViewCell
+- (void)_layoutSystemBackgroundView {
+    %orig;
+    UIView *systemBackgroundView = [self valueForKey:@"_systemBackgroundView"];
+    NSString *backgroundViewKey = class_getInstanceVariable(systemBackgroundView.class, "_colorView") ? @"_colorView" : @"_backgroundView";
+    ((UIView *)[systemBackgroundView valueForKey:backgroundViewKey]).backgroundColor = [UIColor blackColor];
+}
+- (void)_layoutSystemBackgroundView:(BOOL)arg1 {
+    %orig;
+    ((UIView *)[[self valueForKey:@"_systemBackgroundView"] valueForKey:@"_colorView"]).backgroundColor = [UIColor blackColor];
+}
+%end
+%end
+
+%group gCustomCellTint
+%hook UITableViewCell
+- (void)_layoutSystemBackgroundView {
+    %orig;
+    UIView *systemBackgroundView = [self valueForKey:@"_systemBackgroundView"];
+    NSString *backgroundViewKey = class_getInstanceVariable(systemBackgroundView.class, "_colorView") ? @"_colorView" : @"_backgroundView";
+    ((UIView *)[systemBackgroundView valueForKey:backgroundViewKey]).backgroundColor = customHexColor;
+}
+- (void)_layoutSystemBackgroundView:(BOOL)arg1 {
+    %orig;
+    ((UIView *)[[self valueForKey:@"_systemBackgroundView"] valueForKey:@"_colorView"]).backgroundColor = customHexColor;
+}
+%end
+%end
+
 %ctor {
     // Belt-and-braces: every palette getter also probes pageStyle via
     // themePageStyleIsDark() before sending it, so these gates are a second
@@ -760,8 +777,16 @@ static inline BOOL oledKBDarkMode(UIView *view) {
     Class paletteClass = %c(YTCommonColorPalette);
     BOOL pageStyleAvailable = paletteClass && [paletteClass instancesRespondToSelector:@selector(pageStyle)];
 
+    // Only tint cells through _layoutSystemBackgroundView when UIKit still has it.
+    Class cellClass = %c(UITableViewCell);
+    BOOL cellLayoutAPIPresent = cellClass && ([cellClass instancesRespondToSelector:@selector(_layoutSystemBackgroundView)]
+                                           || [cellClass instancesRespondToSelector:@selector(_layoutSystemBackgroundView:)]);
+
     if (IS_OLED_DARK_THEME_SELECTED && pageStyleAvailable) {
         %init(gOLED);
+        if (cellLayoutAPIPresent) {
+            %init(gOLEDCellTint);
+        }
     }
     if (IS_OLD_DARK_THEME_SELECTED && pageStyleAvailable) {
         %init(gOldDarkTheme)
@@ -774,6 +799,9 @@ static inline BOOL oledKBDarkMode(UIView *view) {
         if (hexString != nil) {
             customHexColor = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
             %init(gCustomTheme);
+            if (cellLayoutAPIPresent) {
+                %init(gCustomCellTint);
+            }
         }
     }
 
