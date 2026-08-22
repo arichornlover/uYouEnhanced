@@ -34,7 +34,6 @@ LC_FUNCTION_STARTS = 0x26
 MACHO_64_MAGIC = 0xFEEDFACF
 FAT_MAGIC = 0xCAFEBABE
 
-
 def read_uleb128(buf, pos):
     result = 0
     shift = 0
@@ -45,7 +44,6 @@ def read_uleb128(buf, pos):
         if not (b & 0x80):
             return result, pos
         shift += 7
-
 
 class MachO:
     def __init__(self, path):
@@ -75,9 +73,9 @@ class MachO:
 
         self.ncmds = struct.unpack_from("<I", data, self.slice_off + 16)[0]
 
-        self.segments = []   # (segname, vmaddr, fileoff, filesize)
-        self.sections = {}   # (seg, sect) -> {offset,size,addr}
-        self.symbols = []    # (value, type, name)
+        self.segments = []
+        self.sections = {}
+        self.symbols = []
         self.func_starts = []
 
         pos = self.slice_off + 32
@@ -123,8 +121,6 @@ class MachO:
         self.symbols.sort(key=lambda t: t[0])
         self.func_starts.sort()
 
-    # ---- helpers -----------------------------------------------------------
-
     def section_bytes(self, seg, sect):
         info = self.sections.get((seg, sect))
         if not info or info["size"] == 0:
@@ -155,34 +151,26 @@ class MachO:
         nxt = sorted_values[i] if i < len(sorted_values) else None
         return prev, nxt
 
-
-# ---- commands ---------------------------------------------------------------
-
 def cmd_info(m):
     print(f"== {m.path}")
     for seg, vmaddr, fileoff, filesize in m.segments:
         print(f"  segment {seg:<14} vmaddr={vmaddr:#x} fileoff={fileoff:#x} size={filesize:#x}")
     print(f"  symbols: {len(m.symbols)}   function-starts: {len(m.func_starts)}")
 
-
 def cmd_selectors(m):
     for sel in sorted(m.selector_set()):
         print(sel)
-
 
 def cmd_syms(m):
     for value, ntype, name in m.symbols:
         print(f"{value:#011x} {ntype:#04x} {name}")
 
-
 def cmd_funcstarts(m):
     for v in m.func_starts:
         print(f"{v:#x}")
 
-
 def parse_offset(tok):
-    return int(tok, 0)  # handles decimal and 0x hex
-
+    return int(tok, 0)
 
 def cmd_symbolicate(m, offsets):
     sym_vals = [v for v, _t, _n in m.symbols]
@@ -206,11 +194,8 @@ def cmd_symbolicate(m, offsets):
         if not m.symbols and not m.func_starts:
             print("  NOTE: binary fully stripped — no symbols, no function starts.")
 
-
 SELECTOR_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(:[A-Za-z_][A-Za-z0-9_]*)*:?$")
 
-# Common Foundation/UIKit selectors that legitimately won't appear inside the
-# YouTube binary (they live in the system frameworks).
 ALLOWLIST = {
     "init", "dealloc", "class", "self", "superclass", "isKindOfClass:", "respondsToSelector:",
     "description", "debugDescription", "hash", "copy", "retain", "release", "autorelease",
@@ -251,14 +236,13 @@ ALLOWLIST = {
     "dispatch_async", "dispatch_after", "isnan", "progress", "pause", "play", "close",
 }
 
-
 def cmd_audit(yt_path, tweak_path):
     yt = MachO(yt_path)
     tw = MachO(tweak_path)
 
     yt_sels = yt.selector_set()
-    tw_defined = tw.selector_set()          # methods the tweak itself implements
-    tw_refs = tw.cstrings() | tw_defined    # selector literals usually live in __cstring
+    tw_defined = tw.selector_set()
+    tw_refs = tw.cstrings() | tw_defined
 
     suspects = []
     for tok in tw_refs:
@@ -284,7 +268,6 @@ def cmd_audit(yt_path, tweak_path):
         print(f"  ? {tok}")
     if not suspects:
         print("  (none — tweak references look clean)")
-
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -314,7 +297,6 @@ def main():
         cmd_funcstarts(m)
     elif args.cmd == "symbolicate":
         cmd_symbolicate(m, args.offsets)
-
 
 if __name__ == "__main__":
     main()

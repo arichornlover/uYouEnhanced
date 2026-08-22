@@ -91,16 +91,17 @@ internal-clean::
 ifneq ($(JAILBROKEN),1)
 before-all::
 	@if [ ! -f "$(UYOU_DEB)" ]; then \
-		$(PRINT_FORMAT_BLUE) "uYou .deb missing; CI will attempt to download/extract it"; \
+		rm -rf $(UYOU_PATH)/*; \
+		$(PRINT_FORMAT_BLUE) "Downloading uYou $(UYOU_VERSION)"; \
+		curl -s -L "https://www.dropbox.com/scl/fi/01vvu5lm8nkkicrznku9v/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb?rlkey=efgz7po8kqqvha8doplk1s3ky&dl=1" -o "$(UYOU_DEB)"; \
 	fi
-
 before-all::
-	@if [ -f "$(UYOU_DEB)" ]; then \
+	@if [ ! -f "$(UYOU_DYLIB)" ] || [ ! -d "$(UYOU_BUNDLE)" ]; then \
 		tar -xf "$(UYOU_DEB)" -C "$(UYOU_PATH)" 2>/dev/null || true; \
-		if [ ! -f "$(UYOU_DYLIB)" ] || [ ! -d "$(UYOU_BUNDLE)" ]; then \
-			echo "Attempting data.tar.* extraction"; \
-			tar -xf "$(UYOU_PATH)/data.tar*" -C "$(UYOU_PATH)" 2>/dev/null || true; \
-		fi; \
+		tar -xf "$(UYOU_PATH)/data.tar*" -C "$(UYOU_PATH)" 2>/dev/null || true; \
+	fi
+	@if [ ! -f "$(UYOU_DYLIB)" ] || [ ! -d "$(UYOU_BUNDLE)" ]; then \
+		$(PRINT_FORMAT_ERROR) "Failed to download/extract uYou $(UYOU_VERSION)"; exit 1; \
 	fi
 
 else
