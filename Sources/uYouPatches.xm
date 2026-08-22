@@ -843,14 +843,22 @@ static void uYouUncaughtExceptionHandler(NSException *exception) {
 %ctor {
     NSSetUncaughtExceptionHandler(&uYouUncaughtExceptionHandler);
 
-    // If the PREVIOUS run crashed, surface the exact reason on-device.
-    // The alert has a Copy button so the selector can be pasted straight
-    // back into the build chat — no macOS required.
+    // If the PREVIOUS run crashed, deliver the exact reason on-device.
+    // DELIVERY BUG FIX: this app can die ~3s after launch — BEFORE a delayed
+    // alert can ever appear — and the old code deleted the stored summary
+    // up front, destroying the evidence every launch. Now the report is
+    // pushed to the PASTEBOARD at 0.5s (well inside the crash window, so it
+    // survives whatever happens next); the alert at 2s is just a visual hint.
+    // After a crash: open Notes (or anywhere) → Paste → send it back.
     NSString *lastCrash = [[NSUserDefaults standardUserDefaults] stringForKey:@"uYouLastCrashSummary"];
     if (lastCrash) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            UIPasteboard.generalPasteboard.string =
+                [NSString stringWithFormat:@"[uYouEnhanced crash report]\n%@", lastCrash];
+        });
         [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"uYouLastCrashSummary"];
         CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             UIViewController *topVC = nil;
             for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
                 if ([scene isKindOfClass:[UIWindowScene class]]) {
