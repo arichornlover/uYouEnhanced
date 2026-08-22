@@ -672,15 +672,21 @@ UIColor *customHexColor;
 %end
 
 
-# pragma mark - OLED keyboard (adapted from Tonwalter888/YouMod — OledKeyboard by dayanch96, https://github.com/dayanch96/OledKeyboard)
-// Replaces the older ichitaso gist version. Hooks that touch private,
-// potentially-vanishing selectors live in their own groups and are gated in
-// %ctor so a removed selector can't be silently class_addMethod'd (which
-// would make respondsToSelector: lie and crash callers).
+# pragma mark - OLED keyboard (from Tonwalter888/YouMod — OledKeyboard by dayanch96, https://github.com/dayanch96/OledKeyboard)
 
-// Dark-mode probe for keyboard views. YouMod's original calls the private
-// _viewControllerForAncestor/_mapkit_isDarkModeEnabled helpers; rewritten
-// here with public API only.
+// These UIKit keyboard internals aren't in the public SDK. YouMod pulls them
+// from its Headers.h; we declare just the pieces we touch here.
+@interface UIKeyboard : UIView
++ (UIKeyboard *)activeKeyboard;
+@end
+
+@interface UIKBVisualEffectView : UIView
+@property (nonatomic, copy) NSArray *backgroundEffects;
+@end
+
+// Dark-mode probe for keyboard views. YouMod calls the private
+// _viewControllerForAncestor/_mapkit_isDarkModeEnabled helpers, which aren't
+// cheaply declarable here — walking the responder chain instead.
 static inline BOOL oledKBDarkMode(UIView *view) {
     UIResponder *responder = view;
     while (responder != nil) {
@@ -696,8 +702,27 @@ static inline BOOL oledKBDarkMode(UIView *view) {
 }
 
 %group gOLEDKB
-// Always-safe hooks: layoutSubviews is inherited from UIView, so these can
-// never become class_addMethod traps.
+%hook UIKeyboard
+- (void)displayLayer:(id)arg1 {
+    %orig;
+    self.backgroundColor = oledKBDarkMode(self) ? [UIColor blackColor] : [UIColor clearColor];
+}
+%end
+
+%hook UIPredictionViewController
+- (id)_currentTextSuggestions {
+    UIKeyboard *keyboard = [%c(UIKeyboard) activeKeyboard];
+    if (oledKBDarkMode(keyboard)) {
+        [self.view setBackgroundColor:[UIColor blackColor]];
+        keyboard.backgroundColor = [UIColor blackColor];
+    } else {
+        [self.view setBackgroundColor:[UIColor clearColor]];
+        keyboard.backgroundColor = [UIColor clearColor];
+    }
+    return %orig;
+}
+%end
+
 %hook UIKeyboardDockView
 - (void)layoutSubviews {
     %orig;
@@ -705,13 +730,12 @@ static inline BOOL oledKBDarkMode(UIView *view) {
 }
 %end
 
-// Since we can't hook a private framework class from UIKit, we check the class
-// name through the nearest available UIKit class.
+// Since we can't hook a private framework class from UIKit, we check the class name through the nearest available from UIKit class
 %hook UIInputView
 - (void)layoutSubviews {
     %orig;
-    if ([self isKindOfClass:NSClassFromString(@"TUIEmojiSearchInputView")]   // Emoji searching panel
-     || [self isKindOfClass:NSClassFromString(@"_SFAutoFillInputView")]) {  // Autofill password
+    if ([self isKindOfClass:NSClassFromString(@"TUIEmojiSearchInputView")] // Emoji searching panel
+     || [self isKindOfClass:NSClassFromString(@"_SFAutoFillInputView")]) { // Autofill password
         self.backgroundColor = oledKBDarkMode(self) ? [UIColor blackColor] : [UIColor clearColor];
     }
 }
@@ -721,27 +745,9 @@ static inline BOOL oledKBDarkMode(UIView *view) {
 - (void)layoutSubviews {
     %orig;
     if (oledKBDarkMode(self)) {
-        [self setValue:nil forKey:@"backgroundEffects"]; // KVC — property isn't in the public SDK
+        self.backgroundEffects = nil;
         self.backgroundColor = [UIColor blackColor];
     }
-}
-%end
-%end
-
-%group gOLEDKBKeyboard
-%hook UIKeyboard
-- (void)displayLayer:(CALayer *)layer {
-    %orig;
-    self.backgroundColor = oledKBDarkMode(self) ? [UIColor blackColor] : [UIColor clearColor];
-}
-%end
-%end
-
-%group gOLEDKBPrediction
-%hook UIPredictionViewController
-- (id)_currentTextSuggestions {
-    [self.view setBackgroundColor:oledKBDarkMode(self.view) ? [UIColor blackColor] : [UIColor clearColor]];
-    return %orig;
 }
 %end
 %end
@@ -771,18 +777,7 @@ static inline BOOL oledKBDarkMode(UIView *view) {
         }
     }
 
-    // OLED keyboard — layoutSubviews-based group is always safe; the private-
-    // selector groups are gated on the selectors actually existing.
     if (IS_ENABLED(@"oledKeyBoard_enabled")) {
         %init(gOLEDKB);
-
-        Class keyboardClass = %c(UIKeyboard);
-        if (keyboardClass && [keyboardClass instancesRespondToSelector:@selector(displayLayer:)]) {
-            %init(gOLEDKBKeyboard);
-        }
-        Class predictionClass = %c(UIPredictionViewController);
-        if (predictionClass && [predictionClass instancesRespondToSelector:@selector(_currentTextSuggestions)]) {
-            %init(gOLEDKBPrediction);
-        }
     }
 }
