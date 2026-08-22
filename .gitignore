@@ -7,3 +7,7 @@ Tweaks/uYou/*
 Resources/
 *.ipa
 .vscode
+__pycache__/
+*.pyc
+crash-analysis-report/
+*.ips
