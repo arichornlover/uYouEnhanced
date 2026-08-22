@@ -12,10 +12,10 @@ REFDIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "crash-a
 
 DYLIB_NAMES = [
     "YouSpeed", "libcolorpicker", "YouPiP", "YouGroupSettings",
-    "DontEatMyContent", "YouLoop", "iSponsorBlock", "YTABConfig",
-    "libFLEX", "YTVideoOverlay", "YouTimeStamp", "uYouEnhanced",
-    "YTweaks", "YouSlider", "YTIcons", "YouTubeDislikesReturn",
-    "YouQuality",
+    "DontEatMyContent", "YouLoop", "uYou", "iSponsorBlock",
+    "YTABConfig", "libFLEX", "YTVideoOverlay", "YouTimeStamp",
+    "uYouEnhanced", "YTweaks", "YouSlider", "YTIcons",
+    "YouTubeDislikesReturn", "YouQuality",
 ]
 
 def load_set(path):
