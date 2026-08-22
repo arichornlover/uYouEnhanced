@@ -108,6 +108,18 @@
 
 // =============================================
 
+@interface GOOHUDMessage : NSObject
++ (instancetype)messageWithText:(NSString *)text;
+@end
+
+@interface YTHUDMessage : GOOHUDMessage
+@end
+
+@interface GOOHUDManagerInternal : NSObject
++ (instancetype)sharedInstance;
+- (void)showMessageMainThread:(YTHUDMessage *)message;
+@end
+
 @implementation YouModMigrationManager
 
 + (instancetype)sharedManager {
@@ -168,13 +180,16 @@
     [defaults synchronize];
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        NSString *msg = [NSString stringWithFormat:
-            @"%ld compatible settings were copied to YouMod.\n\n"
-            "uYouEnhanced settings were left untouched.\n"
-            "Restart YouTube → test YouMod.", 
-            (long)migrated];
+        YTHUDMessage *hud = [%c(YTHUDMessage) messageWithText:
+            [NSString stringWithFormat:@"Migrated %ld settings to YouMod ✓", (long)migrated]];
+        [[%c(GOOHUDManagerInternal) sharedInstance] showMessageMainThread:hud];
 
         if (shouldReset) {
+            NSString *msg = [NSString stringWithFormat:
+                @"%ld compatible settings were copied to YouMod.\n\n"
+                "uYouEnhanced settings were left untouched.\n"
+                "Restart YouTube → test YouMod.",
+                (long)migrated];
             msg = [msg stringByAppendingString:@"\n\nuYouEnhanced settings have been reset (except submodules)."];
             // Reset uYouEnhanced keys (keep submodule keys)
             NSArray *protectedKeys = @[/* add submodule keys here if needed */];
@@ -184,13 +199,13 @@
                 }
             }
             [defaults synchronize];
-        }
 
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Migration Finished"
-                                                                       message:msg
-                                                                preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-        [[UIApplication sharedApplication].keyWindow.rootViewController presentViewController:alert animated:YES completion:nil];
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Migration Finished"
+                                                                           message:msg
+                                                                    preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+            [[UIApplication sharedApplication].keyWindow.rootViewController presentViewController:alert animated:YES completion:nil];
+        }
     });
 }
 

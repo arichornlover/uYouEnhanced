@@ -982,8 +982,8 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     ];
     [sectionItems addObject:youModGitHub];
     YTSettingsSectionItem *migrateToYouMod = [%c(YTSettingsSectionItem)
-        itemWithTitle:@"Migrate to YouMod"
-        titleDescription:@"Migrate settings to YouMod (Default - migrates but won't the remove uYouEnhanced settings, recommended option.)"
+        itemWithTitle:@"⭐ Migrate to YouMod (Recommended)"
+        titleDescription:@"Copies your compatible uYouEnhanced settings over to YouMod. Your uYouEnhanced settings are kept. A HUD message confirms how many keys migrated."
         accessibilityIdentifier:nil
         detailTextBlock:nil
         selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
@@ -993,8 +993,8 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     ];
     [sectionItems addObject:migrateToYouMod];
     YTSettingsSectionItem *migrateAndReset = [%c(YTSettingsSectionItem)
-        itemWithTitle:@"Migrate to YouMod + Reset uYouEnhanced"
-        titleDescription:@"Migrate settings to YouMod (Alternate - REMOVES all toggled uYouEnhanced Settings. Use this if you are willing to remove all of the uYouEnhanced keys for any reason for YouMod.)"
+        itemWithTitle:@"⚠️ Migrate to YouMod + Reset uYouEnhanced (Advanced)"
+        titleDescription:@"Copies your settings to YouMod, then REMOVES all toggled uYouEnhanced settings. Only use this if you fully intend to switch to YouMod."
         accessibilityIdentifier:nil
         detailTextBlock:nil
         selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
