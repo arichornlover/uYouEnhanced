@@ -30,7 +30,9 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
     self.view.backgroundColor = [UIColor systemGroupedBackgroundColor];
 
     NSDictionary *mainInfo = [[NSBundle mainBundle] infoDictionary];
-    NSArray *alternate = mainInfo[@"CFBundleIcons"][@"CFBundleAlternateIcons"].allKeys;
+    NSDictionary *iconsDict = mainInfo[@"CFBundleIcons"];
+    NSDictionary *altDict = [iconsDict objectForKey:@"CFBundleAlternateIcons"];
+    NSArray *alternate = [(NSDictionary *)altDict allKeys];
     self.appIcons = [alternate sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
 
     NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:[NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", kPrefDomain]] ?: @{};
@@ -86,7 +88,8 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
 
     UIImage *img = nil;
     if (!isDefault) {
-        NSBundle *bundle = [NSBundle bundleWithPath:[NSBundle mainBundle].pathForResource:@"uYouPlus" ofType:@"bundle"] ?: [NSBundle mainBundle];
+        NSString *bundlePath = [[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"];
+        NSBundle *bundle = bundlePath ? [NSBundle bundleWithPath:bundlePath] : [NSBundle mainBundle];
         img = [UIImage imageWithContentsOfFile:[bundle.bundlePath stringByAppendingPathComponent:[NSString stringWithFormat:@"AppIcons/%@.png", name]]];
         if (!img) img = [UIImage imageWithContentsOfFile:[NSString stringWithFormat:@"/Library/Application Support/uYouEnhanced/AppIcons/%@.png", name]];
     }
