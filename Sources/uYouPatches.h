@@ -56,6 +56,7 @@ BOOL uYouIsSideStore();
 
 @interface uYouItem : NSObject
 - (BOOL)isMP4;
+- (BOOL)isDownloadFinished;
 @property (nonatomic, strong) NSString *videoID;
 @property (nonatomic, strong) NSString *title;
 @property (nonatomic, strong) NSString *channel;

@@ -400,6 +400,63 @@ static void UYTFallbackToVideoOnly(id item) {
     }
 }
 
+// AVAssetExportSession silent-hang family (#452/#241/#520/#830/#676).
+static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
+    __weak id weakItem = item;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)),
+                   dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        id strongItem = weakItem;
+        if (!strongItem) return;
+        @try {
+            uYouItem *ui = [strongItem valueForKey:@"uYouItem"];
+            if (!ui) return;
+            NSString *filePath = [ui filePath];
+            if (!filePath.length) return;
+
+            NSFileManager *fm = [NSFileManager defaultManager];
+
+            BOOL finished = NO;
+            if ([ui respondsToSelector:@selector(isDownloadFinished)]) {
+                finished = [ui isDownloadFinished];
+            }
+            if (!finished) {
+                NSDictionary *attrs = [fm attributesOfItemAtPath:filePath error:nil];
+                finished = (attrs && [attrs fileSize] > 0);
+            }
+            if (finished) return; // completed normally
+
+            HBLogWarn(@"[uYouPatches] download stalled >%.0fs — forcing completion", seconds);
+
+            NSMutableArray<NSString *> *candidates = [NSMutableArray array];
+            NSString *vid = nil;
+            if ([ui respondsToSelector:@selector(videoID)]) vid = [ui valueForKey:@"videoID"];
+            if (vid.length) {
+                NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+                [candidates addObject:[docs stringByAppendingPathComponent:[NSString stringWithFormat:@"uYouDownloads/%@.mp4", vid]]];
+            }
+            // Converted/downloaded audio (skip raw webm — unplayable natively)
+            for (NSString *key in @[@"tmpAudioPath", @"cachedAudioPath"]) {
+                NSString *p = [ui valueForKey:key];
+                if (p.length && ![p.pathExtension.lowercaseString isEqualToString:@"webm"]) [candidates addObject:p];
+            }
+            NSString *cv = [ui cachedVideoPath];
+            if (cv.length) [candidates addObject:cv];
+
+            for (NSString *cand in candidates) {
+                if (![fm fileExistsAtPath:cand]) continue;
+                if ([fm fileExistsAtPath:filePath]) [fm removeItemAtPath:filePath error:nil];
+                NSError *err = nil;
+                BOOL ok = [fm moveItemAtPath:cand toPath:filePath error:&err];
+                if (!ok) ok = [fm copyItemAtPath:cand toPath:filePath error:&err];
+                if (ok) {
+                    HBLogWarn(@"[uYouPatches] forced completion via %@", cand);
+                    return;
+                }
+            }
+        } @catch (NSException *e) {}
+    });
+}
+
 %hook DownloadsManager
 - (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
     %orig;
@@ -478,7 +535,17 @@ static void UYTFallbackToVideoOnly(id item) {
     } @catch (NSException *e) {
         HBLogWarn(@"[uYouPatches] WebM pre-conversion in addMetadata failed: %@", e);
     }
+    // Anti-hang guard (same as above) for the generic audio+video merge path.
+    if (UYTAudioStillWebm(item)) {
+        HBLogWarn(@"[uYouPatches] Audio still WebM after conversion — skipping merge to avoid infinite hang");
+        UYTFallbackToVideoOnly(item);
+        return;
+    }
 
+    // Stall watchdog for the metadata phase ("Adding Metadata to the M4A..."
+    // stuck at 0% on audio-only downloads). If metadata writing stalls, the
+    // watchdog completes the item from the converted m4a directly.
+    UYTArmStallWatchdog(item, 30.0);
     @try {
         %orig;
     } @catch (NSException *e) {
@@ -531,6 +598,9 @@ static void UYTFallbackToVideoOnly(id item) {
         return;
     }
 
+    // Generic stall watchdog (covers non-webm hangs too).
+    UYTArmStallWatchdog(item, 45.0);
+
     @try {
         %orig;
     } @catch (NSException *e) {
@@ -581,6 +651,9 @@ static void UYTFallbackToVideoOnly(id item) {
         UYTFallbackToVideoOnly(item);
         return;
     }
+
+    // Generic stall watchdog.
+    UYTArmStallWatchdog(item, 45.0);
 
     @try {
         %orig;
