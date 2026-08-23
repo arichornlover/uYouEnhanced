@@ -1003,18 +1003,19 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
         }
     ];
     [sectionItems addObject:migrateAndReset];
+    NSInteger notifPos = [[NSUserDefaults standardUserDefaults] integerForKey:@"FENotificationsTabIndex"];
+    NSString *notifPosLabel = (notifPos < 0 || notifPos > 4)
+        ? @"End"
+        : @[@"1st", @"2nd", @"3rd", @"4th", @"5th"][notifPos];
     YTSettingsSectionItem *notifPosition = [%c(YTSettingsSectionItem)
         itemWithTitle:@"Notifications Tab Position"
-        detailTextBlock:^NSString * (UITableViewCell *cell) {
-            NSInteger pos = [[NSUserDefaults standardUserDefaults] integerForKey:@"FENotificationsTabIndex"];
-            if (pos < 0 || pos > 4) return @"End";
-            return @[@"1st", @"2nd", @"3rd", @"4th", @"5th"][pos];
-        }
+        titleDescription:[NSString stringWithFormat:@"Currently: %@ — tap to cycle (reopen settings to refresh). Reorderable via uYouEnhanced, no conflict with uYou's Reorder Tabs.", notifPosLabel]
+        accessibilityIdentifier:nil
+        detailTextBlock:nil
         selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
             NSInteger pos = [[NSUserDefaults standardUserDefaults] integerForKey:@"FENotificationsTabIndex"];
             pos = (pos + 1) % 6; // 0..4 = position among tabs, 5 = End
             [[NSUserDefaults standardUserDefaults] setInteger:(pos == 5 ? -1 : pos) forKey:@"FENotificationsTabIndex"];
-            [settingsViewController reloadData];
             return YES;
         }
     ];
