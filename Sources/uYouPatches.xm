@@ -450,6 +450,14 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
                 if (!ok) ok = [fm copyItemAtPath:cand toPath:filePath error:&err];
                 if (ok) {
                     HBLogWarn(@"[uYouPatches] forced completion via %@", cand);
+                    // Mimic uYou's native completion: it posts download/conversion
+                    // notifications so cells + lists refresh. Object = the item.
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [[NSNotificationCenter defaultCenter]
+                            postNotificationName:@"downloadDidCompleteNotification" object:strongItem];
+                        [[NSNotificationCenter defaultCenter]
+                            postNotificationName:@"conversionDidCompleteNotification" object:strongItem];
+                    });
                     return;
                 }
             }
