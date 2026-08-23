@@ -342,6 +342,64 @@ static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
     return NO;
 }
 
+// Post-conversion check: is the item's audio still WebM? If yes, calling
+// %orig would hang forever inside AVAssetExportSession (it never completes
+// an mp4+webm merge and never throws), so callers must skip the merge.
+static BOOL UYTAudioStillWebm(id item) {
+    @try {
+        uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
+        if (!uyouItem) return NO;
+        NSString *audioPath = [uyouItem valueForKey:@"tmpAudioPath"] ?: [uyouItem valueForKey:@"cachedAudioPath"];
+        return audioPath && [audioPath.pathExtension.lowercaseString isEqualToString:@"webm"];
+    } @catch (NSException *e) {
+        return NO;
+    }
+}
+
+// Finish the download gracefully instead of hanging. Prefers our pipeline's
+// muxed mp4 (video+audio) when available; otherwise falls back to uYou's
+// cached video-only stream.
+static void UYTFallbackToVideoOnly(id item) {
+    @try {
+        uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
+        if (!uyouItem) return;
+        NSString *filePath = [uyouItem filePath];
+        if (!filePath) return;
+
+        NSString *src = nil;
+        BOOL usedMuxed = NO;
+        NSString *vid = nil;
+        if ([uyouItem respondsToSelector:@selector(videoID)]) {
+            vid = [uyouItem valueForKey:@"videoID"];
+        }
+        NSFileManager *fm = [NSFileManager defaultManager];
+
+        // 1) Preferred: the muxed mp4 our modern pipeline downloaded (has audio).
+        if (vid.length) {
+            NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+            NSString *muxed = [docs stringByAppendingPathComponent:[NSString stringWithFormat:@"uYouDownloads/%@.mp4", vid]];
+            if ([fm fileExistsAtPath:muxed]) {
+                src = muxed;
+                usedMuxed = YES;
+            }
+        }
+        // 2) Otherwise: uYou's cached video-only stream (silent, but playable).
+        NSString *cachedVideoPath = [uyouItem cachedVideoPath];
+        if (!src && cachedVideoPath && [fm fileExistsAtPath:cachedVideoPath]) src = cachedVideoPath;
+
+        if (src) {
+            if ([fm fileExistsAtPath:filePath]) [fm removeItemAtPath:filePath error:nil];
+            NSError *err = nil;
+            BOOL ok = [fm moveItemAtPath:src toPath:filePath error:&err];
+            if (!ok) ok = [fm copyItemAtPath:src toPath:filePath error:&err];
+            HBLogWarn(@"[uYouPatches] Completed without merge (%@): %@",
+                      usedMuxed ? @"muxed pipeline file" : @"video-only stream", filePath);
+        }
+    } @catch (NSException *e) {
+        HBLogWarn(@"[uYouPatches] no-merge fallback failed: %@", e);
+    }
+}
+
 %hook DownloadsManager
 - (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
     %orig;
@@ -465,6 +523,14 @@ static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
         HBLogWarn(@"[uYouPatches] WebM pre-conversion in mergeMP4 failed: %@", e);
     }
 
+    // Anti-hang (#452/#520/#830 family): if the audio is still WebM the merge
+    // would sit at "Converting 0%" forever — finish video-only instead.
+    if (UYTAudioStillWebm(item)) {
+        HBLogWarn(@"[uYouPatches] Audio still WebM after conversion — skipping merge to avoid infinite hang");
+        UYTFallbackToVideoOnly(item);
+        return;
+    }
+
     @try {
         %orig;
     } @catch (NSException *e) {
@@ -507,6 +573,13 @@ static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
         }
     } @catch (NSException *e) {
         HBLogWarn(@"[uYouPatches] WebM pre-conversion in mergeAudio failed: %@", e);
+    }
+
+    // Anti-hang guard (same as above) for the generic audio+video merge path.
+    if (UYTAudioStillWebm(item)) {
+        HBLogWarn(@"[uYouPatches] Audio still WebM after conversion — skipping merge to avoid infinite hang");
+        UYTFallbackToVideoOnly(item);
+        return;
     }
 
     @try {
