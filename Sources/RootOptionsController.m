@@ -150,12 +150,12 @@
         if (indexPath.row == 0) {
             ColourOptionsController *vc = [[ColourOptionsController alloc] init];
             UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
-            nav.modalPresentationStyle = UIModalPresentationFullScreen;
+            nav.modalPresentationStyle = UIModalPresentationFormSheet;
             [self presentViewController:nav animated:YES completion:nil];
         } else if (indexPath.row == 1) {
             ColourOptionsController2 *vc = [[ColourOptionsController2 alloc] init];
             UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
-            nav.modalPresentationStyle = UIModalPresentationFullScreen;
+            nav.modalPresentationStyle = UIModalPresentationFormSheet;
             [self presentViewController:nav animated:YES completion:nil];
         }
     } else if (indexPath.section == 1 && indexPath.row == 0) {

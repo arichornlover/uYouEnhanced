@@ -102,7 +102,22 @@ static NSInteger _notificationsBadgeCount = 0;
 	YTIPivotBarSupportedRenderers *barSupport = [[%c(YTIPivotBarSupportedRenderers) alloc] init];
 	[barSupport setPivotBarItemRenderer:itemBar];
 
-        [renderer.itemsArray addObject:barSupport];
+        // Position according to uYou's Reorder Tabs order ("reorderedTabs" key),
+        // so the tab isn't stuck at the end when the user rearranges tabs.
+        NSUInteger insertIndex = renderer.itemsArray.count;
+        NSArray *reorderedTabs = [[NSUserDefaults standardUserDefaults] arrayForKey:@"reorderedTabs"];
+        if ([reorderedTabs containsObject:@"FEnotifications_inbox"]) {
+            NSUInteger before = 0;
+            for (NSString *ident in reorderedTabs) {
+                if ([ident isEqualToString:@"FEnotifications_inbox"]) break;
+                for (YTIPivotBarSupportedRenderers *it in renderer.itemsArray) {
+                    NSString *pid = it.pivotBarItemRenderer ? it.pivotBarItemRenderer.pivotIdentifier : nil;
+                    if ([pid isEqualToString:ident]) { before++; break; }
+                }
+            }
+            insertIndex = MIN(before, renderer.itemsArray.count);
+        }
+        [renderer.itemsArray insertObject:barSupport atIndex:insertIndex];
     } @catch (NSException *exception) {
         NSLog(@"Error setting renderer: %@", exception.reason);
     }

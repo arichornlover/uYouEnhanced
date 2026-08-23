@@ -32,7 +32,11 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
     NSDictionary *mainInfo = [[NSBundle mainBundle] infoDictionary];
     NSDictionary *iconsDict = mainInfo[@"CFBundleIcons"];
     NSDictionary *altDict = [iconsDict objectForKey:@"CFBundleAlternateIcons"];
-    NSArray *alternate = [(NSDictionary *)altDict allKeys];
+    NSDictionary *altDictPad = [mainInfo[@"CFBundleIcons~ipad"] objectForKey:@"CFBundleAlternateIcons"];
+    NSMutableSet *merged = [NSMutableSet set];
+    for (NSString *k in altDict) [merged addObject:k];
+    for (NSString *k in altDictPad) [merged addObject:k];
+    NSArray *alternate = [merged allObjects];
     self.appIcons = [alternate sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
 
     NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:[NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", kPrefDomain]] ?: @{};
@@ -42,8 +46,6 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
     UICollectionViewFlowLayout *layout = [[UICollectionViewFlowLayout alloc] init];
     layout.minimumInteritemSpacing = 16;
     layout.minimumLineSpacing = 24;
-    CGFloat side = ([UIScreen mainScreen].bounds.size.width - 32 - 32) / 3.0;
-    layout.itemSize = CGSizeMake(side, side + 30);
     layout.sectionInset = UIEdgeInsetsMake(16, 16, 24, 16);
 
     self.collectionView = [[UICollectionView alloc] initWithFrame:CGRectZero collectionViewLayout:layout];
@@ -59,6 +61,20 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
         [self.collectionView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.collectionView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor]
     ]];
+}
+
+- (void)viewWillLayoutSubviews {
+    [super viewWillLayoutSubviews];
+    UICollectionViewFlowLayout *layout = (UICollectionViewFlowLayout *)self.collectionView.collectionViewLayout;
+    CGFloat width = self.collectionView.bounds.size.width - layout.sectionInset.left - layout.sectionInset.right;
+    NSUInteger columns = MAX(3, MIN(6, (NSUInteger)(width / 130.0)));
+    CGFloat spacing = layout.minimumInteritemSpacing * (columns - 1);
+    CGFloat side = floorf((width - spacing) / columns);
+    CGSize newSize = CGSizeMake(side, side + 30);
+    if (!CGSizeEqualToSize(layout.itemSize, newSize)) {
+        layout.itemSize = newSize;
+        [layout invalidateLayout];
+    }
 }
 
 - (NSInteger)collectionView:(UICollectionView *)cv numberOfItemsInSection:(NSInteger)section {

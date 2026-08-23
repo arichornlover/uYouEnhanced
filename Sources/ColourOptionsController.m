@@ -25,23 +25,6 @@
         [unarchiver setRequiresSecureCoding:NO];
         self.selectedColor = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
     }
-
-    // Better iPad scaling
-    if ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad) {
-        CGFloat scale = MIN(self.view.bounds.size.width / 768.0, self.view.bounds.size.height / 1024.0);
-        self.view.transform = CGAffineTransformMakeScale(scale, scale);
-    }
-}
-
-- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
-    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
-
-    if ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad) {
-        [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-            CGFloat scale = MIN(size.width / 768.0, size.height / 1024.0);
-            self.view.transform = CGAffineTransformMakeScale(scale, scale);
-        } completion:nil];
-    }
 }
 
 @end

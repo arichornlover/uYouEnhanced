@@ -256,11 +256,9 @@ static void refreshUYouAppearance() {
 %end
 %end // gVarispeedFallbackFix
 
-// ============================================================================
-// MARK: - uYou Download Fixes (Comprehensive Rework)
+// uYou Download Fixes (Comprehensive Rework)
 // Addresses: #948, #70, #520, #241, #814, #813, #735
 // Based on reverse-engineered uYou 3.0.4 source
-// ============================================================================
 
 %group gYouDownloadFixes
 
@@ -272,25 +270,12 @@ static void refreshUYouAppearance() {
 
 %hook DownloadsManager
 - (void)setupURLSessionConfiguration {
+    // Background-session swap REMOVED: uYou uses AFHTTPSessionManager, which is
+    // the delegate of its own session. Replacing the session with a plain
+    // NSURLSession (delegate:nil) severed every AFNetworking callback —
+    // downloads sat at "(null) | 0%" forever. The original foreground session
+    // works; do not swap it out.
     %orig;
-
-    // After the original setup, reconfigure the session to support background transfers
-    @try {
-        id sm = [self respondsToSelector:@selector(sessionManager)] ? self.sessionManager : nil;
-        if (sm && [sm respondsToSelector:@selector(setSession:)]) {
-            NSURLSessionConfiguration *bgConfig = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:@"com.miro.uyou.bg"];
-            bgConfig.timeoutIntervalForRequest = 30;
-            bgConfig.timeoutIntervalForResource = 86400; // 24 hours
-            bgConfig.sessionSendsLaunchEvents = YES;
-            bgConfig.discretionary = NO;
-            bgConfig.shouldUseExtendedBackgroundIdleMode = YES;
-
-            NSURLSession *bgSession = [NSURLSession sessionWithConfiguration:bgConfig delegate:nil delegateQueue:nil];
-            [sm performSelector:@selector(setSession:) withObject:bgSession];
-        }
-    } @catch (NSException *e) {
-        HBLogWarn(@"[uYouPatches] Failed to configure background session: %@", e);
-    }
 }
 %end
 
@@ -623,11 +608,7 @@ static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
 
 %end // gYouDownloadFixes
 
-// ============================================================================
-// MARK: - uYou Speed Control Fixes
-// Addresses: #681, #795
-// ============================================================================
-
+// uYou Speed Control Fixes - #681, #795
 %group gYouSpeedFixes
 
 // Persistent playback rate storage
@@ -730,25 +711,10 @@ static float uYouSavedPlaybackRate = 0.0f;
 
 %end // gYouSpeedFixes
 
-// ============================================================================
-// MARK: - uYou Fullscreen / Related Videos Fix
-// Addresses: #57
-// ============================================================================
-
 %group gYouFullscreenFixes
 
 // --- Fix Swipe-to-Exit Fullscreen When Related Videos Disabled (#57) ---
-// When "Related videos at the end" is disabled via "noSuggestedVideo",
-// the fullscreen engagement overlay shows a blank/stuck endscreen that
-// captures all touch events, preventing swipe-to-dismiss.
-//
-// Root cause: The YTFullscreenEngagementOverlayController shows an empty
-// overlay when related videos are suppressed but the overlay itself is
-// still presented with user interaction enabled.
-//
 // Note: shouldShowAutonavEndscreen is already hooked in uYouPlus.xm (gSection5).
-// Here we fix the overlay-level issues that cause the stuck screen.
-
 // Ensure the fullscreen engagement overlay doesn't block gestures
 // when related videos are disabled
 %hook YTFullScreenEngagementOverlayController
@@ -803,9 +769,31 @@ static float uYouSavedPlaybackRate = 0.0f;
 
 %end // gYouFullscreenFixes
 
-// ============================================================================
-// MARK: - Module Constructors
-// ============================================================================
+// --- uYou "Reorder Tabs" integration ---------------------------------------
+@interface settingsReorderTable : UIViewController
+- (instancetype)initWithTitle:(id)title items:(id)items defaultValues:(id)defaults key:(id)key header:(id)header footer:(id)footer;
+@end
+
+%group gReorderTabsIntegration
+%hook settingsReorderTable
+- (instancetype)initWithTitle:(id)title items:(id)items defaultValues:(id)defaults key:(id)key header:(id)header footer:(id)footer {
+    if ([key isKindOfClass:[NSString class]] && [(NSString *)key isEqualToString:@"reorderedTabs"]) {
+        @try {
+            NSMutableArray *newItems = [items mutableCopy];
+            NSMutableArray *newDefaults = [defaults mutableCopy];
+            if (![newItems containsObject:@"Notifications"]) {
+                [newItems addObject:@"Notifications"];
+                [newDefaults addObject:@"FEnotifications_inbox"];
+            }
+            return %orig(title, newItems, newDefaults, key, header, footer);
+        } @catch (NSException *e) {
+            HBLogWarn(@"[uYouPatches] Reorder Tabs Notifications injection failed: %@", e);
+        }
+    }
+    return %orig;
+}
+%end
+%end
 
 %ctor {
     // Load saved playback rate
@@ -816,6 +804,11 @@ static float uYouSavedPlaybackRate = 0.0f;
 
     // Always initialize core uYou fixes
     %init(gYouFixes);
+
+    // Notifications row in uYou's Reorder Tabs table
+    if (%c(settingsReorderTable)) {
+        %init(gReorderTabsIntegration);
+    }
 
     // Varispeed fallback: only when YTPlayerViewController really implements
     // varispeedController (otherwise %orig would be NULL -> null-IMP crash).
