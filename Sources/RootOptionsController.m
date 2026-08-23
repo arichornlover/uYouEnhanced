@@ -57,6 +57,61 @@
     if (@available(iOS 18.0, *)) {
         self.tableView.sectionHeaderTopPadding = 0;
     }
+
+    if (@available(iOS 18.0, *)) {
+        [self setupFloatingTabBar];
+    }
+}
+
+// Floating capsule bar (iOS 18+): quick actions without scrolling.
+- (void)setupFloatingTabBar {
+    UIView *pill = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 220, 52)];
+    pill.backgroundColor = [UIColor secondarySystemGroupedBackgroundColor];
+    pill.layer.cornerRadius = 26;
+    pill.layer.cornerCurve = kCACornerCurveContinuous;
+    pill.layer.shadowColor = UIColor.blackColor.CGColor;
+    pill.layer.shadowOpacity = 0.18;
+    pill.layer.shadowRadius = 12;
+    pill.layer.shadowOffset = CGSizeMake(0, 4);
+
+    NSArray *icons = @[@"slider.horizontal.3", @"drop.fill", @"trash"];
+    NSArray *actions = @[@"openThemeColor", @"openTintColor", @"clearCacheTapped"];
+    CGFloat bw = 220 / icons.count;
+    for (NSUInteger i = 0; i < icons.count; i++) {
+        UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem];
+        b.frame = CGRectMake(bw * i, 0, bw, 52);
+        [b setImage:[UIImage systemImageNamed:icons[i]] forState:UIControlStateNormal];
+        b.tintColor = [UIColor labelColor];
+        [b addTarget:self action:NSSelectorFromString(actions[i]) forControlEvents:UIControlEventTouchUpInside];
+        [pill addSubview:b];
+    }
+
+    [self.view addSubview:pill];
+    pill.translatesAutoresizingMaskIntoConstraints = NO;
+    [NSLayoutConstraint activateConstraints:@[
+        [pill.centerXAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.centerXAnchor],
+        [pill.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-16],
+        [pill.widthAnchor constraintEqualToConstant:220],
+        [pill.heightAnchor constraintEqualToConstant:52]
+    ]];
+}
+
+- (void)openThemeColor {
+    ColourOptionsController *vc = [[ColourOptionsController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    nav.modalPresentationStyle = UIModalPresentationFormSheet;
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)openTintColor {
+    ColourOptionsController2 *vc = [[ColourOptionsController2 alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    nav.modalPresentationStyle = UIModalPresentationFormSheet;
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)clearCacheTapped {
+    [self tableView:self.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:1]];
 }
 
 - (UIImage *)resizeImage:(UIImage *)image newSize:(CGSize)newSize {

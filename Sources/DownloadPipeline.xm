@@ -4,6 +4,17 @@
 
 #import <Foundation/Foundation.h>
 
+@interface DownloadsManager : NSObject
++ (instancetype)sharedInstance;
+@end
+
+@interface AFHTTPSessionManager : NSObject
+- (NSURLSessionDownloadTask *)downloadTaskWithRequest:(NSURLRequest *)request
+                                             progress:(void (^)(NSProgress *progress))progressPtr
+                                          destination:(NSURL *(^)(NSURL *targetPath, NSURLResponse *response))destination
+                                    completionHandler:(void (^)(NSURLResponse *response, NSURL *filePath, NSError *error))completionHandler;
+@end
+
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
 static NSString * const UYTClientVersion = @"19.45.1";
 
