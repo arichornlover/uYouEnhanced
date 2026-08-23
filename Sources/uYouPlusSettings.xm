@@ -1003,6 +1003,22 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
         }
     ];
     [sectionItems addObject:migrateAndReset];
+    YTSettingsSectionItem *notifPosition = [%c(YTSettingsSectionItem)
+        itemWithTitle:@"Notifications Tab Position"
+        detailTextBlock:^NSString * (UITableViewCell *cell) {
+            NSInteger pos = [[NSUserDefaults standardUserDefaults] integerForKey:@"FENotificationsTabIndex"];
+            if (pos < 0 || pos > 4) return @"End";
+            return @[@"1st", @"2nd", @"3rd", @"4th", @"5th"][pos];
+        }
+        selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
+            NSInteger pos = [[NSUserDefaults standardUserDefaults] integerForKey:@"FENotificationsTabIndex"];
+            pos = (pos + 1) % 6; // 0..4 = position among tabs, 5 = End
+            [[NSUserDefaults standardUserDefaults] setInteger:(pos == 5 ? -1 : pos) forKey:@"FENotificationsTabIndex"];
+            [settingsViewController reloadData];
+            return YES;
+        }
+    ];
+    [sectionItems addObject:notifPosition];
     SWITCH(LOC(@"ENABLE_FLEX"), LOC(@"ENABLE_FLEX_DESC"), kFlex);
 
     if ([settingsViewController respondsToSelector:@selector(setSectionItems:forCategory:title:icon:titleDescription:headerHidden:)])

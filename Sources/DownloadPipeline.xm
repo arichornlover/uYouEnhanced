@@ -126,6 +126,9 @@ static NSString * const UYTClientVersion = @"19.45.1";
 %hook DownloadsManager
 - (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
     NSString *vid = [NSString stringWithFormat:@"%@", videoID];
+    // Restore uYou's own flow first (button/HUD/item creation depend on it).
+    %orig;
+    // Then run our modern pipeline as a diagnostic/parallel fetch.
     [UYTDownloadPipeline fetchFormatsForVideoID:vid completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if (error || formats.count == 0) {
@@ -158,7 +161,6 @@ static NSString * const UYTClientVersion = @"19.45.1";
             [task resume];
         });
     }];
-    // Do NOT call %orig — its stream extraction is what's broken on 21.x.
 }
 %end
 

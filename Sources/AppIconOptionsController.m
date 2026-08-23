@@ -37,7 +37,16 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
     for (NSString *k in altDict) [merged addObject:k];
     for (NSString *k in altDictPad) [merged addObject:k];
     NSArray *alternate = [merged allObjects];
-    self.appIcons = [alternate sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+    if (alternate.count == 0) {
+        // Fallback: scan the bundle's AppIcons folder (registration may have
+        // failed in CI, but previews + prefs still function).
+        NSString *iconsDir = [[[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"] ?: @"" stringByAppendingPathComponent:@"AppIcons"];
+        for (NSString *f in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:iconsDir error:nil])
+            if ([f.pathExtension.lowercaseString isEqualToString:@"png"]) [merged addObject:[f stringByDeletingPathExtension]];
+    }
+    NSLog(@"[uYouEnhanced] AppIcon picker: %lu registered, %lu total", (unsigned long)alternate.count, (unsigned long)merged.count);
+    NSArray *alternateAll = [merged allObjects];
+    self.appIcons = [alternateAll sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
 
     NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:[NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", kPrefDomain]] ?: @{};
     NSString *saved = prefs[kPrefIconName];
