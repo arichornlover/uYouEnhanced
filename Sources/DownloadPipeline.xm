@@ -121,46 +121,64 @@ static NSString * const UYTClientVersion = @"19.45.1";
 
 @end
 
-// --- Wiring: intercept uYou's dead extraction path -------------------------
+// --- Wiring: fix uYou's stream URLs at the DownloadItem level ---------------
+
+// Store resolved URLs keyed by videoID so the DownloadItem hook can swap them.
+static NSMutableDictionary<NSString *, NSString *> *UYTResolvedURLs;
+static dispatch_once_t UYTResolvedURLsOnce;
+
+static void UYTStoreResolvedURL(NSString *vid, NSString *url) {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        UYTResolvedURLs = [NSMutableDictionary dictionary];
+    });
+    if (vid.length && url.length) UYTResolvedURLs[vid] = url;
+}
+
+static NSString *UYTGetResolvedURL(NSString *vid) {
+    return UYTResolvedURLs[vid] ?: nil;
+}
 
 %hook DownloadsManager
 - (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
     NSString *vid = [NSString stringWithFormat:@"%@", videoID];
-    // Restore uYou's own flow first (button/HUD/item creation depend on it).
-    %orig;
-    // Then run our modern pipeline as a diagnostic/parallel fetch.
+
+    // Pre-fetch working stream URLs via innertube BEFORE %orig runs.
     [UYTDownloadPipeline fetchFormatsForVideoID:vid completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (error || formats.count == 0) {
-                NSLog(@"[UYTPipeline] no formats for %@ (%@)", vid, error.localizedDescription);
-                return;
-            }
-            UYTStreamFormat *best = [UYTDownloadPipeline bestMuxedFormat:formats];
-            UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
-            NSLog(@"[UYTPipeline] %@ -> muxed=%@ itag=%ld bitrate=%lld | audio=%@ itag=%ld",
-                  vid, best.qualityLabel, (long)best.itag, best.bitrate,
-                  audio.mimeType ?: @"none", audio ? (long)audio.itag : -1);
-
-            // Download through uYou's own AFHTTPSessionManager so progress flows
-            // through uYou's notification system (downloadProgressChangedNotification).
-            id dm = [%c(DownloadsManager) sharedInstance];
-            id sm = [dm respondsToSelector:@selector(sessionManager)] ? [dm valueForKey:@"sessionManager"] : nil;
-            if (!sm) return;
-
-            NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
-            NSString *dest = [docs stringByAppendingPathComponent:[NSString stringWithFormat:@"uYouDownloads/%@.mp4", vid]];
-            [[NSFileManager defaultManager] createDirectoryAtPath:[dest stringByDeletingLastPathComponent]
-                                       withIntermediateDirectories:YES attributes:nil error:nil];
-
-            NSURLSessionDownloadTask *task = [sm downloadTaskWithRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:best.url]]
-                                                                progress:nil
-                                                             destination:^NSURL *(NSURL *targetPath, NSURLResponse *resp) { return [NSURL fileURLWithPath:dest]; }
-                                                       completionHandler:^(NSURLResponse *resp, NSURL *path, NSError *err) {
-                NSLog(@"[UYTPipeline] download %@: %@", vid, err ? err.localizedDescription : @"DONE");
-            }];
-            [task resume];
-        });
+        if (error || formats.count == 0) {
+            NSLog(@"[UYTPipeline] no formats for %@ (%@)", vid, error.localizedDescription);
+            return;
+        }
+        UYTStreamFormat *best = [UYTDownloadPipeline bestMuxedFormat:formats];
+        if (best.url.length) {
+            UYTStoreResolvedURL(vid, best.url);
+            NSLog(@"[UYTPipeline] cached working URL for %@ (itag=%ld)", vid, (long)best.itag);
+        }
     }];
+
+    // Give the async fetch a moment, then let %orig proceed — the DownloadItem
+    // hook below will swap any broken URL with our cached working one.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        %orig;
+    });
+}
+%end
+
+// Intercept DownloadItem URL assignment — swap broken extraction URLs with
+// our working innertube-fetched ones so uYou's native download flow functions.
+%hook DownloadItem
+- (void)setRemoteURL:(NSURL *)url {
+    NSString *vid = self.videoID ?: @"";
+    NSString *working = UYTGetResolvedURL(vid);
+    if (working.length) {
+        NSURL *fixed = [NSURL URLWithString:working];
+        if (fixed) {
+            NSLog(@"[UYTPipeline] swapped broken URL -> working innertube URL for %@", vid);
+            %orig(fixed);
+            return;
+        }
+    }
+    %orig;
 }
 %end
 
