@@ -770,7 +770,8 @@ static float uYouSavedPlaybackRate = 0.0f;
 %end // gYouFullscreenFixes
 
 // --- uYou "Reorder Tabs" integration ---------------------------------------
-@interface settingsReorderTable : UIViewController
+// Class is declared in uYouPlusThemes.h; category adds the init signature.
+@interface settingsReorderTable (ReorderTabsIntegration)
 - (instancetype)initWithTitle:(id)title items:(id)items defaultValues:(id)defaults key:(id)key header:(id)header footer:(id)footer;
 @end
 
