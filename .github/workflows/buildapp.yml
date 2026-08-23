@@ -354,6 +354,20 @@ jobs:
           cd .. && rm -rf iconwork
           echo "Alternate icons registered into $(basename "$IPA")"
 
+      - name: Rebrand IPA Filename (3.0.4 -> 3.0.5)
+        run: |
+          set -euo pipefail
+          cd main/packages
+          OLD="${{ steps.strip_ipa.outputs.final_ipa }}"
+          NEW="${OLD//3.0.4/3.0.5}"
+          if [ "$OLD" != "$NEW" ] && [ -f "$OLD" ]; then
+            mv "$OLD" "$NEW"
+            echo "Renamed: $OLD -> $NEW"
+          else
+            echo "No 3.0.4 in filename or file missing: $OLD"
+          fi
+          echo "RENAMED_IPA=$NEW" >> "$GITHUB_ENV"
+
       - name: Upload Artifact
         if: ${{ inputs.upload_artifact }}
         uses: actions/upload-artifact@v7
@@ -362,7 +376,7 @@ jobs:
           YOUTUBE_VERSION: ${{ steps.prepare_youtube.outputs.youtube_version }}
         with:
           name: uYouEnhanced_${{ env.YOUTUBE_VERSION }}_${{ env.UYOU_VERSION }}
-          path: ${{ github.workspace }}/main/packages/${{ steps.strip_ipa.outputs.final_ipa }}
+          path: ${{ github.workspace }}/main/packages/${{ env.RENAMED_IPA || steps.strip_ipa.outputs.final_ipa }}
           if-no-files-found: error
 
       - name: Create Release
