@@ -109,7 +109,9 @@ before-all::
 		if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
 			$(PRINT_FORMAT_ERROR) "Failed to extract uYou"; exit 1; \
 		fi; \
-	fi;
+	fi; \
+	perl -pi -e 's/3\.0\.4/3.0.5/g' $(UYOU_DYLIB); \
+	$(PRINT_FORMAT_BLUE) "uYou rebranded to 3.0.5 (Unofficial Build)";
 
 else
 before-package::
