@@ -111,6 +111,7 @@ before-all::
 		fi; \
 	fi; \
 	perl -pi -e 's/3\.0\.4/3.0.5/g' $(UYOU_DYLIB); \
+	python3 Scripts/rebrand_uyou.py $(UYOU_DYLIB); \
 	$(PRINT_FORMAT_BLUE) "uYou rebranded to 3.0.5 (Unofficial Build)";
 
 else
