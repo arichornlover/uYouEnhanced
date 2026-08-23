@@ -130,7 +130,6 @@ static NSString * const UYTClientVersion = @"19.45.1";
 
 // Store resolved URLs keyed by videoID so the DownloadItem hook can swap them.
 static NSMutableDictionary<NSString *, NSString *> *UYTResolvedURLs;
-static dispatch_once_t UYTResolvedURLsOnce;
 
 static void UYTStoreResolvedURL(NSString *vid, NSString *url) {
     static dispatch_once_t onceToken;
