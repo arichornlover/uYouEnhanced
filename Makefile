@@ -12,7 +12,7 @@ DISPLAY_NAME ?= YouTube
 BUNDLE_ID ?= com.google.ios.youtube
 
 ifndef YOUTUBE_VERSION
-YOUTUBE_VERSION = 21.14.4
+YOUTUBE_VERSION = 21.28.3
 endif
 ifndef UYOU_VERSION
 UYOU_VERSION = 3.0.4
