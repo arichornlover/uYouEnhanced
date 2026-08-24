@@ -1,5 +1,7 @@
 #import "uYouPlusPatches.h"
 #import "uYouPatches.h"
+#import <fcntl.h>
+#import <unistd.h>
 
 #define YT_BUNDLE_ID @"com.google.ios.youtube"
 #define YT_NAME @"YouTube"
@@ -297,22 +299,35 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 %end
 %end
 
+static BOOL UYTIsJailbroken(void) {
+    static BOOL result = NO;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        result = ([[NSFileManager defaultManager] fileExistsAtPath:@"/var/jb"]) ||
+                 ([[NSFileManager defaultManager] fileExistsAtPath:@"/.bootstrapped"]) ||
+                 (objc_getClass("LSApplicationWorkspace") != NULL && access("/Applications", F_OK) == 0);
+    });
+    return result;
+}
+
 %ctor {
     %init;
     %init(gPatches);
     %init(gSideloadingPatches);
-    %init(gDynamicIslandFix);
+    if (!UYTIsJailbroken()) {
+        %init(gDynamicIslandFix);
 
-    // Returning to the app: clear any stale Now Playing session so an
-    // already-expanded island collapses instead of lingering in-app.
-    [[NSNotificationCenter defaultCenter]
-        addObserverForName:UIApplicationDidBecomeActiveNotification
-                    object:nil queue:[NSOperationQueue mainQueue]
-               usingBlock:^(NSNotification *note) {
-        @try {
-            [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;
-        } @catch (NSException *e) {}
-    }];
+        // Returning to the app: clear any stale Now Playing session so an
+        // already-expanded island collapses instead of lingering in-app.
+        [[NSNotificationCenter defaultCenter]
+            addObserverForName:UIApplicationDidBecomeActiveNotification
+                        object:nil queue:[NSOperationQueue mainQueue]
+                   usingBlock:^(NSNotification *note) {
+            @try {
+                [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;
+            } @catch (NSException *e) {}
+        }];
+    }
 
     if (IS_ENABLED(kGoogleSignInPatch)) {
         %init(gGoogleSignInPatch);
