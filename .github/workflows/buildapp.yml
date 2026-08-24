@@ -123,11 +123,19 @@ jobs:
 
       - name: Fix Theos broken pipe issue
         run: |
-          SCRIPT=$(find $THEOS -name convert_xml_plist.sh 2>/dev/null | head -1)
-          if [ -n "$SCRIPT" ]; then
-            sed -i '' 's/od -c "$i" | head/od -c "$i" 2>\/dev\/null | head/g' "$SCRIPT"
-            echo "Fixed broken pipe"
-          fi
+          find $THEOS -name "*.sh" -type f | while read -r SCRIPT; do
+            if grep -q '| head' "$SCRIPT" 2>/dev/null; then
+              sed -i '' 's/| head/2>\/dev\/null | head/g' "$SCRIPT" 2>/dev/null || true
+              echo "Patched: $SCRIPT"
+            fi
+          done
+          find $THEOS -name "*.mk" -type f | while read -r MK; do
+            if grep -q '| head' "$MK" 2>/dev/null; then
+              sed -i '' 's/| head/2>\/dev\/null | head/g' "$MK" 2>/dev/null || true
+              echo "Patched: $MK"
+            fi
+          done
+          echo "Broken pipe fixes applied"
 
       - name: Install cyan and tbd
         run: |
