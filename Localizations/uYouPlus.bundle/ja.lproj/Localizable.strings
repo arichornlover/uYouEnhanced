@@ -217,6 +217,15 @@
 "SHORTS_QUALITY_PICKER" = "ショートの画質を選択";
 "SHORTS_QUALITY_PICKER_DESC" = "YouTube ショートの画質選択を有効にします。";
 
+"HIDE_SHORTS_CLIP_BUTTON" = "ショートの [クリップ] ボタンを非表示";
+"HIDE_SHORTS_CLIP_BUTTON_DESC" = "ショートの一時停止中に表示される [クリップ] ボタンを非表示にします。";
+"HIDE_SHORTS_DOWNLOAD_BUTTON" = "ショートの [ダウンロード] ボタンを非表示";
+"HIDE_SHORTS_DOWNLOAD_BUTTON_DESC" = "ショートの一時停止中に表示される [ダウンロード] ボタンを非表示にします。";
+"HIDE_SHORTS_REMIX_BUTTON" = "ショートの [リミックス] ボタンを非表示";
+"HIDE_SHORTS_REMIX_BUTTON_DESC" = "ショートの一時停止中に表示される [リミックス] ボタンを非表示にします。";
+"HIDE_SHORTS_STATS_BUTTON" = "ショートの [統計情報] ボタンを非表示";
+"HIDE_SHORTS_STATS_BUTTON_DESC" = "ショートの一時停止中に表示される [統計情報] ボタンを非表示にします。";
+
 "VIDEO_PLAYER_BUTTON_OPTIONS" = "プレーヤーのボタンの設定";
 
 "RED_SUBSCRIBE_BUTTON" = "赤いチャンネル登録ボタン";
@@ -279,6 +288,9 @@
 "ADBLOCK_WORKAROUND_LITE_DESC" = "弱い広告ブロックコードを使用します。uYou の広告ブロックオプションを無効にします。";
 "ADBLOCK_WORKAROUND" = "AdBlock 回避策";
 "ADBLOCK_WORKAROUND_DESC" = "より強力な広告ブロックコードを使用します。";
+
+"FIX_PLAYBACK_ISSUES" = "再生時の問題を修正";
+"FIX_PLAYBACK_ISSUES_DESC" = "YouTube 独自の Ham プレーヤーの代わりに Apple の標準プレーヤーを使用することで、再生中に動画が止まり、ロードアイコンが回り続ける問題を修正します。これを有効にすると、VP9 および AV1 は無効になります。";
 "FAKE_PREMIUM" = "偽の YouTube Premium";
 "FAKE_PREMIUM_DESC" = "YouTube プレミアムロゴを使用し、[マイページ] タブに偽のボタンを作成します。";
 "FAKE_PREMIUM_WARNING" = "YouTube v%@ には [マイページ] タブが存在しないため、偽の YouTube Premium ボタンは作成されません。\nただし、「偽の YouTube Premium ロゴ」は引き続き機能します。";
