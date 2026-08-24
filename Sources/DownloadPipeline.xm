@@ -143,71 +143,16 @@ static NSString *UYTGetResolvedURL(NSString *vid) {
     return UYTResolvedURLs[vid] ?: nil;
 }
 
-// --- DB integration: insert into uYou's downloads table ---------------------
-
-@interface FMDatabase : NSObject
-+ (instancetype)databaseWithPath:(NSString *)path;
-- (BOOL)open;
-- (BOOL)executeUpdate:(NSString *)sql, ...;
-- (void)close;
-@end
-
-static NSString *UYTDatabasePath(void) {
-    // uYou stores its DB at Documents/uyoudb.sqlite (or AppGroup redirect).
-    NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-    NSString *appGroup = [docs stringByAppendingPathComponent:@"AppGroup"];
-    if ([[NSFileManager defaultManager] fileExistsAtPath:[appGroup stringByAppendingPathComponent:@"uyoudb.sqlite"]]) {
-        return [appGroup stringByAppendingPathComponent:@"uyoudb.sqlite"];
-    }
-    return [docs stringByAppendingPathComponent:@"uyoudb.sqlite"];
-}
-
-static void UYTInsertDownloadRecord(NSString *vid, NSString *title,
-                                    NSString *qualityLabel, NSString *typeAndQuality,
-                                    NSString *filePath) {
-    Class fmdbClass = %c(FMDatabase);
-    if (!fmdbClass) {
-        NSLog(@"[UYTPipeline] FMDatabase not found — cannot register download");
-        return;
-    }
-
-    NSString *dbPath = UYTDatabasePath();
-    FMDatabase *db = [fmdbClass databaseWithPath:dbPath];
-    if (![db open]) {
-        NSLog(@"[UYTPipeline] could not open DB at %@", dbPath);
-        return;
-    }
-
-    // Ensure tables exist (same schema as uYou natively creates)
-    [db executeUpdate:@"CREATE TABLE IF NOT EXISTS downloads (id TEXT PRIMARY KEY, videoID TEXT, title TEXT, channel TEXT, channelURL TEXT, qualityLabel TEXT, typeAndQuality TEXT, size TEXT, duration TEXT, type TEXT, path TEXT, lyrics TEXT, timestamp DATETIME)"];
-    [db executeUpdate:@"CREATE TABLE IF NOT EXISTS downloading (id INTEGER PRIMARY KEY AUTOINCREMENT, data BLOB)"];
-
-    NSString *downloadID = [[NSUUID UUID] UUIDString];
-    NSString *type = [typeAndQuality containsString:@"audio"] ? @"audio" : @"video";
-
-    BOOL success = [db executeUpdate:
-        @"INSERT OR REPLACE INTO downloads (id, videoID, title, channel, channelURL, qualityLabel, typeAndQuality, size, duration, type, path, lyrics, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
-        downloadID, vid, title ?: @"", @"", @"",
-        qualityLabel ?: @"", typeAndQuality ?: @"",
-        @"", @"", type, filePath ?: @"", @""];
-
-    if (success) {
-        NSLog(@"[UYTPipeline] registered download in DB: %@ -> %@", vid, filePath);
-    } else {
-        NSLog(@"[UYTPipeline] DB insert failed for %@", vid);
-    }
-
-    // Remove from downloading table if present
-    [db executeUpdate:@"DELETE FROM downloading WHERE id IN (SELECT id FROM downloading WHERE data LIKE ?)", [NSString stringWithFormat:@"%%%@%%", vid]];
-
-    [db close];
-
-    // Notify UI to refresh
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[NSNotificationCenter defaultCenter]
-            postNotificationName:@"reloadDownloadingVCNotification" object:nil];
-    });
-}
+// --- DB integration (reserved for future use) --------------------------------
+// With the URL-swap approach, uYou's native flow handles DB insertion when
+// given valid stream URLs. This section is kept for reference but the
+// standalone insert function was removed to fix -Wunused-function.
+// Schema for future re-use:
+//   CREATE TABLE IF NOT EXISTS downloads (id TEXT PRIMARY KEY, videoID TEXT,
+//   title TEXT, channel TEXT, channelURL TEXT, qualityLabel TEXT,
+//   typeAndQuality TEXT, size TEXT, duration TEXT, type TEXT, path TEXT,
+//   lyrics TEXT, timestamp DATETIME)
+//   DB path: Documents/uyoudb.sqlite (or AppGroup/uyoudb.sqlite)
 
 %hook DownloadsManager
 - (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
