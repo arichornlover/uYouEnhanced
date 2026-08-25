@@ -331,7 +331,7 @@ static BOOL UYTTaskWroteEverything(NSURLSessionTask *task) {
         HBLogWarn(@"[uYouPatches] transfer hit 100%% but errored (%@ code %ld) — completing as success",
                   error.domain ?: @"?", (long)error.code);
         [UYTTaskByteCounts removeObjectForKey:@(task.taskIdentifier)];
-        %orig(nil);
+        %orig(session, task, nil);
         return;
     }
     if (!error && task) [UYTTaskByteCounts removeObjectForKey:@(task.taskIdentifier)];
@@ -1258,9 +1258,7 @@ static float uYouSavedPlaybackRate = 0.0f;
 @interface FRPSwitchCell : NSObject
 - (id)cellWithTitle:(id)title setting:(id)setting postNotification:(id)name changeBlock:(void (^)(void))block;
 @end
-@interface FRPreferences : NSObject
-- (void)initTableWithSections:(NSArray *)sections;
-@end
+// FRPreferences is already declared in uYouPlusThemes.h (as UITableViewController).
 
 // Surface tweak options inside uYou's own settings menu.
 %group gYouMenuIntegration
