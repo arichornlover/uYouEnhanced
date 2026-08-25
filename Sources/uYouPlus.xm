@@ -1,23 +1,11 @@
 //
 //  uYouPlus.xm — uYouEnhanced main tweak
-//  ---------------------------------------------------------------------------
-//  CONTENTS (HOTFIX4 layout)
-//    [0] Imports & localization bundle helper
-//    [1] Helpers — Save To Playlist button reroute (#379/#840)
-//    [2] gAlwaysOn — hooks installed unconditionally on startup
-//    [3] Feature %groups — logo, misc 1-3, sections 5-15, player options …
-//    [4] %ctor — conditional group initialization lives at the bottom
-//
-//  Conventions:
-//    • Every %group is initialized in %ctor — a group without an %init line
-//      there is DEAD CODE (logos registers nothing until %init runs).
-//    • User-facing hooks read their key via IS_ENABLED(kSomeKey).
-//    • Runtime diagnostics are logged with the "[uYouPlus]" prefix.
+//  NOTE: every %group below needs a matching %init() in %ctor to load.
 //
 #import "uYouPlus.h"
 #import "uYouPlusPatches.h"
 
-#pragma mark - [0] Imports & Localization Bundle
+#pragma mark - Localization Bundle
 
 // Tweak's bundle for Localizations support - @PoomSmart - https://github.com/PoomSmart/YouPiP/commit/aea2473f64c75d73cab713e1e2d5d0a77675024f
 NSBundle *uYouPlusBundle() {
@@ -35,68 +23,111 @@ NSBundle *uYouPlusBundle() {
 NSBundle *tweakBundle = uYouPlusBundle();
 //
 
-#pragma mark - [1] Helpers: Save To Playlist Reroute (#379/#840)
+#pragma mark - Save To Playlist Reroute
 
-// YouTube gutted the overlay's addTo button handler around v16.x: the button
-// still renders but tapping does nothing. When "Enable Save To Playlist Button"
-// is on, we attach an extra target-action to that button which activates the
-// REAL save chip ("id.video.save_to.playlist.button") from the watch page's
-// details actions bar — the same one users tap under the player.
-
-// Local informal protocol so we can message the slim action view's delegate
-// with a plain ObjC call (no objc_msgSend cast, no <objc/message.h> needed).
+// Make the overlay's save button trigger the real save chip.
 @protocol UYTSlimTapDelegate <NSObject>
 - (void)didTapButton:(id)button fromRect:(CGRect)rect inView:(id)view;
 @end
 
-static UIView *UYTFindViewWithAccessibilityID(UIView *root, NSString *identifier, NSInteger depth) {
-    if (!root || depth > 14) return nil;
-    if (root.accessibilityIdentifier.length && [root.accessibilityIdentifier isEqualToString:identifier]) return root;
+static BOOL UYTIsSaveChipView(UIView *view) {
+    if (!view) return NO;
+    NSString *ident = view.accessibilityIdentifier ?: @"";
+    return [ident isEqualToString:@"id.video.save_to.playlist.button"] ||
+           [ident containsString:@"save_to_playlist"] ||
+           [ident containsString:@"save.to.playlist"];
+}
+
+static UIView *UYTFindSaveChip(UIView *root, NSInteger depth) {
+    if (!root || depth > 20) return nil;
+    if (UYTIsSaveChipView(root)) return root;
     for (UIView *sub in root.subviews) {
-        UIView *found = UYTFindViewWithAccessibilityID(sub, identifier, depth + 1);
+        UIView *found = UYTFindSaveChip(sub, depth + 1);
         if (found) return found;
     }
     return nil;
 }
 
-static UIWindow *UYTActiveWindow(void) {
+// Candidate windows, foreground scenes first.
+static NSArray<UIWindow *> *UYTCandidateWindows(void) {
+    NSMutableArray<UIWindow *> *windows = [NSMutableArray array];
     for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-        if (scene.activationState != UISceneActivationStateForegroundActive) continue;
         if (![scene isKindOfClass:[UIWindowScene class]]) continue;
-        for (UIWindow *w in ((UIWindowScene *)scene).windows) {
-            if (w.keyWindow || w.isKeyWindow) return w;
-        }
+        if (scene.activationState != UISceneActivationStateForegroundActive &&
+            scene.activationState != UISceneActivationStateForegroundInactive) continue;
+        for (UIWindow *w in ((UIWindowScene *)scene).windows) [windows addObject:w];
     }
-    return UIApplication.sharedApplication.keyWindow;
+    UIWindow *key = UIApplication.sharedApplication.keyWindow;
+    if (key && ![windows containsObject:key]) [windows insertObject:key atIndex:0];
+    return windows;
+}
+
+// Fire a gesture recognizer's targets directly.
+static BOOL UYTFireGestureTargets(UIView *view) {
+    for (UIGestureRecognizer *gesture in view.gestureRecognizers) {
+        @try {
+            NSArray *targets = [gesture valueForKey:@"_targets"];
+            for (id targetEntry in targets) {
+                id target = [targetEntry valueForKey:@"_target"];
+                NSString *actionName = [targetEntry valueForKey:@"_action"];
+                if (!target || !actionName.length) continue;
+                SEL action = NSSelectorFromString(actionName);
+                if (![target respondsToSelector:action]) continue;
+                NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:
+                    [(id)target methodSignatureForSelector:action]];
+                [invocation setTarget:target];
+                [invocation setSelector:action];
+                if ([invocation.methodSignature numberOfArguments] > 2) {
+                    __strong id arg = gesture;
+                    [invocation setArgument:&arg atIndex:2];
+                }
+                [invocation invoke];
+                NSLog(@"[uYouPlus] Save reroute: fired gesture target %@", actionName);
+                return YES;
+            }
+        } @catch (NSException *e) {}
+    }
+    return NO;
 }
 
 static BOOL UYTActivateRealSaveChip(void) {
-    UIWindow *window = UYTActiveWindow();
-    if (!window.rootViewController.view) return NO;
-
-    UIView *chip = UYTFindViewWithAccessibilityID(window.rootViewController.view,
-                                                  @"id.video.save_to.playlist.button", 0);
+    UIView *chip = nil;
+    for (UIWindow *window in UYTCandidateWindows()) {
+        chip = UYTFindSaveChip(window, 0);
+        if (chip) break;
+    }
     if (!chip) {
         NSLog(@"[uYouPlus] Save reroute: real save chip not visible on screen");
         return NO;
     }
 
-    // Case 1: the chip is a UIControl → forward the touch directly.
+    // Activate it however we can.
     if ([chip isKindOfClass:[UIControl class]]) {
-        [(UIControl *)chip sendActionsForControlEvents:UIControlEventTouchUpInside];
+        UIControl *control = (UIControl *)chip;
+        [control sendActionsForControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
+        NSLog(@"[uYouPlus] Save reroute: sent control actions to %@", NSStringFromClass([chip class]));
         return YES;
     }
-
-    // Case 2: slim action view → invoke its delegate tap handler.
+    if ([chip respondsToSelector:@selector(accessibilityActivate)]) {
+        @try {
+            BOOL ok = [(id)chip accessibilityActivate];
+            if (ok) {
+                NSLog(@"[uYouPlus] Save reroute: activated via accessibilityActivate");
+                return YES;
+            }
+        } @catch (NSException *e) {}
+    }
     Class slimActionClass = %c(YTSlimVideoDetailsActionView);
     if (slimActionClass && [chip isKindOfClass:slimActionClass]) {
         id delegate = [chip respondsToSelector:@selector(delegate)] ? [chip performSelector:@selector(delegate)] : nil;
         SEL tap = @selector(didTapButton:fromRect:inView:);
         if (delegate && [delegate respondsToSelector:tap]) {
             [(id<UYTSlimTapDelegate>)delegate didTapButton:chip fromRect:chip.bounds inView:chip];
+            NSLog(@"[uYouPlus] Save reroute: invoked slim action delegate");
             return YES;
         }
     }
+    if (UYTFireGestureTargets(chip)) return YES;
 
     NSLog(@"[uYouPlus] Save reroute: chip found (%@) but no activation path matched", NSStringFromClass([chip class]));
     return NO;
@@ -290,10 +321,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 
 // Center YouTube Logo - @arichornlover
-// NOTE: YouTube removed `alignCustomViewToCenterOfWindow` around v19/v20, so the
-// old hook silently stopped doing anything. YTNavigationBarTitleView is now just
-// a plain UIView, so we center it ourselves in layoutSubviews. The epsilon check
-// prevents an infinite setFrame→layoutSubviews loop.
+// Centers YTNavigationBarTitleView in layoutSubviews.
 %group gCenterYouTubeLogo
 %hook YTNavigationBarTitleView
 - (void)layoutSubviews {
@@ -302,8 +330,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
         UIView *superview = self.superview;
         if (!superview || superview.bounds.size.width <= 0) return;
 
-        // Don't fight other tweaks (e.g. YTHideModifications) that may have
-        // hidden this view entirely.
         if (self.hidden || self.frame.size.width <= 0) return;
 
         CGRect frame = self.frame;
@@ -828,12 +854,32 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 // Video Controls Overlay Options
 // Hide CC / Hide Autoplay switch / Hide YTMusic Button / Enable Share Button / Enable Save to Playlist Button
 %hook YTMainAppControlsOverlayView
+// Attach the reroute to any save/add-to control in the overlay.
+%new - (void)uyt_attachSaveRerouteToSubviews:(UIView *)view depth:(NSInteger)depth {
+    if (!view || depth > 8) return;
+    for (UIView *sub in [view.subviews copy]) {
+        if ([sub isKindOfClass:[UIControl class]]) {
+            NSString *ident = sub.accessibilityIdentifier.lowercaseString ?: @"";
+            NSString *lbl = sub.accessibilityLabel.lowercaseString ?: @"";
+            BOOL isSaveButton = [ident containsString:@"save_to"] || [ident containsString:@"add_to"]
+                             || [lbl containsString:@"save"] || [lbl containsString:@"add to"];
+            if (isSaveButton) {
+                id router = [UYTSaveRerouteRouter sharedRouter];
+                SEL reroute = @selector(rerouteTapped:);
+                NSArray *existing = [(UIControl *)sub actionsForTarget:router forControlEvent:UIControlEventTouchUpInside];
+                if (![existing containsObject:NSStringFromSelector(reroute)]) {
+                    [(UIControl *)sub addTarget:router action:reroute
+                                 forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
+                    NSLog(@"[uYouPlus] Save reroute attached via overlay scan (%@ / %@)", ident, lbl);
+                }
+            }
+        }
+        [self uyt_attachSaveRerouteToSubviews:sub depth:depth + 1];
+    }
+}
 - (YTQTMButton *)buttonWithImage:(UIImage *)image accessibilityLabel:(NSString *)accessibilityLabel verticalContentPadding:(CGFloat)verticalContentPadding {
     YTQTMButton *button = %orig;
     if (IS_ENABLED(kEnableSaveToButton) && button) {
-        // Identify the vestigial add-to/save button and attach our reroute as an
-        // EXTRA action — YouTube's own handler stays wired, so nothing breaks on
-        // builds where it still functions.
         NSString *ident = button.accessibilityIdentifier.lowercaseString ?: @"";
         NSString *lbl = accessibilityLabel.lowercaseString ?: @"";
         BOOL isSaveButton = [ident containsString:@"save_to"] || [ident containsString:@"add_to"]
@@ -843,7 +889,8 @@ YTMainAppControlsOverlayView *controlsOverlayView;
             SEL reroute = @selector(rerouteTapped:);
             NSArray *existing = [button actionsForTarget:router forControlEvent:UIControlEventTouchUpInside];
             if (![existing containsObject:NSStringFromSelector(reroute)]) {
-                [button addTarget:router action:reroute forControlEvents:UIControlEventTouchUpInside];
+                [button addTarget:router action:reroute
+                           forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
                 NSLog(@"[uYouPlus] Save reroute attached to overlay button (%@)", accessibilityLabel);
             }
         }
@@ -878,6 +925,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 - (void)setAddToButtonAvailable:(BOOL)arg1 {
     if (IS_ENABLED(kEnableSaveToButton)) {
         %orig(YES);
+        [self uyt_attachSaveRerouteToSubviews:self depth:0];
     } else {
         %orig(NO);
     }

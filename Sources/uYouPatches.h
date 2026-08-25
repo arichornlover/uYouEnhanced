@@ -30,6 +30,9 @@ BOOL uYouIsSideStore();
 - (int)ffmpegWithArguments:(id)arguments;
 - (void)setupURLSessionConfiguration;
 - (void)createDownloadTask;
+- (void)reloadDownloadedVC;              // HOTFIX4: refresh Downloads list UI
+- (NSMutableArray *)downloadItemsArray;  // HOTFIX4: active downloading queue
+- (void)setDownloadingItems:(id)items;
 - (void)exportVideoToCameraRollWithPath:(id)path removeFile:(BOOL)remove;
 - (void)dismissHUD;
 - (void)errorHUDWithMeessage:(id)message inView:(id)view delay:(double)delay;

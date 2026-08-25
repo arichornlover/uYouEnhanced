@@ -111,26 +111,28 @@ static NSString * const UYTClientVersion = @"19.45.1";
 @end
 
 // --- Wiring ------------------------------------------------------------------
-// The innertube prefetch + URL swap below is what makes downloads START at all
-// on YouTube 21.x: uYou's own stream extraction returns dead URLs, and without
-// a working remoteURL uYou never begins transferring. Field status (#992):
-// with this active, downloads start and complete their transfer; the remaining
-// failures are POST-download (conversion/merge), handled by the watchdogs in
-// Sources/uYouPatches.xm.
+// The prefetch + URL swap below makes downloads start at all on YouTube 21.x:
+// uYou's own extraction returns dead URLs.
 
-// Store resolved URLs keyed by videoID so the DownloadItem hook can swap them.
-static NSMutableDictionary<NSString *, NSString *> *UYTResolvedURLs;
+// Resolved innertube URLs keyed by videoID, split by stream type so audio
+// downloads get a real audio URL instead of a throttled one.
+static NSMutableDictionary<NSString *, NSDictionary *> *UYTResolvedURLs;
 
-static void UYTStoreResolvedURL(NSString *vid, NSString *url) {
+static void UYTStoreResolvedURLs(NSString *vid, NSString *muxedURL, NSString *audioURL) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         UYTResolvedURLs = [NSMutableDictionary dictionary];
     });
-    if (vid.length && url.length) UYTResolvedURLs[vid] = url;
+    if (!vid.length) return;
+    NSMutableDictionary *entry = [UYTResolvedURLs[vid] mutableCopy] ?: [NSMutableDictionary dictionary];
+    if (muxedURL.length) entry[@"muxed"] = muxedURL;
+    if (audioURL.length) entry[@"audio"] = audioURL;
+    UYTResolvedURLs[vid] = entry;
 }
 
-static NSString *UYTGetResolvedURL(NSString *vid) {
-    return UYTResolvedURLs[vid] ?: nil;
+static NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
+    NSDictionary *entry = UYTResolvedURLs[vid];
+    return entry[audio ? @"audio" : @"muxed"] ?: nil;
 }
 
 @interface DownloadsManager : NSObject
@@ -146,37 +148,47 @@ static NSString *UYTGetResolvedURL(NSString *vid) {
 - (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
     NSString *vid = [NSString stringWithFormat:@"%@", videoID];
 
-    // Pre-fetch working stream URLs via innertube BEFORE %orig runs.
+    // Fetch fresh stream URLs via innertube before %orig runs.
     [UYTDownloadPipeline fetchFormatsForVideoID:vid completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
         if (error || formats.count == 0) {
             NSLog(@"[UYTPipeline] no formats for %@ (%@)", vid, error.localizedDescription);
             return;
         }
-        UYTStreamFormat *best = [UYTDownloadPipeline bestMuxedFormat:formats];
-        if (best.url.length) {
-            UYTStoreResolvedURL(vid, best.url);
-            NSLog(@"[UYTPipeline] cached working URL for %@ (itag=%ld)", vid, (long)best.itag);
-        }
+        UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
+        UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
+        UYTStoreResolvedURLs(vid, muxed.url, audio.url);
+        NSLog(@"[UYTPipeline] cached URLs for %@ (muxed itag=%ld, audio itag=%ld)",
+              vid, (long)muxed.itag, (long)audio.itag);
     }];
 
-    // Give the async fetch a moment, then let %orig proceed — the DownloadItem
-    // hook below swaps any broken extraction URL with our cached working one.
+    // Give the fetch a moment, then let %orig proceed.
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         %orig;
     });
 }
 %end
 
-// Intercept DownloadItem URL assignment — swap broken extraction URLs with
-// our working innertube-fetched ones so uYou's native download flow functions.
+// Swap broken extraction URLs with working innertube ones. Audio items get the
+// resolved audio stream — uYou's own audio URLs are often throttled (#161).
 %hook DownloadItem
 - (void)setRemoteURL:(NSURL *)url {
     NSString *vid = self.videoID ?: @"";
-    NSString *working = UYTGetResolvedURL(vid);
+
+    BOOL wantsAudio = NO;
+    @try {
+        NSString *path = nil;
+        if ([self respondsToSelector:@selector(filePath)]) path = [self performSelector:@selector(filePath)];
+        if (path.length == 0 && [self respondsToSelector:@selector(cachedPath)]) path = [self performSelector:@selector(cachedPath)];
+        NSString *ext = path.pathExtension.lowercaseString;
+        wantsAudio = [ext isEqualToString:@"m4a"] || [ext isEqualToString:@"mp3"];
+    } @catch (NSException *e) {}
+
+    NSString *working = UYTResolvedURLForVideo(vid, wantsAudio);
     if (working.length) {
         NSURL *fixed = [NSURL URLWithString:working];
         if (fixed) {
-            NSLog(@"[UYTPipeline] swapped broken URL -> working innertube URL for %@", vid);
+            NSLog(@"[UYTPipeline] swapped broken URL -> %@ innertube URL for %@",
+                  wantsAudio ? @"audio" : @"muxed", vid);
             %orig(fixed);
             return;
         }

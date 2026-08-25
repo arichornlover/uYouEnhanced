@@ -8,7 +8,7 @@ NSArray *NSUserDefaultsCopyKeys = @[
     kPortraitFullscreen, kFullscreenToTheRight, kSlideToSeek, 
     kYTTapToSeek, kDoubleTapToSeek, kSnapToChapter, kPinchToZoom, 
     kYTMiniPlayer, kStockVolumeHUD, kReplaceYTDownloadWithuYou, 
-    kDisablePullToFull, kDisableChapterSkip, kAlwaysShowRemainingTime, 
+    kFastDownloads, kDisablePullToFull, kDisableChapterSkip, kAlwaysShowRemainingTime, 
     kDisableRemainingTime, kEnableShareButton, kEnableSaveToButton, 
     kHideYTMusicButton, kHideAutoplaySwitch, kHideCC, kHideVideoTitle, 
     kDisableCollapseButton, kDisableFullscreenButton, kHideHUD, 
