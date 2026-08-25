@@ -590,9 +590,8 @@ static void UYTPostCompletionNotifications(id item) {
     });
 }
 
-// Fully complete an item: promote the file, mark it finished, write the DB row,
-// clear the queue entry and refresh uYou's UI.
-static BOOL UYTFinalizeItem(id item, NSString *reason) {
+// Write the completed download's row into uYou's downloads table.
+static void UYTInsertDownloadRow(uYouItem *ui) {
     @try {
         if (!ui || ![ui respondsToSelector:@selector(videoID)]) return;
         NSString *vid = [ui videoID];
@@ -734,11 +733,6 @@ static BOOL UYTFinalizeItem(id item, NSString *reason) {
         HBLogWarn(@"[uYouPatches] finalize (%@) exception: %@", reason, e);
         return NO;
     }
-}
-
-// Skip the broken merge and complete the item as-is.
-static void UYTFallbackToVideoOnly(id item) {
-    UYTFinalizeItem(item, @"no-merge fallback");
 }
 
 // Poll for stalled downloads and recover them via UYTFinalizeItem.

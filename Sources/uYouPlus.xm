@@ -849,6 +849,10 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %end
 
+@interface YTMainAppControlsOverlayView (uYouEnhanced)
+- (void)uyt_attachSaveRerouteToSubviews:(UIView *)view depth:(NSInteger)depth;
+@end
+
 %group gSection9
 
 // Video Controls Overlay Options
