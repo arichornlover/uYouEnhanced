@@ -37,14 +37,16 @@ YTMainAppControlsOverlayView *controlsOverlayView;
         NSArray *listOptions = [showCommand listOptionArray];
         BOOL overlayAvailable = controlsOverlayView && [controlsOverlayView respondsToSelector:@selector(uYou)];
 
-        for (ELMPBElement *element in listOptions) {
+        NSString *sheetId = showCommand.sheetId;
+        BOOL isOfflineUpsell = (sheetId.length > 0 && [sheetId containsString:@"offline_upsell"]);
+        if (isOfflineUpsell) {
+            HBLogInfo(@"[uYouPlus] offline upsell detected via sheetId: %@", sheetId);
+        }
+
+        for (ELMPBElement *element in isOfflineUpsell ? @[] : listOptions) {
             ELMPBProperties *properties = [element properties];
             if (!properties) continue;
 
-            // Gather every identifier hint we can find. YouTube has reshuffled
-            // this protobuf layout repeatedly (#991), so no single accessor can
-            // be trusted across builds — previously the accessors were tried as
-            // an else-if chain and one missing selector disabled detection.
             NSMutableArray<NSString *> *idHints = [NSMutableArray array];
 
             if ([properties respondsToSelector:@selector(firstSubmessage)]) {
@@ -63,7 +65,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
             BOOL isOfflineUpsell = NO;
             for (NSString *hint in idHints) {
-                // Tolerant match on identifiers to survive minor renames.
                 if ([hint containsString:@"offline_upsell"]) {
                     isOfflineUpsell = YES;
                     break;
@@ -79,10 +80,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
                     [controlsOverlayView uYou];
                     return;
                 }
-                // #991: NEVER swallow the native sheet unless we can actually
-                // replace it — otherwise users get nothing at all instead of
-                // the Premium dialog. Common cause: iPad layouts never create
-                // YTMainAppControlsOverlayView, so the capture hook stays nil.
                 HBLogWarn(@"[uYouPlus] offline upsell detected but YTMainAppControlsOverlayView was never "
                           "captured (iPad layout?) — showing original sheet");
                 break;
@@ -90,7 +87,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
         }
 
         if (!overlayAvailable) {
-            HBLogInfo(@"[uYouPlus] action sheet with %lu option(s); overlay view not captured",
+            HBLogInfo(@"[uYouEnhanced] action sheet with %lu option(s); overlay view not captured",
                       (unsigned long)listOptions.count);
         }
     }

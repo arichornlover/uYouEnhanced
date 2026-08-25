@@ -496,74 +496,69 @@ static void UYTFallbackToVideoOnly(id item) {
 //  - Download-completion stalls (#992): bytes reach 100% but uYou's URLSession
 //    completion handler silently bails (expired/403 stream URL), so no merge
 //    is ever attempted and nothing marks the item finished.
-// The old one-shot check fired once and gave up; this version POLLS every 5s
-// after the initial timeout until the item completes, recovery succeeds, or
-// grace polls run out — late-arriving files are no longer missed.
-static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
+// Implemented as plain function-based ticks — no self-capturing block, so no
+// ARC retain cycle (-Warc-retain-cycles). Each check reschedules the next one
+// through UYTScheduleStallCheck until the item completes or polls run out.
+static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSString *, NSNumber *> *lastSizes);
+
+static void UYTScheduleStallCheck(id item, NSTimeInterval delay, NSInteger pollsLeft,
+                                  NSMutableDictionary<NSString *, NSNumber *> *lastSizes) {
     __weak id weakItem = item;
-    __block NSInteger pollsLeft = 8; // ~40s of extra polling after `seconds`
-    __block NSMutableDictionary<NSString *, NSNumber *> *lastSizes = [NSMutableDictionary dictionary];
-    __block void (^poll)(void);
-    poll = ^{
-        id strongItem = weakItem;
-        if (!strongItem || pollsLeft <= 0) { poll = nil; return; }
-        pollsLeft--;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)),
+                   dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        UYTStallCheck(weakItem, pollsLeft, lastSizes);
+    });
+}
 
-        @try {
-            id ui = UYTResolveUYouItem(strongItem);
-            if (!ui) { poll = nil; return; }
+static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSString *, NSNumber *> *lastSizes) {
+    if (!item || pollsLeft <= 0) return;
+    @try {
+        id ui = UYTResolveUYouItem(item);
+        if (!ui) return;
 
-            BOOL finished = NO;
-            if ([ui respondsToSelector:@selector(isDownloadFinished)]) {
-                finished = [ui isDownloadFinished];
-            }
-            NSString *finalPath = [ui respondsToSelector:@selector(filePath)] ? [ui filePath] : nil;
-            NSFileManager *fm = [NSFileManager defaultManager];
-            NSDictionary *attrs = finalPath.length ? [fm attributesOfItemAtPath:finalPath error:nil] : nil;
-            if (finished || (attrs && [attrs fileSize] > 0)) {
-                poll = nil; // completed normally
-                return;
-            }
-
-            HBLogWarn(@"[uYouPatches] download stalled — attempting recovery (polls left %ld, vid: %@)",
-                      (long)pollsLeft,
-                      [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : @"?");
-
-            // Growth check: if the best candidate file is still being written,
-            // the download is progressing (slowly) — do NOT interrupt it.
-            NSDictionary *best = UYTBestAvailableSource(ui);
-            if (!best) {
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)),
-                               dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), poll);
-                return;
-            }
-            NSString *bestPath = best[@"path"];
-            unsigned long long bestSize = [[[NSFileManager defaultManager]
-                attributesOfItemAtPath:bestPath error:nil] fileSize];
-            NSNumber *prevSize = lastSizes[bestPath];
-            lastSizes[bestPath] = @(bestSize);
-            BOOL stillGrowing = prevSize && bestSize > prevSize.unsignedLongLongValue;
-            if (stillGrowing && pollsLeft > 0) {
-                HBLogInfo(@"[uYouPatches] stall recovery deferred — %@ is still growing (%llu bytes)",
-                          bestPath.lastPathComponent, bestSize);
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)),
-                               dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), poll);
-                return;
-            }
-
-            if (UYTForceCompleteItem(ui, @"stall watchdog")) {
-                UYTPostCompletionNotifications(strongItem);
-                poll = nil;
-                return;
-            }
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)),
-                           dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), poll);
-        } @catch (NSException *e) {
-            poll = nil;
+        BOOL finished = NO;
+        if ([ui respondsToSelector:@selector(isDownloadFinished)]) {
+            finished = [ui isDownloadFinished];
         }
-    };
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)),
-                   dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), poll);
+        NSString *finalPath = [ui respondsToSelector:@selector(filePath)] ? [ui filePath] : nil;
+        NSFileManager *fm = [NSFileManager defaultManager];
+        NSDictionary *attrs = finalPath.length ? [fm attributesOfItemAtPath:finalPath error:nil] : nil;
+        if (finished || (attrs && [attrs fileSize] > 0)) return; // completed normally
+
+        HBLogWarn(@"[uYouPatches] download stalled — attempting recovery (polls left %ld, vid: %@)",
+                  (long)pollsLeft,
+                  [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : @"?");
+
+        NSDictionary *best = UYTBestAvailableSource(ui);
+        if (!best) {
+            UYTScheduleStallCheck(item, 5.0, pollsLeft - 1, lastSizes);
+            return;
+        }
+
+        // Growth check: if the best candidate file is still being written,
+        // the download is progressing (slowly) — do NOT interrupt it.
+        NSString *bestPath = best[@"path"];
+        unsigned long long bestSize = [[fm attributesOfItemAtPath:bestPath error:nil] fileSize];
+        NSNumber *prevSize = lastSizes[bestPath];
+        lastSizes[bestPath] = @(bestSize);
+        BOOL stillGrowing = prevSize && bestSize > prevSize.unsignedLongLongValue;
+        if (stillGrowing && pollsLeft > 1) {
+            HBLogInfo(@"[uYouPatches] stall recovery deferred — %@ is still growing (%llu bytes)",
+                      bestPath.lastPathComponent, bestSize);
+            UYTScheduleStallCheck(item, 5.0, pollsLeft - 1, lastSizes);
+            return;
+        }
+
+        if (UYTForceCompleteItem(ui, @"stall watchdog")) {
+            UYTPostCompletionNotifications(item);
+            return;
+        }
+        UYTScheduleStallCheck(item, 5.0, pollsLeft - 1, lastSizes);
+    } @catch (NSException *e) {}
+}
+
+static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
+    UYTScheduleStallCheck(item, seconds, 8, [NSMutableDictionary dictionary]);
 }
 
 %hook DownloadsManager

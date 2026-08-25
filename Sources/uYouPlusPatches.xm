@@ -291,7 +291,9 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 - (void)setNowPlayingInfo:(NSDictionary *)info {
     // Clearing is always allowed; fresh publications are blocked in-app so
     // the island can't expand while you're inside YouTube.
-    if (info != nil && [[UIApplication sharedApplication] applicationState] == UIApplicationStateActive) {
+    UIApplication *app = [UIApplication sharedApplication];
+    BOOL isActive = (app != nil && app.applicationState == UIApplicationStateActive);
+    if (info != nil && isActive) {
         return;
     }
     %orig;
@@ -314,7 +316,11 @@ static BOOL UYTIsJailbroken(void) {
     %init;
     %init(gPatches);
     %init(gSideloadingPatches);
-    if (!UYTIsJailbroken()) {
+    // Opt-out escape hatch (#990 bisection): users who suspect the Dynamic
+    // Island fix can set "disableDynamicIslandFix" to YES (e.g. via a debug
+    // build or plist edit) to skip hook installation entirely.
+    BOOL diFixDisabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"disableDynamicIslandFix"];
+    if (!UYTIsJailbroken() && !diFixDisabled) {
         %init(gDynamicIslandFix);
 
         // Returning to the app: clear any stale Now Playing session so an
