@@ -101,11 +101,19 @@ static NSString * const UYTClientVersion = @"19.45.1";
 }
 
 + (UYTStreamFormat *)bestAudioFormat:(NSArray<UYTStreamFormat *> *)formats {
-    UYTStreamFormat *best = nil;
-    for (UYTStreamFormat *f in formats)
-        if (f.hasAudio && !f.hasVideo && [f.mimeType containsString:@"mp4"]
-            && (!best || f.bitrate > best.bitrate)) best = f;
-    return best;
+    // Prefer m4a, but fall back to the best webm track — modern YouTube serves
+    // adaptive audio mostly as webm, and uYouPatches converts it afterwards.
+    UYTStreamFormat *bestM4a = nil;
+    UYTStreamFormat *bestOther = nil;
+    for (UYTStreamFormat *f in formats) {
+        if (!f.hasAudio || f.hasVideo) continue;
+        if ([f.mimeType containsString:@"mp4"]) {
+            if (!bestM4a || f.bitrate > bestM4a.bitrate) bestM4a = f;
+        } else {
+            if (!bestOther || f.bitrate > bestOther.bitrate) bestOther = f;
+        }
+    }
+    return bestM4a ?: bestOther;
 }
 
 @end
@@ -184,6 +192,10 @@ static NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
     } @catch (NSException *e) {}
 
     NSString *working = UYTResolvedURLForVideo(vid, wantsAudio);
+    if (working.length == 0 && wantsAudio) {
+        // No audio stream resolved — fall back to the muxed URL like before.
+        working = UYTResolvedURLForVideo(vid, NO);
+    }
     if (working.length) {
         NSURL *fixed = [NSURL URLWithString:working];
         if (fixed) {

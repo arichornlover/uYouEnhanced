@@ -493,6 +493,7 @@ static BOOL UYTRemuxWithFFmpeg(id ui, NSString *phase) {
             @"-i", videoPath,
             @"-i", audioPath,
             @"-c", @"copy",              // stream copy — no re-encode, max speed
+            @"-strict", @"-2",           // allow webm-sourced codecs (opus/vp9) in mp4
             @"-movflags", @"+faststart", // instant playback start on iOS
             @"-y",
             tmpOut
@@ -1270,16 +1271,27 @@ static float uYouSavedPlaybackRate = 0.0f;
         Class settingsClass = %c(FRPSettings);
         Class sectionClass = %c(FRPSection);
         Class switchClass = %c(FRPSwitchCell);
-        if (settingsClass && sectionClass && switchClass) {
+        // Verify every selector actually exists before touching anything —
+        // a mismatch must disable the row, never crash the menu.
+        BOOL safe = settingsClass && sectionClass && switchClass &&
+            [settingsClass instancesRespondToSelector:@selector(initWithKey:defaultValue:)] &&
+            [sectionClass instancesRespondToSelector:@selector(initWithTitle:footer:footerAlignment:)] &&
+            [sectionClass instancesRespondToSelector:@selector(addCell:)] &&
+            [switchClass instancesRespondToSelector:@selector(cellWithTitle:setting:postNotification:changeBlock:)];
+        if (safe) {
             // Same NSUserDefaults key our pipeline reads, so the toggle just works.
             id fastSetting = [[settingsClass alloc] initWithKey:kFastDownloads defaultValue:@NO];
             id fastCell = [[switchClass alloc] cellWithTitle:@"Fast Downloads"
                                                      setting:fastSetting
                                             postNotification:nil
                                                  changeBlock:^{}];
-            id section = [[sectionClass alloc] initWithTitle:@"uYouEnhanced" footer:nil footerAlignment:0];
-            [section addCell:fastCell];
-            [allSections addObject:section];
+            if (fastSetting && fastCell) {
+                id section = [[sectionClass alloc] initWithTitle:@"uYouEnhanced" footer:nil footerAlignment:0];
+                if (section) {
+                    [section addCell:fastCell];
+                    [allSections addObject:section];
+                }
+            }
         }
     } @catch (NSException *e) {
         HBLogWarn(@"[uYouPatches] menu integration failed: %@", e);
