@@ -286,6 +286,8 @@
 
 "ADBLOCK_WORKAROUND_LITE" = "AdBlock Workaround (Lite)";
 "ADBLOCK_WORKAROUND_LITE_DESC" = "Uses weaker adblocking code, this will disable uYou's Adblocking Option.";
+"ENABLE_DYNAMIC_ISLAND_FIX" = "Enable Dynamic Island Fix";
+"ENABLE_DYNAMIC_ISLAND_FIX_DESC" = "Off by default. Turn on only if the Dynamic Island expands while using the app on an iPhone 14 Pro or newer (sideloaded). Takes effect after an app restart.";
 "ADBLOCK_WORKAROUND" = "AdBlock Workaround";
 "ADBLOCK_WORKAROUND_DESC" = "Uses stronger adblocking code.";
 
