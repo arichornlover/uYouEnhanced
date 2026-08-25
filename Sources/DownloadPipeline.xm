@@ -4,22 +4,6 @@
 
 #import <Foundation/Foundation.h>
 
-@interface DownloadsManager : NSObject
-+ (instancetype)sharedInstance;
-@end
-
-@interface AFHTTPSessionManager : NSObject
-- (NSURLSessionDownloadTask *)downloadTaskWithRequest:(NSURLRequest *)request
-                                             progress:(void (^)(NSProgress *progress))progressPtr
-                                          destination:(NSURL *(^)(NSURL *targetPath, NSURLResponse *response))destination
-                                    completionHandler:(void (^)(NSURLResponse *response, NSURL *filePath, NSError *error))completionHandler;
-@end
-
-@interface DownloadItem : NSObject
-@property (nonatomic, strong) NSString *videoID;
-- (void)setRemoteURL:(NSURL *)url;
-@end
-
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
 static NSString * const UYTClientVersion = @"19.45.1";
 
@@ -126,77 +110,15 @@ static NSString * const UYTClientVersion = @"19.45.1";
 
 @end
 
-// --- Wiring: fix uYou's stream URLs at the DownloadItem level ---------------
-
-// Store resolved URLs keyed by videoID so the DownloadItem hook can swap them.
-static NSMutableDictionary<NSString *, NSString *> *UYTResolvedURLs;
-
-static void UYTStoreResolvedURL(NSString *vid, NSString *url) {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        UYTResolvedURLs = [NSMutableDictionary dictionary];
-    });
-    if (vid.length && url.length) UYTResolvedURLs[vid] = url;
-}
-
-static NSString *UYTGetResolvedURL(NSString *vid) {
-    return UYTResolvedURLs[vid] ?: nil;
-}
-
-// --- DB integration (reserved for future use) --------------------------------
-// With the URL-swap approach, uYou's native flow handles DB insertion when
-// given valid stream URLs. This section is kept for reference but the
-// standalone insert function was removed to fix -Wunused-function.
-// Schema for future re-use:
-//   CREATE TABLE IF NOT EXISTS downloads (id TEXT PRIMARY KEY, videoID TEXT,
-//   title TEXT, channel TEXT, channelURL TEXT, qualityLabel TEXT,
-//   typeAndQuality TEXT, size TEXT, duration TEXT, type TEXT, path TEXT,
-//   lyrics TEXT, timestamp DATETIME)
-//   DB path: Documents/uyoudb.sqlite (or AppGroup/uyoudb.sqlite)
-
-%hook DownloadsManager
-- (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
-    NSString *vid = [NSString stringWithFormat:@"%@", videoID];
-
-    // Pre-fetch working stream URLs via innertube BEFORE %orig runs.
-    [UYTDownloadPipeline fetchFormatsForVideoID:vid completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
-        if (error || formats.count == 0) {
-            NSLog(@"[UYTPipeline] no formats for %@ (%@)", vid, error.localizedDescription);
-            return;
-        }
-        UYTStreamFormat *best = [UYTDownloadPipeline bestMuxedFormat:formats];
-        if (best.url.length) {
-            UYTStoreResolvedURL(vid, best.url);
-            NSLog(@"[UYTPipeline] cached working URL for %@ (itag=%ld)", vid, (long)best.itag);
-        }
-    }];
-
-    // Give the async fetch a moment, then let %orig proceed — the DownloadItem
-    // hook below will swap any broken URL with our cached working one.
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        %orig;
-    });
-}
-%end
-
-// Intercept DownloadItem URL assignment — swap broken extraction URLs with
-// our working innertube-fetched ones so uYou's native download flow functions.
-%hook DownloadItem
-- (void)setRemoteURL:(NSURL *)url {
-    NSString *vid = self.videoID ?: @"";
-    NSString *working = UYTGetResolvedURL(vid);
-    if (working.length) {
-        NSURL *fixed = [NSURL URLWithString:working];
-        if (fixed) {
-            NSLog(@"[UYTPipeline] swapped broken URL -> working innertube URL for %@", vid);
-            %orig(fixed);
-            return;
-        }
-    }
-    %orig;
-}
-%end
-
-%ctor {
-    %init;
-}
+// --- Wiring ------------------------------------------------------------------
+// STATUS (post-21.14.4-3.0.5 field reports, issues #991/#992):
+// The URL-swap hooks that previously lived here were REMOVED.
+//   1. Field reports show downloads reach 100%, which proves uYou's own
+//      stream extraction still works — swapping URLs solved nothing.
+//   2. Swapping a MUXED format URL into uYou's adaptive-video slot corrupted
+//      the merge input (muxed content re-merged with separate audio).
+//   3. Both files hooking getLinksLocallyPlayerItem: created a double-swizzle
+//      chain with an artificial 1.5s main-thread delay of uYou's extraction.
+// Stall recovery now lives entirely in Sources/uYouPatches.xm (watchdogs).
+// UYTDownloadPipeline below is retained for a future full pipeline bypass
+// (replacing %orig outright) once device logs confirm where uYou stalls.

@@ -342,132 +342,241 @@ static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
     return NO;
 }
 
+// Resolve the inner uYouItem from a wrapper (DownloadItem) using the verified
+// 3.0.4 API from Sources/uYouPatches.h. Direct selectors instead of KVC:
+// valueForKey: throws NSUndefinedKeyException on unknown keys, and a single
+// throw silently aborts an entire recovery path wrapped in @try.
+static id UYTResolveUYouItem(id item) {
+    if (!item) return nil;
+    @try {
+        if ([item respondsToSelector:@selector(uYouItem)]) {
+            id ui = [item uYouItem];
+            if (ui) return ui;
+        }
+    } @catch (NSException *e) {}
+    // Some call sites pass the uYouItem itself rather than the wrapper.
+    Class uyouItemClass = %c(uYouItem);
+    if (uyouItemClass && [item isKindOfClass:uyouItemClass]) return item;
+    return nil;
+}
+
+static BOOL UYTPathIsWebm(NSString *path) {
+    return path.length > 0 && [path.pathExtension.lowercaseString isEqualToString:@"webm"];
+}
+
+static NSString *UYTAudioPathForItem(id ui) {
+    if (!ui) return nil;
+    if ([ui respondsToSelector:@selector(tmpAudioPath)]) {
+        NSString *p = [ui tmpAudioPath];
+        if (p.length) return p;
+    }
+    if ([ui respondsToSelector:@selector(cachedAudioPath)]) return [ui cachedAudioPath];
+    return nil;
+}
+
 // Post-conversion check: is the item's audio still WebM? If yes, calling
 // %orig would hang forever inside AVAssetExportSession (it never completes
 // an mp4+webm merge and never throws), so callers must skip the merge.
 static BOOL UYTAudioStillWebm(id item) {
     @try {
-        uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
-        if (!uyouItem) return NO;
-        NSString *audioPath = [uyouItem valueForKey:@"tmpAudioPath"] ?: [uyouItem valueForKey:@"cachedAudioPath"];
-        return audioPath && [audioPath.pathExtension.lowercaseString isEqualToString:@"webm"];
+        return UYTPathIsWebm(UYTAudioPathForItem(UYTResolveUYouItem(item)));
     } @catch (NSException *e) {
         return NO;
     }
 }
 
-// Finish the download gracefully instead of hanging. Prefers our pipeline's
-// muxed mp4 (video+audio) when available; otherwise falls back to uYou's
-// cached video-only stream.
-static void UYTFallbackToVideoOnly(id item) {
+// Convert webm audio to m4a BEFORE uYou hands the files to AVAssetExportSession.
+// Returns YES when the audio is safe to merge (or nothing needed converting).
+static BOOL UYTEnsureMergeableAudio(id item, NSString *phase) {
     @try {
-        uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
-        if (!uyouItem) return;
-        NSString *filePath = [uyouItem filePath];
-        if (!filePath) return;
+        id ui = UYTResolveUYouItem(item);
+        NSString *audioPath = UYTAudioPathForItem(ui);
+        if (!audioPath.length) return YES;
+        HBLogInfo(@"[uYouPatches] %@: audio=%@ (.%@)", phase, audioPath.lastPathComponent, audioPath.pathExtension);
+        if (!UYTPathIsWebm(audioPath)) return YES;
 
-        NSString *src = nil;
-        BOOL usedMuxed = NO;
-        NSString *vid = nil;
-        if ([uyouItem respondsToSelector:@selector(videoID)]) {
-            vid = [uyouItem valueForKey:@"videoID"];
+        NSString *m4aPath = [[audioPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
+        if (uYouConvertWebmAudioToM4a(audioPath, m4aPath)) {
+            // Persist through guarded KVC — uYou re-reads tmpAudioPath internally.
+            @try { [ui setValue:m4aPath forKey:@"tmpAudioPath"]; } @catch (NSException *e) {}
+            HBLogInfo(@"[uYouPatches] %@: webm→m4a conversion done", phase);
+            return YES;
         }
-        NSFileManager *fm = [NSFileManager defaultManager];
-
-        // 1) Preferred: the muxed mp4 our modern pipeline downloaded (has audio).
-        if (vid.length) {
-            NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-            NSString *muxed = [docs stringByAppendingPathComponent:[NSString stringWithFormat:@"uYouDownloads/%@.mp4", vid]];
-            if ([fm fileExistsAtPath:muxed]) {
-                src = muxed;
-                usedMuxed = YES;
-            }
-        }
-        // 2) Otherwise: uYou's cached video-only stream (silent, but playable).
-        NSString *cachedVideoPath = [uyouItem cachedVideoPath];
-        if (!src && cachedVideoPath && [fm fileExistsAtPath:cachedVideoPath]) src = cachedVideoPath;
-
-        if (src) {
-            if ([fm fileExistsAtPath:filePath]) [fm removeItemAtPath:filePath error:nil];
-            NSError *err = nil;
-            BOOL ok = [fm moveItemAtPath:src toPath:filePath error:&err];
-            if (!ok) ok = [fm copyItemAtPath:src toPath:filePath error:&err];
-            HBLogWarn(@"[uYouPatches] Completed without merge (%@): %@",
-                      usedMuxed ? @"muxed pipeline file" : @"video-only stream", filePath);
-        }
+        HBLogWarn(@"[uYouPatches] %@: webm→m4a conversion FAILED — merge would hang", phase);
+        return NO;
     } @catch (NSException *e) {
-        HBLogWarn(@"[uYouPatches] no-merge fallback failed: %@", e);
+        HBLogWarn(@"[uYouPatches] %@: pre-conversion exception: %@", phase, e);
+        return NO;
     }
 }
 
-// AVAssetExportSession silent-hang family (#452/#241/#520/#830/#676).
+// Ordered candidate sources for forced completion — VIDEO sources first
+// (silent video beats audio-only), then converted audio. Raw .webm is never
+// a playable final file on iOS, so webm candidates are always skipped.
+static NSDictionary *UYTBestAvailableSource(id ui) {
+    if (!ui) return nil;
+    NSFileManager *fm = [NSFileManager defaultManager];
+
+    NSMutableArray<NSDictionary *> *candidates = [NSMutableArray array];
+    void (^addCandidate)(NSString *, NSString *) = ^(NSString *path, NSString *label) {
+        if (path.length && !UYTPathIsWebm(path)) {
+            [candidates addObject:@{@"path": path, @"label": label}];
+        }
+    };
+
+    // 1) A completed muxed mp4 (pipeline output location, reserved).
+    NSString *vid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
+    if (vid.length) {
+        NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+        addCandidate([docs stringByAppendingPathComponent:[NSString stringWithFormat:@"uYouDownloads/%@.mp4", vid]],
+                     @"muxed pipeline file");
+    }
+    // 2/3) uYou's own downloaded video streams.
+    if ([ui respondsToSelector:@selector(tmpVideoPath)]) addCandidate([ui tmpVideoPath], @"tmp video stream");
+    if ([ui respondsToSelector:@selector(cachedVideoPath)]) addCandidate([ui cachedVideoPath], @"cached video stream");
+    // 4/5) Converted audio as a last resort.
+    if ([ui respondsToSelector:@selector(tmpAudioPath)]) addCandidate([ui tmpAudioPath], @"tmp audio stream");
+    if ([ui respondsToSelector:@selector(cachedAudioPath)]) addCandidate([ui cachedAudioPath], @"cached audio stream");
+
+    for (NSDictionary *candidate in candidates) {
+        NSString *p = candidate[@"path"];
+        NSDictionary *attrs = [fm attributesOfItemAtPath:p error:nil];
+        if (attrs && [attrs fileSize] > 0) return candidate;
+    }
+    return nil;
+}
+
+// Promote the best available source file to the item's final path.
+static BOOL UYTForceCompleteItem(id ui, NSString *reason) {
+    @try {
+        if (![ui respondsToSelector:@selector(filePath)]) return NO;
+        NSString *filePath = [ui filePath];
+        if (!filePath.length) return NO;
+
+        NSDictionary *best = UYTBestAvailableSource(ui);
+        if (!best) {
+            HBLogWarn(@"[uYouPatches] force-complete (%@): no usable source file yet", reason);
+            return NO;
+        }
+
+        NSFileManager *fm = [NSFileManager defaultManager];
+        if ([fm fileExistsAtPath:filePath]) [fm removeItemAtPath:filePath error:nil];
+        NSError *err = nil;
+        BOOL ok = [fm moveItemAtPath:best[@"path"] toPath:filePath error:&err];
+        if (!ok) ok = [fm copyItemAtPath:best[@"path"] toPath:filePath error:&err];
+        if (!ok) {
+            HBLogWarn(@"[uYouPatches] force-complete (%@): move failed: %@", reason, err);
+            return NO;
+        }
+        HBLogWarn(@"[uYouPatches] force-complete (%@): promoted %@ -> %@", reason, best[@"label"], filePath);
+        return YES;
+    } @catch (NSException *e) {
+        HBLogWarn(@"[uYouPatches] force-complete (%@) exception: %@", reason, e);
+        return NO;
+    }
+}
+
+static void UYTPostCompletionNotifications(id item) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"downloadDidCompleteNotification" object:item];
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"conversionDidCompleteNotification" object:item];
+    });
+}
+
+// Finish the download gracefully instead of hanging: skip the broken merge,
+// promote the best available file, and tell uYou's UI to refresh.
+static void UYTFallbackToVideoOnly(id item) {
+    id ui = UYTResolveUYouItem(item);
+    if (!UYTForceCompleteItem(ui, @"no-merge fallback")) return;
+    UYTPostCompletionNotifications(item);
+}
+
+// Stall recovery for BOTH failure families:
+//  - AVAssetExportSession silent hangs (#452/#241/#520/#830/#676)
+//  - Download-completion stalls (#992): bytes reach 100% but uYou's URLSession
+//    completion handler silently bails (expired/403 stream URL), so no merge
+//    is ever attempted and nothing marks the item finished.
+// The old one-shot check fired once and gave up; this version POLLS every 5s
+// after the initial timeout until the item completes, recovery succeeds, or
+// grace polls run out — late-arriving files are no longer missed.
 static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     __weak id weakItem = item;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)),
-                   dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+    __block NSInteger pollsLeft = 8; // ~40s of extra polling after `seconds`
+    __block NSMutableDictionary<NSString *, NSNumber *> *lastSizes = [NSMutableDictionary dictionary];
+    __block void (^poll)(void);
+    poll = ^{
         id strongItem = weakItem;
-        if (!strongItem) return;
-        @try {
-            uYouItem *ui = [strongItem valueForKey:@"uYouItem"];
-            if (!ui) return;
-            NSString *filePath = [ui filePath];
-            if (!filePath.length) return;
+        if (!strongItem || pollsLeft <= 0) { poll = nil; return; }
+        pollsLeft--;
 
-            NSFileManager *fm = [NSFileManager defaultManager];
+        @try {
+            id ui = UYTResolveUYouItem(strongItem);
+            if (!ui) { poll = nil; return; }
 
             BOOL finished = NO;
             if ([ui respondsToSelector:@selector(isDownloadFinished)]) {
                 finished = [ui isDownloadFinished];
             }
-            if (!finished) {
-                NSDictionary *attrs = [fm attributesOfItemAtPath:filePath error:nil];
-                finished = (attrs && [attrs fileSize] > 0);
+            NSString *finalPath = [ui respondsToSelector:@selector(filePath)] ? [ui filePath] : nil;
+            NSFileManager *fm = [NSFileManager defaultManager];
+            NSDictionary *attrs = finalPath.length ? [fm attributesOfItemAtPath:finalPath error:nil] : nil;
+            if (finished || (attrs && [attrs fileSize] > 0)) {
+                poll = nil; // completed normally
+                return;
             }
-            if (finished) return; // completed normally
 
-            HBLogWarn(@"[uYouPatches] download stalled >%.0fs — forcing completion", seconds);
+            HBLogWarn(@"[uYouPatches] download stalled — attempting recovery (polls left %ld, vid: %@)",
+                      (long)pollsLeft,
+                      [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : @"?");
 
-            NSMutableArray<NSString *> *candidates = [NSMutableArray array];
-            NSString *vid = nil;
-            if ([ui respondsToSelector:@selector(videoID)]) vid = [ui valueForKey:@"videoID"];
-            if (vid.length) {
-                NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-                [candidates addObject:[docs stringByAppendingPathComponent:[NSString stringWithFormat:@"uYouDownloads/%@.mp4", vid]]];
+            // Growth check: if the best candidate file is still being written,
+            // the download is progressing (slowly) — do NOT interrupt it.
+            NSDictionary *best = UYTBestAvailableSource(ui);
+            if (!best) {
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)),
+                               dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), poll);
+                return;
             }
-            // Converted/downloaded audio (skip raw webm — unplayable natively)
-            for (NSString *key in @[@"tmpAudioPath", @"cachedAudioPath"]) {
-                NSString *p = [ui valueForKey:key];
-                if (p.length && ![p.pathExtension.lowercaseString isEqualToString:@"webm"]) [candidates addObject:p];
+            NSString *bestPath = best[@"path"];
+            unsigned long long bestSize = [[[NSFileManager defaultManager]
+                attributesOfItemAtPath:bestPath error:nil] fileSize];
+            NSNumber *prevSize = lastSizes[bestPath];
+            lastSizes[bestPath] = @(bestSize);
+            BOOL stillGrowing = prevSize && bestSize > prevSize.unsignedLongLongValue;
+            if (stillGrowing && pollsLeft > 0) {
+                HBLogInfo(@"[uYouPatches] stall recovery deferred — %@ is still growing (%llu bytes)",
+                          bestPath.lastPathComponent, bestSize);
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)),
+                               dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), poll);
+                return;
             }
-            NSString *cv = [ui cachedVideoPath];
-            if (cv.length) [candidates addObject:cv];
 
-            for (NSString *cand in candidates) {
-                if (![fm fileExistsAtPath:cand]) continue;
-                if ([fm fileExistsAtPath:filePath]) [fm removeItemAtPath:filePath error:nil];
-                NSError *err = nil;
-                BOOL ok = [fm moveItemAtPath:cand toPath:filePath error:&err];
-                if (!ok) ok = [fm copyItemAtPath:cand toPath:filePath error:&err];
-                if (ok) {
-                    HBLogWarn(@"[uYouPatches] forced completion via %@", cand);
-                    // Mimic uYou's native completion: it posts download/conversion
-                    // notifications so cells + lists refresh. Object = the item.
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                        [[NSNotificationCenter defaultCenter]
-                            postNotificationName:@"downloadDidCompleteNotification" object:strongItem];
-                        [[NSNotificationCenter defaultCenter]
-                            postNotificationName:@"conversionDidCompleteNotification" object:strongItem];
-                    });
-                    return;
-                }
+            if (UYTForceCompleteItem(ui, @"stall watchdog")) {
+                UYTPostCompletionNotifications(strongItem);
+                poll = nil;
+                return;
             }
-        } @catch (NSException *e) {}
-    });
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)),
+                           dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), poll);
+        } @catch (NSException *e) {
+            poll = nil;
+        }
+    };
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)),
+                   dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), poll);
 }
 
 %hook DownloadsManager
 - (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
+    HBLogInfo(@"[uYouPatches] download requested (vid: %@, shorts: %@)", videoID, isShorts ? @"YES" : @"NO");
     %orig;
+    // Lifecycle catch-all (#992): covers stalls in phases we cannot hook —
+    // e.g. bytes reach 100% but uYou's URLSession completion handler silently
+    // bails on an expired/403 stream URL, so no merge method ever runs and
+    // nothing else recovers. Generous 5-minute timeout avoids interrupting
+    // legitimately slow downloads; the watchdog's growth check also defers
+    // recovery while candidate files are still being written.
+    UYTArmStallWatchdog(item, 300.0);
     // Start idle timer prevention when download setup begins
     uYouActiveDownloadCount++;
     if (!uYouDownloadIsActive) {
@@ -527,23 +636,13 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 
 %hook DownloadsManager
 - (void)addMetadataToAudioForDownloadItem:(id)item {
+    HBLogInfo(@"[uYouPatches] addMetadata entered");
     // Pre-fix: convert webm audio to m4a if needed (#771, #465)
-    @try {
-        uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
-        if (uyouItem) {
-            NSString *audioPath = [uyouItem valueForKey:@"tmpAudioPath"];
-            if (!audioPath) audioPath = [uyouItem valueForKey:@"cachedAudioPath"];
-            if (audioPath && [[audioPath pathExtension] isEqualToString:@"webm"]) {
-                NSString *m4aPath = [[audioPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
-                if (uYouConvertWebmAudioToM4a(audioPath, m4aPath)) {
-                    [uyouItem setValue:m4aPath forKey:@"tmpAudioPath"];
-                }
-            }
-        }
-    } @catch (NSException *e) {
-        HBLogWarn(@"[uYouPatches] WebM pre-conversion in addMetadata failed: %@", e);
+    if (!UYTEnsureMergeableAudio(item, @"addMetadata")) {
+        UYTFallbackToVideoOnly(item);
+        return;
     }
-    // Anti-hang guard (same as above) for the generic audio+video merge path.
+    // Anti-hang guard for the metadata path.
     if (UYTAudioStillWebm(item)) {
         HBLogWarn(@"[uYouPatches] Audio still WebM after conversion — skipping merge to avoid infinite hang");
         UYTFallbackToVideoOnly(item);
@@ -578,24 +677,11 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 
 %hook DownloadsManager
 - (void)mergeAudioWithMP4VideoForDownloadItem:(id)item {
+    HBLogInfo(@"[uYouPatches] mergeAudioWithMP4Video entered");
     // Pre-fix: convert webm audio to m4a before the merge (#771, #465)
-    @try {
-        uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
-        if (uyouItem) {
-            NSString *audioPath = [uyouItem valueForKey:@"tmpAudioPath"];
-            if (!audioPath) audioPath = [uyouItem valueForKey:@"cachedAudioPath"];
-            if (audioPath && [[audioPath pathExtension] isEqualToString:@"webm"]) {
-                NSString *m4aPath = [[audioPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
-                if (uYouConvertWebmAudioToM4a(audioPath, m4aPath)) {
-                    [uyouItem setValue:m4aPath forKey:@"tmpAudioPath"];
-                    HBLogInfo(@"[uYouPatches] Converted webm audio to m4a for merge: %@", m4aPath);
-                } else {
-                    HBLogWarn(@"[uYouPatches] WebM→M4A conversion failed, merge may hang: %@", audioPath);
-                }
-            }
-        }
-    } @catch (NSException *e) {
-        HBLogWarn(@"[uYouPatches] WebM pre-conversion in mergeMP4 failed: %@", e);
+    if (!UYTEnsureMergeableAudio(item, @"mergeMP4")) {
+        UYTFallbackToVideoOnly(item);
+        return;
     }
 
     // Anti-hang (#452/#520/#830 family): if the audio is still WebM the merge
@@ -633,24 +719,11 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 }
 
 - (void)mergeAudioWithVideoForDownloadItem:(id)item {
+    HBLogInfo(@"[uYouPatches] mergeAudioWithVideo entered");
     // Pre-fix: convert webm audio to m4a before the merge (#771, #465)
-    @try {
-        uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
-        if (uyouItem) {
-            NSString *audioPath = [uyouItem valueForKey:@"tmpAudioPath"];
-            if (!audioPath) audioPath = [uyouItem valueForKey:@"cachedAudioPath"];
-            if (audioPath && [[audioPath pathExtension] isEqualToString:@"webm"]) {
-                NSString *m4aPath = [[audioPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
-                if (uYouConvertWebmAudioToM4a(audioPath, m4aPath)) {
-                    [uyouItem setValue:m4aPath forKey:@"tmpAudioPath"];
-                    HBLogInfo(@"[uYouPatches] Converted webm audio to m4a for merge: %@", m4aPath);
-                } else {
-                    HBLogWarn(@"[uYouPatches] WebM→M4A conversion failed, merge may hang: %@", audioPath);
-                }
-            }
-        }
-    } @catch (NSException *e) {
-        HBLogWarn(@"[uYouPatches] WebM pre-conversion in mergeAudio failed: %@", e);
+    if (!UYTEnsureMergeableAudio(item, @"mergeAudio")) {
+        UYTFallbackToVideoOnly(item);
+        return;
     }
 
     // Anti-hang guard (same as above) for the generic audio+video merge path.

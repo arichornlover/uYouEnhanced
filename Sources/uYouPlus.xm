@@ -35,36 +35,63 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     if (IS_ENABLED(kReplaceYTDownloadWithuYou) && [arg2 isKindOfClass:%c(ELMPBShowActionSheetCommand)]) {
         ELMPBShowActionSheetCommand *showCommand = (ELMPBShowActionSheetCommand *)arg2;
         NSArray *listOptions = [showCommand listOptionArray];
+        BOOL overlayAvailable = controlsOverlayView && [controlsOverlayView respondsToSelector:@selector(uYou)];
 
         for (ELMPBElement *element in listOptions) {
             ELMPBProperties *properties = [element properties];
             if (!properties) continue;
 
-            NSString *identifier = nil;
+            // Gather every identifier hint we can find. YouTube has reshuffled
+            // this protobuf layout repeatedly (#991), so no single accessor can
+            // be trusted across builds — previously the accessors were tried as
+            // an else-if chain and one missing selector disabled detection.
+            NSMutableArray<NSString *> *idHints = [NSMutableArray array];
 
             if ([properties respondsToSelector:@selector(firstSubmessage)]) {
                 id sub = [properties firstSubmessage];
-                if ([sub respondsToSelector:@selector(identifier)]) {
-                    identifier = [sub identifier];
+                if ([sub respondsToSelector:@selector(identifier)] && [sub identifier]) {
+                    [idHints addObject:[sub identifier]];
                 }
-            } else if ([properties respondsToSelector:@selector(submessageAtIndex:)]) {
+            }
+            if ([properties respondsToSelector:@selector(submessageAtIndex:)]) {
                 id sub = [properties submessageAtIndex:0];
-                if ([sub respondsToSelector:@selector(identifier)]) {
-                    identifier = [sub identifier];
+                if ([sub respondsToSelector:@selector(identifier)] && [sub identifier]) {
+                    [idHints addObject:[sub identifier]];
                 }
-            } else if ([properties respondsToSelector:@selector(description)]) {
-                NSString *desc = [properties description];
-                if ([desc containsString:@"offline_upsell_dialog"]) {
-                    identifier = @"offline_upsell_dialog";
+            }
+            NSString *desc = [properties description] ?: @"";
+
+            BOOL isOfflineUpsell = NO;
+            for (NSString *hint in idHints) {
+                // Tolerant match on identifiers to survive minor renames.
+                if ([hint containsString:@"offline_upsell"]) {
+                    isOfflineUpsell = YES;
+                    break;
                 }
+            }
+            if (!isOfflineUpsell && [desc containsString:@"offline_upsell_dialog"]) {
+                isOfflineUpsell = YES;
             }
 
-            if (identifier && [identifier containsString:@"offline_upsell_dialog"]) {
-                if (controlsOverlayView && [controlsOverlayView respondsToSelector:@selector(uYou)]) {
+            if (isOfflineUpsell) {
+                if (overlayAvailable) {
+                    HBLogInfo(@"[uYouPlus] intercepted offline upsell sheet — launching uYou download");
                     [controlsOverlayView uYou];
+                    return;
                 }
-                return;
+                // #991: NEVER swallow the native sheet unless we can actually
+                // replace it — otherwise users get nothing at all instead of
+                // the Premium dialog. Common cause: iPad layouts never create
+                // YTMainAppControlsOverlayView, so the capture hook stays nil.
+                HBLogWarn(@"[uYouPlus] offline upsell detected but YTMainAppControlsOverlayView was never "
+                          "captured (iPad layout?) — showing original sheet");
+                break;
             }
+        }
+
+        if (!overlayAvailable) {
+            HBLogInfo(@"[uYouPlus] action sheet with %lu option(s); overlay view not captured",
+                      (unsigned long)listOptions.count);
         }
     }
     %orig;
