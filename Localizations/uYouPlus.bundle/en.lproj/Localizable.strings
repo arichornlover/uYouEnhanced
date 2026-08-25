@@ -288,11 +288,13 @@
 "ADBLOCK_WORKAROUND_LITE_DESC" = "Uses weaker adblocking code, this will disable uYou's Adblocking Option.";
 "ENABLE_DYNAMIC_ISLAND_FIX" = "Enable Dynamic Island Fix";
 "ENABLE_DYNAMIC_ISLAND_FIX_DESC" = "Off by default. Turn on only if the Dynamic Island expands while using the app on an iPhone 14 Pro or newer (sideloaded). Takes effect after an app restart.";
+"FAST_DOWNLOADS" = "Fast Downloads";
+"FAST_DOWNLOADS_DESC" = "Forces uYou downloads to run at your full internet speed instead of uYou's slow built-in downloader, which throttles some downloads (especially audio-only files).";
 "ADBLOCK_WORKAROUND" = "AdBlock Workaround";
 "ADBLOCK_WORKAROUND_DESC" = "Uses stronger adblocking code.";
 
 "FIX_PLAYBACK_ISSUES" = "Fix playback issues";
-"FIX_PLAYBACK_ISSUES_DESC" = "Fixes videos stopping mid-playback with an endless spinner by using Apple's native player instead of YouTube's Ham player. Turning this on will disable VP9 and AV1.";
+"FIX_PLAYBACK_ISSUES_DESC" = "Automatically recovers playback when a video stops or errors out mid-playback (e.g. after about a minute). Recommended for everyone.";
 "FAKE_PREMIUM" = "Fake Premium";
 "FAKE_PREMIUM_DESC" = "Uses Premium logo and creates fake buttons in the You tab. Will disable animated YouTube logo.";
 "FAKE_PREMIUM_WARNING" = "The *You* Tab doesn't exist in v%@, fake buttons will not be created.\nBut the *Fake Premium Logo* will still work.";
