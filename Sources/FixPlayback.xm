@@ -1,4 +1,5 @@
-﻿// Adapted from Tonwalter888/YouMod FixPlaybackIssues.x,
+// Playback recovery for videos stopping after ~60 seconds (#896).
+// Adapted from Tonwalter888/YouMod FixPlaybackIssues.x,
 // originally from Mark02-2012/YTPlaybackFix.
 
 #import "uYouPlus.h"
