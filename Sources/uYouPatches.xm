@@ -1252,6 +1252,52 @@ static float uYouSavedPlaybackRate = 0.0f;
 %end
 %end
 
+// uYou's FRPreferences settings framework (headers that ship inside the uYou.dylib)
+@interface FRPSettings : NSObject
+- (id)initWithKey:(id)key defaultValue:(id)value;
+@end
+@interface FRPSection : NSObject
+- (id)initWithTitle:(id)title footer:(id)footer footerAlignment:(NSInteger)alignment;
+- (void)addCell:(id)cell;
+- (void)addCells:(NSArray *)cells;
+@end
+@interface FRPSwitchCell : NSObject
+- (id)cellWithTitle:(id)title setting:(id)setting postNotification:(id)name changeBlock:(void (^)(void))block;
+@end
+@interface FRPreferences : NSObject
+- (void)initTableWithSections:(NSArray *)sections;
+@end
+
+// Surface tweak options inside uYou's own settings menu.
+%group gYouMenuIntegration
+
+%hook FRPreferences
+- (void)initTableWithSections:(NSArray *)sections {
+    NSMutableArray *allSections = [sections mutableCopy] ?: [NSMutableArray array];
+    @try {
+        Class settingsClass = %c(FRPSettings);
+        Class sectionClass = %c(FRPSection);
+        Class switchClass = %c(FRPSwitchCell);
+        if (settingsClass && sectionClass && switchClass) {
+            // Same NSUserDefaults key our pipeline reads, so the toggle just works.
+            id fastSetting = [[settingsClass alloc] initWithKey:kFastDownloads defaultValue:@NO];
+            id fastCell = [[switchClass alloc] cellWithTitle:@"Fast Downloads"
+                                                     setting:fastSetting
+                                            postNotification:nil
+                                                 changeBlock:^{}];
+            id section = [[sectionClass alloc] initWithTitle:@"uYouEnhanced" footer:nil footerAlignment:0];
+            [section addCell:fastCell];
+            [allSections addObject:section];
+        }
+    } @catch (NSException *e) {
+        HBLogWarn(@"[uYouPatches] menu integration failed: %@", e);
+    }
+    %orig(allSections);
+}
+%end
+
+%end
+
 %ctor {
     // Load saved playback rate
     float savedRate = [[NSUserDefaults standardUserDefaults] floatForKey:@"uYouSavedPlaybackRate"];
@@ -1261,6 +1307,11 @@ static float uYouSavedPlaybackRate = 0.0f;
 
     // Always initialize core uYou fixes
     %init(gYouFixes);
+
+    // Fast Downloads row inside uYou's own settings menu
+    if (%c(FRPreferences)) {
+        %init(gYouMenuIntegration);
+    }
 
     // Notifications row in uYou's Reorder Tabs table
     if (%c(settingsReorderTable)) {
