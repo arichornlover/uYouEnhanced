@@ -301,6 +301,34 @@ jobs:
           done
           cyan -i "$IPA_IN" -o "$OUTNAME" -uwef $tweaks -n "${{ inputs.app_name }}" -b ${{ inputs.bundle_id }}
 
+      - name: Embed FFmpegKit Frameworks (if present)
+        run: |
+          set -euo pipefail
+          if ! compgen -G "main/Vendor/*.framework" > /dev/null; then
+            echo "No Vendor/*.framework — MobileFFmpeg stays active"
+            exit 0
+          fi
+          IPA="$(find . -maxdepth 2 -name 'uYouEnhanced_*.ipa' -print -quit)"
+          if [ -z "$IPA" ]; then
+            echo "No IPA found to embed framework into"
+            exit 0
+          fi
+          rm -rf fwwork && mkdir fwwork && cd fwwork
+          unzip -q "../$IPA"
+          mkdir -p Payload/YouTube.app/Frameworks
+          # Copy EVERY framework — ffmpegkit needs its av*/sw* engines.
+          for fw in ../main/Vendor/*.framework; do
+            NAME="$(basename "$fw")"
+            rm -rf "Payload/YouTube.app/Frameworks/$NAME"
+            cp -R "$fw" "Payload/YouTube.app/Frameworks/"
+            # Headers are compile-time only — strip from the embedded copy.
+            find "Payload/YouTube.app/Frameworks/$NAME" -type d \( -name Headers -o -name Modules -o -name PrivateHeaders \) -exec rm -rf {} + 2>/dev/null || true
+            echo "Embedded: $NAME"
+          done
+          zip -q -r "../$IPA" Payload/YouTube.app/Frameworks
+          cd .. && rm -rf fwwork
+          echo "FFmpegKit frameworks embedded into $IPA"
+
       - name: Strip Unresignable Extensions From Final IPA
         id: strip_ipa
         run: |
