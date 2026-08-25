@@ -316,11 +316,12 @@ static BOOL UYTIsJailbroken(void) {
     %init;
     %init(gPatches);
     %init(gSideloadingPatches);
-    // Opt-out escape hatch (#990 bisection): users who suspect the Dynamic
-    // Island fix can set "disableDynamicIslandFix" to YES (e.g. via a debug
-    // build or plist edit) to skip hook installation entirely.
-    BOOL diFixDisabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"disableDynamicIslandFix"];
-    if (!UYTIsJailbroken() && !diFixDisabled) {
+    // Opt-IN only: the Dynamic Island fix is OFF by default and is installed
+    // solely when the user enables "Enable Dynamic Island Fix" in settings
+    // (and on non-jailbroken devices, where the official bundle lacks media
+    // entitlements). Nothing runs unless explicitly requested.
+    BOOL diFixEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:kEnableDynamicIslandFix];
+    if (!UYTIsJailbroken() && diFixEnabled) {
         %init(gDynamicIslandFix);
 
         // Returning to the app: clear any stale Now Playing session so an

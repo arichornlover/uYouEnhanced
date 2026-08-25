@@ -159,6 +159,7 @@ static NSString *const kDisableModernFlags = @"disableModernFlags_enabled";
 static NSString *const kEnableVersionSpoofer = @"enableVersionSpoofer_enabled";
 // Miscellaneous
 static NSString *const kGoogleSignInPatch = @"googleSignInPatch_enabled";
+static NSString *const kEnableDynamicIslandFix = @"enableDynamicIslandFix_enabled"; // opt-IN: fix stays off unless enabled
 static NSString *const kAdBlockWorkaroundLite = @"adBlockWorkaroundLite_enabled";
 static NSString *const kAdBlockWorkaround = @"adBlockWorkaround_enabled";
 static NSString *const kFixPlaybackIssues = @"fixPlaybackIssues_enabled";
