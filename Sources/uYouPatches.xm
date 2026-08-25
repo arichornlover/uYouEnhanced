@@ -1,5 +1,6 @@
 #import "uYouPlus.h"
 #import "uYouPatches.h"
+#import "MediaKit/UYTMediaKit.h"
 #import <sqlite3.h>
 #include <string.h>
 
@@ -273,29 +274,6 @@ static void refreshUYouAppearance() {
 %hook DownloadsManager
 - (void)setupURLSessionConfiguration {
     %orig;
-    // Fast Downloads: swap in a tuned session config so transfers aren't
-    // throttled. The manager stays the delegate, so callbacks still fire.
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:kFastDownloads]) {
-        @try {
-            id sessionManager = self.sessionManager;
-            NSURLSession *oldSession = [sessionManager respondsToSelector:@selector(session)] ? [sessionManager session] : nil;
-            if (!oldSession) return;
-
-            NSURLSessionConfiguration *config = [oldSession.configuration copy];
-            config.HTTPShouldUsePipelining = YES;
-            config.requestCachePolicy = NSURLRequestReloadIgnoringLocalCacheData;
-            config.timeoutIntervalForRequest = 60;
-            config.timeoutIntervalForResource = 600;
-            config.HTTPMaximumConnectionsPerHost = 16;
-            config.shouldUseExtendedBackgroundIdleMode = YES;
-            config.URLCache = nil;
-
-            NSURLSession *fastSession = [NSURLSession sessionWithConfiguration:config
-                                                                      delegate:(id)sessionManager
-                                                                 delegateQueue:oldSession.delegateQueue];
-            [(id)sessionManager setValue:fastSession forKey:@"session"];
-        } @catch (NSException *e) {}
-    }
 }
 %end
 
@@ -328,7 +306,7 @@ static BOOL UYTTaskWroteEverything(NSURLSessionTask *task) {
 }
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
     if (error && UYTTaskWroteEverything(task)) {
-        HBLogWarn(@"[uYouPatches] transfer hit 100%% but errored (%@ code %ld) — completing as success",
+        HBLogWarn(@"[uYouPatches] transfer hit 100%% but errored (%@ code %ld) â€” completing as success",
                   error.domain ?: @"?", (long)error.code);
         [UYTTaskByteCounts removeObjectForKey:@(task.taskIdentifier)];
         %orig(session, task, nil);
@@ -375,28 +353,24 @@ static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
             m4aPath
         ];
 
-        // IMPORTANT: MobileFFmpeg ships inside uYou.dylib's payload and is NOT
-        // linked against this tweak. A bare [MobileFFmpeg ...] reference emits
-        // _OBJC_CLASS_$_MobileFFmpeg and breaks linking; %c() resolves the
-        // class at runtime from uYou's own copy instead.
-        Class mobileFFmpegClass = %c(MobileFFmpeg);
-        if (!mobileFFmpegClass) {
-            HBLogWarn(@"[uYouPatches] MobileFFmpeg not found in app payload; skipping WebM→M4A conversion");
+        // Runs on FFmpegKitNext when embedded, else MobileFFmpeg from uYou.dylib.
+        if (UYTFFActiveBackend() == UYTFFBackendNone) {
+            HBLogWarn(@"[uYouPatches] no ffmpeg backend available; skipping conversion");
             return NO;
         }
-        int returnCode = [mobileFFmpegClass executeWithArguments:arguments];
+        BOOL ok = UYTFFConvertWebmAudioToM4a(webmPath, m4aPath);
 
-        if (returnCode == 0 && [fm fileExistsAtPath:m4aPath]) {
+        if (ok && [fm fileExistsAtPath:m4aPath]) {
             unsigned long long fileSize = [[fm attributesOfItemAtPath:m4aPath error:nil] fileSize];
             if (fileSize > 0) {
-                HBLogInfo(@"[uYouPatches] WebM→M4A conversion succeeded: %@ (%llu bytes)", m4aPath, fileSize);
+                HBLogInfo(@"[uYouPatches] WebMâ†’M4A conversion succeeded: %@ (%llu bytes)", m4aPath, fileSize);
                 return YES;
             }
         }
 
-        HBLogWarn(@"[uYouPatches] WebM→M4A conversion failed with return code: %d", returnCode);
+        HBLogWarn(@"[uYouPatches] WebM→M4A conversion failed (backend %ld)", (long)UYTFFActiveBackend());
     } @catch (NSException *e) {
-        HBLogWarn(@"[uYouPatches] WebM→M4A conversion exception: %@", e);
+        HBLogWarn(@"[uYouPatches] WebMâ†’M4A conversion exception: %@", e);
     }
 
     return NO;
@@ -451,7 +425,7 @@ static BOOL UYTEnsureMergeableAudio(id item, NSString *phase) {
         NSString *m4aPath = [[audioPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
         if (uYouConvertWebmAudioToM4a(audioPath, m4aPath)) {
             @try { [ui setValue:m4aPath forKey:@"tmpAudioPath"]; } @catch (NSException *e) {}
-            HBLogInfo(@"[uYouPatches] %@: webm→m4a conversion done", phase);
+            HBLogInfo(@"[uYouPatches] %@: webmâ†’m4a conversion done", phase);
             return YES;
         }
         HBLogWarn(@"[uYouPatches] %@: webm→m4a conversion FAILED — merge would hang", phase);
@@ -486,33 +460,23 @@ static BOOL UYTRemuxWithFFmpeg(id ui, NSString *phase) {
         NSString *tmpOut = [finalPath stringByAppendingFormat:@".merging.mp4"];
         if ([fm fileExistsAtPath:tmpOut]) [fm removeItemAtPath:tmpOut error:nil];
 
-        Class mobileFFmpegClass = %c(MobileFFmpeg);
-        if (!mobileFFmpegClass) return NO;
+        if (UYTFFActiveBackend() == UYTFFBackendNone) return NO;
 
-        NSArray *arguments = @[
-            @"-i", videoPath,
-            @"-i", audioPath,
-            @"-c", @"copy",              // stream copy — no re-encode, max speed
-            @"-strict", @"-2",           // allow webm-sourced codecs (opus/vp9) in mp4
-            @"-movflags", @"+faststart", // instant playback start on iOS
-            @"-y",
-            tmpOut
-        ];
         HBLogInfo(@"[uYouPatches] %@: ffmpeg remux started (%@ + %@)", phase,
                   videoPath.lastPathComponent, audioPath.lastPathComponent);
-        int returnCode = [mobileFFmpegClass executeWithArguments:arguments];
+        BOOL ok = UYTFFRemuxVideoAudioToMP4(videoPath, audioPath, tmpOut);
 
         NSDictionary *attrs = [fm attributesOfItemAtPath:tmpOut error:nil];
-        if (returnCode == 0 && attrs && [attrs fileSize] > 0) {
+        if (ok && attrs && [attrs fileSize] > 0) {
             if ([fm fileExistsAtPath:finalPath]) [fm removeItemAtPath:finalPath error:nil];
             NSError *moveErr = nil;
             if ([fm moveItemAtPath:tmpOut toPath:finalPath error:&moveErr]) {
-                HBLogWarn(@"[uYouPatches] %@: ffmpeg remux OK → %@", phase, finalPath.lastPathComponent);
+                HBLogWarn(@"[uYouPatches] %@: ffmpeg remux OK â†’ %@", phase, finalPath.lastPathComponent);
                 return YES;
             }
             HBLogWarn(@"[uYouPatches] %@: remux move failed: %@", phase, moveErr);
         } else {
-            HBLogWarn(@"[uYouPatches] %@: ffmpeg remux failed (rc=%d)", phase, returnCode);
+            HBLogWarn(@"[uYouPatches] %@: ffmpeg remux failed (backend %ld)", phase, (long)UYTFFActiveBackend());
             [fm removeItemAtPath:tmpOut error:nil];
         }
     } @catch (NSException *e) {
@@ -763,7 +727,7 @@ static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSSt
         NSDictionary *attrs = finalPath.length ? [fm attributesOfItemAtPath:finalPath error:nil] : nil;
         if (finished || (attrs && [attrs fileSize] > 0)) return; // completed normally
 
-        HBLogWarn(@"[uYouPatches] download stalled — attempting recovery (polls left %ld, vid: %@)",
+        HBLogWarn(@"[uYouPatches] download stalled â€” attempting recovery (polls left %ld, vid: %@)",
                   (long)pollsLeft,
                   [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : @"?");
 
@@ -780,7 +744,7 @@ static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSSt
         lastSizes[bestPath] = @(bestSize);
         BOOL stillGrowing = prevSize && bestSize > prevSize.unsignedLongLongValue;
         if (stillGrowing && pollsLeft > 1) {
-            HBLogInfo(@"[uYouPatches] stall recovery deferred — %@ is still growing (%llu bytes)",
+            HBLogInfo(@"[uYouPatches] stall recovery deferred â€” %@ is still growing (%llu bytes)",
                       bestPath.lastPathComponent, bestSize);
             UYTScheduleStallCheck(item, 5.0, pollsLeft - 1, lastSizes);
             return;
@@ -801,7 +765,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 - (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
     HBLogInfo(@"[uYouPatches] download requested (vid: %@, shorts: %@)", videoID, isShorts ? @"YES" : @"NO");
     %orig;
-    // Lifecycle catch-all (#992): covers stalls in phases we cannot hook —
+    // Lifecycle catch-all (#992): covers stalls in phases we cannot hook â€”
     // e.g. bytes reach 100% but uYou's URLSession completion handler silently
     // bails on an expired/403 stream URL, so no merge method ever runs and
     // nothing else recovers. Generous 5-minute timeout avoids interrupting
@@ -874,16 +838,9 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
         return;
     }
 
-    // Fast Downloads: skip metadata writing and finalize directly.
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:kFastDownloads]) {
-        HBLogInfo(@"[uYouPatches] fast mode: skipping metadata, finalizing audio directly");
-        if (UYTFinalizeItem(item, @"fast mode")) return;
-        HBLogWarn(@"[uYouPatches] fast finalize failed — falling back to metadata path");
-    }
-
     // Anti-hang guard for the metadata path.
     if (UYTAudioStillWebm(item)) {
-        HBLogWarn(@"[uYouPatches] Audio still WebM after conversion — skipping merge to avoid infinite hang");
+        HBLogWarn(@"[uYouPatches] Audio still WebM after conversion â€” skipping merge to avoid infinite hang");
         UYTFinalizeItem(item, @"still-webm skip");
         return;
     }
@@ -933,7 +890,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     // Anti-hang fallback (#452/#520/#830 family): if the audio is still WebM
     // the legacy merge would sit at "Converting 0%" forever.
     if (UYTAudioStillWebm(item)) {
-        HBLogWarn(@"[uYouPatches] Audio still WebM after conversion — skipping merge to avoid infinite hang");
+        HBLogWarn(@"[uYouPatches] Audio still WebM after conversion â€” skipping merge to avoid infinite hang");
         UYTFinalizeItem(item, @"still-webm skip");
         return;
     }
@@ -966,7 +923,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 
     // Anti-hang guard (same as above) for the generic audio+video merge path.
     if (UYTAudioStillWebm(item)) {
-        HBLogWarn(@"[uYouPatches] Audio still WebM after conversion — skipping merge to avoid infinite hang");
+        HBLogWarn(@"[uYouPatches] Audio still WebM after conversion â€” skipping merge to avoid infinite hang");
         UYTFinalizeItem(item, @"still-webm skip");
         return;
     }
@@ -1247,60 +1204,7 @@ static float uYouSavedPlaybackRate = 0.0f;
 %end
 %end
 
-// uYou's FRPreferences settings framework (headers that ship inside the uYou.dylib)
-@interface FRPSettings : NSObject
-- (id)initWithKey:(id)key defaultValue:(id)value;
-@end
-@interface FRPSection : NSObject
-- (id)initWithTitle:(id)title footer:(id)footer footerAlignment:(NSInteger)alignment;
-- (void)addCell:(id)cell;
-- (void)addCells:(NSArray *)cells;
-@end
-@interface FRPSwitchCell : NSObject
-- (id)cellWithTitle:(id)title setting:(id)setting postNotification:(id)name changeBlock:(void (^)(void))block;
-@end
-// FRPreferences is already declared in uYouPlusThemes.h (as UITableViewController).
-
-// Surface tweak options inside uYou's own settings menu.
-%group gYouMenuIntegration
-
-%hook FRPreferences
-- (void)initTableWithSections:(NSArray *)sections {
-    NSMutableArray *allSections = [sections mutableCopy] ?: [NSMutableArray array];
-    @try {
-        Class settingsClass = %c(FRPSettings);
-        Class sectionClass = %c(FRPSection);
-        Class switchClass = %c(FRPSwitchCell);
-        // Verify every selector actually exists before touching anything —
-        // a mismatch must disable the row, never crash the menu.
-        BOOL safe = settingsClass && sectionClass && switchClass &&
-            [settingsClass instancesRespondToSelector:@selector(initWithKey:defaultValue:)] &&
-            [sectionClass instancesRespondToSelector:@selector(initWithTitle:footer:footerAlignment:)] &&
-            [sectionClass instancesRespondToSelector:@selector(addCell:)] &&
-            [switchClass instancesRespondToSelector:@selector(cellWithTitle:setting:postNotification:changeBlock:)];
-        if (safe) {
-            // Same NSUserDefaults key our pipeline reads, so the toggle just works.
-            id fastSetting = [[settingsClass alloc] initWithKey:kFastDownloads defaultValue:@NO];
-            id fastCell = [[switchClass alloc] cellWithTitle:@"Fast Downloads"
-                                                     setting:fastSetting
-                                            postNotification:nil
-                                                 changeBlock:^{}];
-            if (fastSetting && fastCell) {
-                id section = [[sectionClass alloc] initWithTitle:@"uYouEnhanced" footer:nil footerAlignment:0];
-                if (section) {
-                    [section addCell:fastCell];
-                    [allSections addObject:section];
-                }
-            }
-        }
-    } @catch (NSException *e) {
-        HBLogWarn(@"[uYouPatches] menu integration failed: %@", e);
-    }
-    %orig(allSections);
-}
-%end
-
-%end
+#pragma mark - Constructor
 
 %ctor {
     // Load saved playback rate
@@ -1311,11 +1215,6 @@ static float uYouSavedPlaybackRate = 0.0f;
 
     // Always initialize core uYou fixes
     %init(gYouFixes);
-
-    // Fast Downloads row inside uYou's own settings menu
-    if (%c(FRPreferences)) {
-        %init(gYouMenuIntegration);
-    }
 
     // Notifications row in uYou's Reorder Tabs table
     if (%c(settingsReorderTable)) {
