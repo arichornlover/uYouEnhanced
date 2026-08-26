@@ -3,10 +3,10 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 
-static NSInteger UYTFFBackend = -1; // -1 = not probed yet
+static NSInteger UYTFFCachedBackend = -1; // -1 = not probed yet
 
 static void UYTFFProbe(void) {
-    if (UYTFFBackend != -1) return;
+    if (UYTFFCachedBackend != -1) return;
 
     // ffmpegkit.framework hard-links every av*/sw* library, and its install
     // names use @rpath which the host app may not resolve. Preload each
@@ -24,22 +24,22 @@ static void UYTFFProbe(void) {
     dlopen("@executable_path/Frameworks/ffmpegkit.framework/ffmpegkit",
            RTLD_LAZY | RTLD_GLOBAL);
 
-    if (objc_getClass("FFmpegKit")) UYTFFBackend = UYTFFBackendKitNext;
-    else if (objc_getClass("MobileFFmpeg")) UYTFFBackend = UYTFFBackendMobile;
-    else UYTFFBackend = UYTFFBackendNone;
+    if (objc_getClass("FFmpegKit")) UYTFFCachedBackend = UYTFFBackendKitNext;
+    else if (objc_getClass("MobileFFmpeg")) UYTFFCachedBackend = UYTFFBackendMobile;
+    else UYTFFCachedBackend = UYTFFBackendNone;
 }
 
 NSInteger UYTFFActiveBackend(void) {
     UYTFFProbe();
-    return UYTFFBackend;
+    return UYTFFCachedBackend;
 }
 
 BOOL UYTFFRun(NSArray<NSString *> *arguments) {
     UYTFFProbe();
 
     Class kitClass = Nil;
-    BOOL isKitNext = (UYTFFBackend == UYTFFBackendKitNext);
-    if (UYTFFBackend == UYTFFBackendNone) return NO;
+    BOOL isKitNext = (UYTFFCachedBackend == UYTFFBackendKitNext);
+    if (UYTFFCachedBackend == UYTFFBackendNone) return NO;
     kitClass = objc_getClass(isKitNext ? "FFmpegKit" : "MobileFFmpeg");
     if (!kitClass) return NO;
 
