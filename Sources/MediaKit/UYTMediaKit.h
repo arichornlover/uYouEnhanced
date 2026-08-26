@@ -11,6 +11,13 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+// UYTMediaKit.m compiles as Objective-C (unmangled C symbols), while .xm
+// callers compile as Objective-C++ (mangled symbols). extern "C" makes both
+// sides agree on the symbol names.
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef NS_ENUM(NSInteger, UYTFFBackend) {
     UYTFFBackendNone = 0,
     UYTFFBackendKitNext,
@@ -28,5 +35,9 @@ BOOL UYTFFConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath);
 
 /// Stream-copy remux video+audio into an mp4 at outputPath.
 BOOL UYTFFRemuxVideoAudioToMP4(NSString *videoPath, NSString *audioPath, NSString *outputPath);
+
+#ifdef __cplusplus
+}
+#endif
 
 NS_ASSUME_NONNULL_END
