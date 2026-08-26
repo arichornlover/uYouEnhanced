@@ -343,16 +343,6 @@ static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
     }
 
     @try {
-        // Use MobileFFmpeg (same as uYou's convertAsyncMkvToMp4) to convert webm to m4a
-        NSArray *arguments = @[
-            @"-i", webmPath,
-            @"-vn",                // No video
-            @"-acodec", @"aac",    // Encode to AAC for m4a compatibility
-            @"-strict", @"-2",     // Allow experimental codecs
-            @"-y",                 // Overwrite output
-            m4aPath
-        ];
-
         // Runs on FFmpegKitNext when embedded, else MobileFFmpeg from uYou.dylib.
         if (UYTFFActiveBackend() == UYTFFBackendNone) {
             HBLogWarn(@"[uYouPatches] no ffmpeg backend available; skipping conversion");
