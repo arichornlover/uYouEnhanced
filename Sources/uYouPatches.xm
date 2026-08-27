@@ -1,6 +1,7 @@
 #import "uYouPlus.h"
 #import "uYouPatches.h"
 #import "MediaKit/UYTMediaKit.h"
+#import "DownloadPipeline.h"
 #import <sqlite3.h>
 #include <string.h>
 

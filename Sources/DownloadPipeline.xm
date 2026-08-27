@@ -3,7 +3,7 @@
 // native download flow so progress bars, DB, and queue all work natively.
 // Conversion/remux handled by FFmpegKitNext (UYTMediaKit).
 
-#import <Foundation/Foundation.h>
+#import "DownloadPipeline.h"
 #import <UIKit/UIKit.h>
 
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
@@ -261,7 +261,7 @@ static NSString *UYTYouTubeCookiesString(void) {
 // downloads get a real audio URL instead of a throttled one.
 static NSMutableDictionary<NSString *, NSDictionary *> *UYTResolvedURLs;
 
-static void UYTStoreResolvedURLs(NSString *vid, NSString *muxedURL, NSString *audioURL, NSString *videoURL) {
+void UYTStoreResolvedURLs(NSString *vid, NSString *muxedURL, NSString *audioURL, NSString *videoURL) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         UYTResolvedURLs = [NSMutableDictionary dictionary];
@@ -274,12 +274,12 @@ static void UYTStoreResolvedURLs(NSString *vid, NSString *muxedURL, NSString *au
     UYTResolvedURLs[vid] = entry;
 }
 
-static NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
+NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
     NSDictionary *entry = UYTResolvedURLs[vid];
     return entry[audio ? @"audio" : @"muxed"] ?: nil;
 }
 
-static NSString *UYTResolvedVideoURL(NSString *vid) {
+NSString *UYTResolvedVideoURL(NSString *vid) {
     NSDictionary *entry = UYTResolvedURLs[vid];
     // Prefer the dedicated video-only stream for adaptive downloads.
     return entry[@"video"] ?: entry[@"muxed"];
