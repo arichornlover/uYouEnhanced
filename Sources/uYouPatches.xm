@@ -375,7 +375,6 @@ static NSString *UYTShortsVideoID(id overlay) {
         if (lastVid.length > 0) return lastVid;
         // 5) Fallback: extract from current navigation URL
         @try {
-            id navController = nil;
             UIWindow *keyWindow = nil;
             for (UIWindow *w in [UIApplication sharedApplication].windows) {
                 if (w.isKeyWindow) { keyWindow = w; break; }
@@ -1143,7 +1142,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
             if (finalPath.length) {
                 NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:finalPath error:nil];
                 if (!attrs || [attrs fileSize] == 0) {
-                    HBLogWarn(@"[uYouPatches] mergeAudioWithMP4Video: %orig produced no output — recovering");
+                    HBLogWarn(@"[uYouPatches] mergeAudioWithMP4Video: AVAssetExportSession produced no output - recovering");
                     if (!UYTFinalizeItem(item, @"post-merge recovery")) {
                         UYTFinalizeItem(item, @"merge no-output fallback");
                     }
@@ -1198,7 +1197,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
             if (finalPath.length) {
                 NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:finalPath error:nil];
                 if (!attrs || [attrs fileSize] == 0) {
-                    HBLogWarn(@"[uYouPatches] mergeAudioWithVideo: %orig produced no output — recovering");
+                    HBLogWarn(@"[uYouPatches] mergeAudioWithVideo: AVAssetExportSession produced no output - recovering");
                     if (!UYTFinalizeItem(item, @"post-merge recovery")) {
                         UYTFinalizeItem(item, @"merge no-output fallback");
                     }
