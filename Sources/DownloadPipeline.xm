@@ -9,24 +9,7 @@
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
 static NSString * const UYTClientVersion = @"21.14.4";
 
-@interface UYTStreamFormat : NSObject
-@property (nonatomic, copy) NSString *url;
-@property (nonatomic, assign) NSInteger itag;
-@property (nonatomic, copy) NSString *mimeType;   // e.g. "video/mp4"
-@property (nonatomic, assign) BOOL hasVideo;
-@property (nonatomic, assign) BOOL hasAudio;
-@property (nonatomic, assign) long long bitrate;
-@property (nonatomic, copy) NSString *qualityLabel;
-@end
-
 @implementation UYTStreamFormat
-@end
-
-@interface UYTDownloadPipeline : NSObject
-+ (void)fetchFormatsForVideoID:(NSString *)videoID
-                    completion:(void (^)(NSArray<UYTStreamFormat *> *formats, NSError *error))completion;
-+ (UYTStreamFormat *)bestMuxedFormat:(NSArray<UYTStreamFormat *> *)formats;
-+ (UYTStreamFormat *)bestAudioFormat:(NSArray<UYTStreamFormat *> *)formats;
 @end
 
 @implementation UYTDownloadPipeline
