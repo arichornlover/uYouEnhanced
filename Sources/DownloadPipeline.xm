@@ -529,6 +529,8 @@ static void UYTAttemptSABRDownload(NSString *videoID, NSInteger videoItag, NSInt
         }] resume];
     });
 }
+
+%ctor {
     %init;
     [[NSNotificationCenter defaultCenter] addObserverForName:@"UYTPipeline403Error" object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
         NSString *vid = note.userInfo[@"videoID"];
