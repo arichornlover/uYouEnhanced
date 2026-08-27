@@ -385,7 +385,7 @@ static NSString *UYTShortsVideoID(id overlay) {
                 %orig;
                 return;
             } @catch (NSException *e) {
-                NSLog(@"[uYouEnhanced] Shorts uYou %orig failed: %@ — falling back to direct download", e);
+                NSLog(@"[uYouEnhanced] Shorts uYou native menu failed: %@ \u2014 falling back to direct download", e);
             }
 
             // If the native flow crashed (e.g. delegate still broken), fall
@@ -649,14 +649,19 @@ static NSDictionary *UYTBestAvailableSource(id ui) {
 
     // Two-pass scan: prefer mp4/m4a candidates, but fall back to the largest
     // file (even webm) so the stall watchdog can still recover.
-    NSDictionary *bestNonWebm = nil;
-    unsigned long long bestNonWebmSize = 0;
-    NSDictionary *bestAny = nil;
-    unsigned long long bestAnySize = 0;
+    __block NSDictionary *bestNonWebm = nil;
+    __block unsigned long long bestNonWebmSize = 0;
+    __block NSDictionary *bestAny = nil;
+    __block unsigned long long bestAnySize = 0;
 
     NSString *(^resolvePath)(id, SEL) = ^NSString *(id obj, SEL sel) {
         if ([obj respondsToSelector:sel]) {
-            @try { return [obj performSelector:sel]; } @catch (id e) {}
+            @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+                return [obj performSelector:sel];
+#pragma clang diagnostic pop
+            } @catch (id e) {}
         }
         return nil;
     };
