@@ -822,6 +822,10 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 %hook DownloadsManager
 - (void)addMetadataToAudioForDownloadItem:(id)item {
     HBLogInfo(@"[uYouPatches] addMetadata entered");
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouConversionStarted" object:item];
+    });
+
     // Pre-fix: convert webm audio to m4a if needed (#771, #465)
     if (!UYTEnsureMergeableAudio(item, @"addMetadata")) {
         UYTFinalizeItem(item, @"no-merge fallback");
@@ -864,6 +868,10 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 %hook DownloadsManager
 - (void)mergeAudioWithMP4VideoForDownloadItem:(id)item {
     HBLogInfo(@"[uYouPatches] mergeAudioWithMP4Video entered");
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouConversionStarted" object:item];
+    });
+
     // Pre-fix: convert webm audio to m4a before the merge (#771, #465)
     if (!UYTEnsureMergeableAudio(item, @"mergeMP4")) {
         UYTFinalizeItem(item, @"no-merge fallback");
@@ -898,6 +906,10 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 
 - (void)mergeAudioWithVideoForDownloadItem:(id)item {
     HBLogInfo(@"[uYouPatches] mergeAudioWithVideo entered");
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouConversionStarted" object:item];
+    });
+
     // Pre-fix: convert webm audio to m4a before the merge (#771, #465)
     if (!UYTEnsureMergeableAudio(item, @"mergeAudio")) {
         UYTFinalizeItem(item, @"no-merge fallback");

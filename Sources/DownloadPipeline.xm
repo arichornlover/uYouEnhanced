@@ -1,11 +1,12 @@
-// DownloadPipeline.xm — modern stream fetcher for YouTube 21.14.4+ (iOS 16–26).
-// Design doc: Docs/DownloadPipeline.md
-// Phase 1 scaffold: innertube player request + format selection.
+// DownloadPipeline.xm — stream fetcher for YouTube 21.14.4+ (iOS 16–26).
+// Pre-fetches working stream URLs via innertube, then swaps them into uYou's
+// native download flow so progress bars, DB, and queue all work natively.
+// Conversion/remux handled by FFmpegKitNext (UYTMediaKit).
 
 #import <Foundation/Foundation.h>
 
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
-static NSString * const UYTClientVersion = @"19.45.1";
+static NSString * const UYTClientVersion = @"21.14.4";
 
 @interface UYTStreamFormat : NSObject
 @property (nonatomic, copy) NSString *url;
@@ -29,14 +30,18 @@ static NSString * const UYTClientVersion = @"19.45.1";
 
 @implementation UYTDownloadPipeline
 
-+ (NSDictionary *)clientContext {
+// Build an innertube request body for the given client type. IOS is preferred
+// but may get 403'd by PO-token enforcement; IOS_MUSIC is the fallback.
++ (NSDictionary *)clientContextForClient:(NSString *)clientName
+                              osVersion:(NSString *)osVer
+                          deviceModel:(NSString *)model {
     return @{@"context": @{@"client": @{
-        @"clientName": @"IOS",
+        @"clientName": clientName,
         @"clientVersion": UYTClientVersion,
         @"deviceMake": @"Apple",
-        @"deviceModel": @"iPhone16,2",
+        @"deviceModel": model ?: @"iPhone16,2",
         @"osName": @"iOS",
-        @"osVersion": @"18.5.0.22F76",
+        @"osVersion": osVer ?: @"18.5.0.22F76",
         @"hl": @"en",
         @"timeZone": @"UTC",
         @"utcOffsetMinutes": @0
@@ -45,38 +50,58 @@ static NSString * const UYTClientVersion = @"19.45.1";
     @"racyCheckOk": @YES};
 }
 
-+ (void)fetchFormatsForVideoID:(NSString *)videoID
-                    completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
-    NSMutableDictionary *body = [[self clientContext] mutableCopy];
++ (NSDictionary *)clientContext {
+    return [self clientContextForClient:@"IOS" osVersion:nil deviceModel:nil];
+}
+
+// Internal: perform a single innertube fetch with the given client context.
++ (void)fetchWithClient:(NSDictionary *)clientCtx
+              videoID:(NSString *)videoID
+           completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
+    NSMutableDictionary *body = [clientCtx mutableCopy];
     body[@"videoId"] = videoID;
     body[@"playbackContext"] = @{@"contentPlaybackContext": @{@"html5Preference": @"HTML5_PREF_WANTS"}};
 
-    NSURL *url = [NSURL URLWithString:UYTInnertubeURL];
-    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
+    NSString *clientName = clientCtx[@"context"][@"client"][@"clientName"] ?: @"IOS";
+    NSString *ua = [NSString stringWithFormat:@"com.google.ios.youtube/%@ (iPhone16,2; U; CPU iOS 18_5_0 like Mac OS X;)",
+                     UYTClientVersion];
+
+    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:UYTInnertubeURL]];
     req.HTTPMethod = @"POST";
     [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-    [req setValue:@"com.google.ios.youtube/19.45.1 (iPhone16,2; U; CPU iOS 18_5_0 like Mac OS X;)" forHTTPHeaderField:@"User-Agent"];
+    [req setValue:ua forHTTPHeaderField:@"User-Agent"];
     req.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
 
     NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:req
         completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
-            if (err || !data) {
-                completion(@[], err ?: [NSError errorWithDomain:@"UYTDownload" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"empty response"}]);
+            NSHTTPURLResponse *http = (NSHTTPURLResponse *)resp;
+            if (err || !data || http.statusCode == 403) {
+                NSString *msg = [NSString stringWithFormat:@"client=%@ status=%ld",
+                                 clientName, (long)http.statusCode];
+                completion(@[], [NSError errorWithDomain:@"UYTDownload" code:http.statusCode
+                        userInfo:@{NSLocalizedDescriptionKey: msg}]);
                 return;
             }
             NSError *jsonErr = nil;
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonErr];
-            if (!json) {
-                completion(@[], jsonErr);
+            if (!json) { completion(@[], jsonErr); return; }
+
+            // Check for innertube-level errors (playability status).
+            NSString *status = json[@"playabilityStatus"][@"status"];
+            if (status && ![status isEqualToString:@"OK"]) {
+                NSString *reason = json[@"playabilityStatus"][@"reason"] ?: status;
+                completion(@[], [NSError errorWithDomain:@"UYTDownload" code:-2
+                        userInfo:@{NSLocalizedDescriptionKey: reason}]);
                 return;
             }
+
             NSArray *streams = json[@"streamingData"][@"adaptiveFormats"];
             NSArray *muxed = json[@"streamingData"][@"formats"];
             NSMutableArray *out = [NSMutableArray array];
             for (NSArray *list in @[streams ?: @[], muxed ?: @[]]) {
                 for (NSDictionary *f in list) {
                     NSString *u = f[@"url"];
-                    if (!u) continue; // signatureCipher fallback handled in phase 2
+                    if (!u) continue;
                     UYTStreamFormat *sf = [[UYTStreamFormat alloc] init];
                     sf.url = u;
                     sf.itag = [f[@"itag"] integerValue];
@@ -84,13 +109,41 @@ static NSString * const UYTClientVersion = @"19.45.1";
                     sf.bitrate = [f[@"bitrate"] longLongValue];
                     sf.qualityLabel = f[@"qualityLabel"];
                     sf.hasVideo = [sf.mimeType hasPrefix:@"video"];
-                    sf.hasAudio = [sf.mimeType hasPrefix:@"audio"] || ([sf.mimeType hasPrefix:@"video"] && ![f objectForKey:@"qualityLabel"]);
+                    sf.hasAudio = [sf.mimeType hasPrefix:@"audio"] ||
+                                  ([sf.mimeType hasPrefix:@"video"] && ![f objectForKey:@"qualityLabel"]);
                     [out addObject:sf];
                 }
             }
             completion(out, nil);
         }];
     [task resume];
+}
+
+// Fetch stream formats with automatic fallback: IOS → IOS_MUSIC. The IOS
+// client may get 403'd by PO-token enforcement; IOS_MUSIC is more permissive.
++ (void)fetchFormatsForVideoID:(NSString *)videoID
+                    completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
+    NSDictionary *iosCtx = [self clientContextForClient:@"IOS" osVersion:nil deviceModel:nil];
+    [self fetchWithClient:iosCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts, NSError *err) {
+        if (fmts.count > 0) { completion(fmts, nil); return; }
+
+        // IOS failed — try IOS_MUSIC as fallback.
+        NSLog(@"[UYTPipeline] IOS client failed (%@), trying IOS_MUSIC", err.localizedDescription);
+        NSDictionary *musicCtx = [self clientContextForClient:@"IOS_MUSIC" osVersion:@"18.5.0" deviceModel:@"iPhone16,2"];
+        [self fetchWithClient:musicCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts2, NSError *err2) {
+            if (fmts2.count > 0) { completion(fmts2, nil); return; }
+
+            // Both failed — try WEB client as last resort.
+            NSLog(@"[UYTPipeline] IOS_MUSIC failed (%@), trying WEB", err2.localizedDescription);
+            NSMutableDictionary *webCtx = [[self clientContextForClient:@"WEB" osVersion:@"2.20250825.01.00" deviceModel:nil] mutableCopy];
+            webCtx[@"context"][@"client"][@"hl"] = @"en";
+            [self fetchWithClient:webCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts3, NSError *err3) {
+                if (fmts3.count > 0) { completion(fmts3, nil); return; }
+                NSLog(@"[UYTPipeline] all clients failed for %@", videoID);
+                completion(@[], err3 ?: err2 ?: err);
+            }];
+        }];
+    }];
 }
 
 + (UYTStreamFormat *)bestMuxedFormat:(NSArray<UYTStreamFormat *> *)formats {
@@ -156,23 +209,25 @@ static NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
 - (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
     NSString *vid = [NSString stringWithFormat:@"%@", videoID];
 
-    // Fetch fresh stream URLs via innertube before %orig runs.
+    // Pre-fetch working stream URLs via innertube BEFORE %orig runs.
+    // The completion handler chains %orig directly — no delay, no race condition.
     [UYTDownloadPipeline fetchFormatsForVideoID:vid completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
         if (error || formats.count == 0) {
-            NSLog(@"[UYTPipeline] no formats for %@ (%@)", vid, error.localizedDescription);
-            return;
+            NSLog(@"[UYTPipeline] pre-fetch failed for %@: %@", vid, error.localizedDescription);
+        } else {
+            UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
+            UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
+            UYTStoreResolvedURLs(vid, muxed.url, audio.url);
+            NSLog(@"[UYTPipeline] cached URLs for %@ (muxed=%ld, audio=%ld)",
+                  vid, (long)muxed.itag, (long)audio.itag);
         }
-        UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
-        UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
-        UYTStoreResolvedURLs(vid, muxed.url, audio.url);
-        NSLog(@"[UYTPipeline] cached URLs for %@ (muxed itag=%ld, audio itag=%ld)",
-              vid, (long)muxed.itag, (long)audio.itag);
-    }];
 
-    // Give the fetch a moment, then let %orig proceed.
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        %orig;
-    });
+        // Let uYou's native flow proceed. Our DownloadItem hook below will
+        // swap any broken URL with our cached working one.
+        dispatch_async(dispatch_get_main_queue(), ^{
+            %orig;
+        });
+    }];
 }
 %end
 
