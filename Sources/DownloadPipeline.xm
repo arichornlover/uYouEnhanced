@@ -4,6 +4,7 @@
 // Conversion/remux handled by FFmpegKitNext (UYTMediaKit).
 
 #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
 static NSString * const UYTClientVersion = @"21.14.4";
@@ -292,34 +293,7 @@ static NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
     %orig;
 }
 %end
-// Ensure every googlevideo download request carries the required headers.
-// Without Origin/Referer/Cookie, YouTube's CDN returns 403 on the actual
-// media stream even when the URL itself is valid.
-%hook NSMutableURLRequest
-- (void)setValue:(NSString *)value forHTTPHeaderField:(NSString *)field {
-    // Only intercept requests to YouTube's video CDN.
-    NSString *host = self.URL.host ?: @"";
-    if (![host containsString:@"googlevideo.com"]) {
-        %orig;
-        return;
-    }
-    // Don't overwrite an explicitly-set value.
-    if ([self valueForHTTPHeaderField:field]) {
-        %orig;
-        return;
-    }
-    %orig;
-    // Inject missing critical headers after the original set.
-    if (!field) { %orig; return; }
-    if ([field caseInsensitiveCompare:@"Origin"] == NSOrderedSame && !value) {
-        [super setValue:@"https://www.youtube.com" forHTTPHeaderField:@"Origin"];
-    } else if ([field caseInsensitiveCompare:@"Referer"] == NSOrderedSame && !value) {
-        [super setValue:@"https://www.youtube.com/" forHTTPHeaderField:@"Referer"];
-    }
-}
-%end
-
-// Ensure download data tasks always carry Origin + Referer.
+// Ensure download data tasks always carry Origin + Referer + Cookie.
 %hook NSURLSession
 - (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)request
                             completionHandler:(void (^)(NSData *, NSURLResponse *, NSError *))completionHandler {
