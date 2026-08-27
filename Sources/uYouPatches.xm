@@ -294,6 +294,17 @@ static BOOL UYTIsShortsOverlay(id overlay) {
             NSString *cls = NSStringFromClass([view class]);
             if ([cls containsString:@"Reel"] || [cls containsString:@"Shorts"] ||
                 [cls containsString:@"YTShorts"] || [cls containsString:@"YTReel"])
+                return YES;
+            view = view.superview;
+        }
+    } @catch (NSException *e) {}
+    return NO;
+}
+
+static id UYTFindShortsPlayerVC(id overlay) {
+    @try {
+        UIResponder *r = [overlay nextResponder];
+        while (r) {
             NSString *cls = NSStringFromClass([r class]);
             if ([cls containsString:@"ReelPlayer"] || [cls containsString:@"ShortsPlayer"]) {
                 // YTReelPlayerViewController has a `.player` property (YTPlayerViewController)
