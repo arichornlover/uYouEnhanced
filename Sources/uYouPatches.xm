@@ -264,8 +264,9 @@ static void refreshUYouAppearance() {
 %end
 
 // Make the uYou button actually work on Shorts instead of crashing.
-// Hooks uYou on the overlay view — on Shorts, extracts the video ID and
-// calls getLinksLocallyPlayerItem: directly with isShorts:YES.
+// Hooks uYou on the overlay view — on Shorts, wires up the playerViewController
+// so uYou's native menu can find the video ID, then calls %orig to show the
+// download menu (quality picker, etc.) instead of bypassing it.
 %group gShortsUYouDownload
 static BOOL UYTIsShortsOverlay(id overlay) {
     @try {
@@ -294,9 +295,43 @@ static BOOL UYTIsShortsOverlay(id overlay) {
     return NO;
 }
 
+// Walk the responder chain to find the YTReelPlayerViewController (or
+// YTShortsPlayerViewController, which is a subclass) and return its `.player`
+// property — the YTPlayerViewController that uYou needs to read the video ID.
+static id UYTFindShortsPlayerVC(id overlay) {
+    @try {
+        UIResponder *r = [overlay nextResponder];
+        while (r) {
+            NSString *cls = NSStringFromClass([r class]);
+            if ([cls containsString:@"ReelPlayer"] || [cls containsString:@"ShortsPlayer"]) {
+                // YTReelPlayerViewController has a `.player` property (YTPlayerViewController)
+                if ([r respondsToSelector:@selector(player)]) {
+                    id player = [r performSelector:@selector(player)];
+                    if (player) return player;
+                }
+                // KVC fallback
+                @try {
+                    id player = [r valueForKey:@"player"];
+                    if (player) return player;
+                } @catch (NSException *e2) {}
+            }
+            r = [r nextResponder];
+        }
+    } @catch (NSException *e) {}
+    return nil;
+}
+
 static NSString *UYTShortsVideoID(id overlay) {
     @try {
-        // Walk responder chain for a video ID
+        // 1) Try the playerViewController property on the overlay itself.
+        if ([overlay respondsToSelector:@selector(playerViewController)]) {
+            id pvc = [(id)overlay playerViewController];
+            if ([pvc respondsToSelector:@selector(currentVideoID)]) {
+                NSString *v = [pvc performSelector:@selector(currentVideoID)];
+                if (v.length > 0) return v;
+            }
+        }
+        // 2) Walk responder chain for a video ID
         UIResponder *r = [overlay nextResponder];
         while (r) {
             if ([r respondsToSelector:@selector(activeReelPlaybackVideoID)]) {
@@ -307,17 +342,18 @@ static NSString *UYTShortsVideoID(id overlay) {
                 NSString *v = [r performSelector:@selector(currentVideoID)];
                 if (v.length > 0) return v;
             }
-            if ([r respondsToSelector:@selector(videoID)]) {
-                NSString *v = [r performSelector:@selector(videoID)];
-                if (v.length > 0) return v;
-            }
+            // YTReelPlayerViewController exposes .videoId (lowercase 'd')
+            @try {
+                NSString *v = [r valueForKey:@"videoId"];
+                if ([v isKindOfClass:[NSString class]] && v.length > 0) return v;
+            } @catch (NSException *e2) {}
             @try {
                 NSString *v = [r valueForKey:@"videoID"];
-                if (v.length > 0) return v;
-            } @catch (NSException *e2) {}
+                if ([v isKindOfClass:[NSString class]] && v.length > 0) return v;
+            } @catch (NSException *e3) {}
             r = [r nextResponder];
         }
-        // Fallback: PlayerManager
+        // 3) Fallback: PlayerManager
         if ([%c(PlayerManager) respondsToSelector:@selector(sharedInstance)]) {
             id pm = [%c(PlayerManager) sharedInstance];
             if ([pm respondsToSelector:@selector(videoID)]) {
@@ -333,9 +369,30 @@ static NSString *UYTShortsVideoID(id overlay) {
 - (void)uYou {
     @try {
         if (UYTIsShortsOverlay(self)) {
+            // Wire up the playerViewController so uYou's native menu logic can
+            // find the video ID. On Shorts the overlay's playerViewController
+            // is often nil — grab it from the responder chain (YTReelPlayerVC.player).
+            if (self.playerViewController == nil) {
+                id player = UYTFindShortsPlayerVC(self);
+                if (player) {
+                    self.playerViewController = player;
+                }
+            }
+
+            // Try the native uYou flow first — this shows the download menu
+            // (quality picker, etc.) instead of silently starting the download.
+            @try {
+                %orig;
+                return;
+            } @catch (NSException *e) {
+                NSLog(@"[uYouEnhanced] Shorts uYou %orig failed: %@ — falling back to direct download", e);
+            }
+
+            // If the native flow crashed (e.g. delegate still broken), fall
+            // back to direct download via getLinksLocallyPlayerItem:.
             NSString *videoID = UYTShortsVideoID(self);
             if (videoID.length > 0) {
-                NSLog(@"[uYouEnhanced] uYou button on Shorts → download %@", videoID);
+                NSLog(@"[uYouEnhanced] uYou button on Shorts → direct download fallback %@", videoID);
                 id dlManager = [%c(DownloadsManager) sharedInstance];
                 if (dlManager && [dlManager respondsToSelector:@selector(getLinksLocallyPlayerItem:videoID:sourceView:isShorts:)]) {
                     [dlManager getLinksLocallyPlayerItem:nil videoID:videoID sourceView:self isShorts:YES];
@@ -590,33 +647,52 @@ static NSDictionary *UYTBestAvailableSource(id ui) {
     if (!ui) return nil;
     NSFileManager *fm = [NSFileManager defaultManager];
 
-    NSMutableArray<NSDictionary *> *candidates = [NSMutableArray array];
-    void (^addCandidate)(NSString *, NSString *) = ^(NSString *path, NSString *label) {
-        if (path.length && !UYTPathIsWebm(path)) {
-            [candidates addObject:@{@"path": path, @"label": label}];
+    // Two-pass scan: prefer mp4/m4a candidates, but fall back to the largest
+    // file (even webm) so the stall watchdog can still recover.
+    NSDictionary *bestNonWebm = nil;
+    unsigned long long bestNonWebmSize = 0;
+    NSDictionary *bestAny = nil;
+    unsigned long long bestAnySize = 0;
+
+    NSString *(^resolvePath)(id, SEL) = ^NSString *(id obj, SEL sel) {
+        if ([obj respondsToSelector:sel]) {
+            @try { return [obj performSelector:sel]; } @catch (id e) {}
+        }
+        return nil;
+    };
+
+    void (^checkPath)(NSString *, NSString *) = ^(NSString *path, NSString *label) {
+        if (!path.length) return;
+        NSDictionary *attrs = [fm attributesOfItemAtPath:path error:nil];
+        if (!attrs || [attrs fileSize] == 0) return;
+        unsigned long long sz = [attrs fileSize];
+        if (!UYTPathIsWebm(path) && sz > bestNonWebmSize) {
+            bestNonWebmSize = sz;
+            bestNonWebm = @{@"path": path, @"label": label};
+        }
+        if (sz > bestAnySize) {
+            bestAnySize = sz;
+            bestAny = @{@"path": path, @"label": label};
         }
     };
 
-    // 1) A completed muxed mp4 (pipeline output location, reserved).
+    // Pipeline muxed file (already mp4).
     NSString *vid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
     if (vid.length) {
         NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-        addCandidate([docs stringByAppendingPathComponent:[NSString stringWithFormat:@"uYouDownloads/%@.mp4", vid]],
-                     @"muxed pipeline file");
+        checkPath([docs stringByAppendingPathComponent:
+                   [NSString stringWithFormat:@"uYouDownloads/%@.mp4", vid]],
+                  @"muxed pipeline file");
     }
-    // 2/3) uYou's own downloaded video streams.
-    if ([ui respondsToSelector:@selector(tmpVideoPath)]) addCandidate([ui tmpVideoPath], @"tmp video stream");
-    if ([ui respondsToSelector:@selector(cachedVideoPath)]) addCandidate([ui cachedVideoPath], @"cached video stream");
-    // 4/5) Converted audio as a last resort.
-    if ([ui respondsToSelector:@selector(tmpAudioPath)]) addCandidate([ui tmpAudioPath], @"tmp audio stream");
-    if ([ui respondsToSelector:@selector(cachedAudioPath)]) addCandidate([ui cachedAudioPath], @"cached audio stream");
 
-    for (NSDictionary *candidate in candidates) {
-        NSString *p = candidate[@"path"];
-        NSDictionary *attrs = [fm attributesOfItemAtPath:p error:nil];
-        if (attrs && [attrs fileSize] > 0) return candidate;
-    }
-    return nil;
+    checkPath(resolvePath(ui, @selector(tmpVideoPath)), @"tmp video stream");
+    checkPath(resolvePath(ui, @selector(cachedVideoPath)), @"cached video stream");
+    checkPath(resolvePath(ui, @selector(tmpAudioPath)), @"tmp audio stream");
+    checkPath(resolvePath(ui, @selector(cachedAudioPath)), @"cached audio stream");
+
+    // Prefer non-webm (m4a/mp4); fall back to the largest file (even webm)
+    // so the stall watchdog can still recover stuck items.
+    return bestNonWebm ?: bestAny;
 }
 
 // Promote the best available source file to the item's final path.

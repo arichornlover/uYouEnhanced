@@ -54,6 +54,19 @@ static NSString * const UYTClientVersion = @"21.14.4";
     return [self clientContextForClient:@"IOS" osVersion:nil deviceModel:nil];
 }
 
+// Helper: gather YouTube cookies from the shared jar so innertube requests
+// carry the session's auth / VISITOR_INFO / __Secure-* values.
+static NSString *UYTYouTubeCookiesString(void) {
+    NSMutableArray *cookieStrings = [NSMutableArray array];
+    for (NSHTTPCookie *cookie in [[NSHTTPCookieStorage sharedHTTPCookieStorage] cookies]) {
+        if ([cookie.domain containsString:@"youtube.com"]) {
+            [cookieStrings addObject:[NSString stringWithFormat:@"%@=%@",
+                                      cookie.name, cookie.value]];
+        }
+    }
+    return [cookieStrings componentsJoinedByString:@"; "];
+}
+
 // Internal: perform a single innertube fetch with the given client context.
 + (void)fetchWithClient:(NSDictionary *)clientCtx
               videoID:(NSString *)videoID
@@ -63,13 +76,19 @@ static NSString * const UYTClientVersion = @"21.14.4";
     body[@"playbackContext"] = @{@"contentPlaybackContext": @{@"html5Preference": @"HTML5_PREF_WANTS"}};
 
     NSString *clientName = clientCtx[@"context"][@"client"][@"clientName"] ?: @"IOS";
-    NSString *ua = [NSString stringWithFormat:@"com.google.ios.youtube/%@ (iPhone16,2; U; CPU iOS 18_5_0 like Mac OS X;)",
-                     UYTClientVersion];
+    NSString *sysVer = [[UIDevice currentDevice].systemVersion stringByReplacingOccurrencesOfString:@"." withString:@"_"] ?: @"18_5_0";
+    NSString *ua = [NSString stringWithFormat:@"com.google.ios.youtube/%@ (iPhone16,2; U; CPU iOS %@ like Mac OS X; en_US)",
+                     UYTClientVersion, sysVer];
 
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:UYTInnertubeURL]];
     req.HTTPMethod = @"POST";
     [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     [req setValue:ua forHTTPHeaderField:@"User-Agent"];
+    [req setValue:@"https://www.youtube.com" forHTTPHeaderField:@"Origin"];
+    [req setValue:@"https://www.youtube.com/" forHTTPHeaderField:@"Referer"];
+    // Carry session cookies so the server recognises the logged-in user.
+    NSString *cookies = UYTYouTubeCookiesString();
+    if (cookies.length > 0) [req setValue:cookies forHTTPHeaderField:@"Cookie"];
     req.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
 
     NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:req
@@ -119,8 +138,11 @@ static NSString * const UYTClientVersion = @"21.14.4";
     [task resume];
 }
 
-// Fetch stream formats with automatic fallback: IOS → IOS_MUSIC. The IOS
-// client may get 403'd by PO-token enforcement; IOS_MUSIC is more permissive.
+// Fetch stream formats with automatic fallback chain:
+// IOS → IOS_MUSIC → IOS_CREATOR → WEB
+// IOS may get 403'd by PO-token enforcement. IOS_MUSIC / IOS_CREATOR are
+// more permissive; WEB is the last resort (no PO-token needed but streams
+// may be lower quality).
 + (void)fetchFormatsForVideoID:(NSString *)videoID
                     completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
     NSDictionary *iosCtx = [self clientContextForClient:@"IOS" osVersion:nil deviceModel:nil];
@@ -133,14 +155,21 @@ static NSString * const UYTClientVersion = @"21.14.4";
         [self fetchWithClient:musicCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts2, NSError *err2) {
             if (fmts2.count > 0) { completion(fmts2, nil); return; }
 
-            // Both failed — try WEB client as last resort.
-            NSLog(@"[UYTPipeline] IOS_MUSIC failed (%@), trying WEB", err2.localizedDescription);
-            NSMutableDictionary *webCtx = [[self clientContextForClient:@"WEB" osVersion:@"2.20250825.01.00" deviceModel:nil] mutableCopy];
-            webCtx[@"context"][@"client"][@"hl"] = @"en";
-            [self fetchWithClient:webCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts3, NSError *err3) {
+            // IOS_MUSIC failed — try IOS_CREATOR (YouTube Creator iOS client).
+            NSLog(@"[UYTPipeline] IOS_MUSIC failed (%@), trying IOS_CREATOR", err2.localizedDescription);
+            NSDictionary *creatorCtx = [self clientContextForClient:@"IOS_CREATOR" osVersion:@"19.45.4" deviceModel:@"iPhone16,2"];
+            [self fetchWithClient:creatorCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts3, NSError *err3) {
                 if (fmts3.count > 0) { completion(fmts3, nil); return; }
-                NSLog(@"[UYTPipeline] all clients failed for %@", videoID);
-                completion(@[], err3 ?: err2 ?: err);
+
+                // IOS_CREATOR failed — try WEB client as last resort.
+                NSLog(@"[UYTPipeline] IOS_CREATOR failed (%@), trying WEB", err3.localizedDescription);
+                NSMutableDictionary *webCtx = [[self clientContextForClient:@"WEB" osVersion:@"2.20250825.01.00" deviceModel:nil] mutableCopy];
+                webCtx[@"context"][@"client"][@"hl"] = @"en";
+                [self fetchWithClient:webCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts4, NSError *err4) {
+                    if (fmts4.count > 0) { completion(fmts4, nil); return; }
+                    NSLog(@"[UYTPipeline] all clients failed for %@", videoID);
+                    completion(@[], err4 ?: err3 ?: err2 ?: err);
+                }];
             }];
         }];
     }];
@@ -261,6 +290,56 @@ static NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
         }
     }
     %orig;
+}
+%end
+// Ensure every googlevideo download request carries the required headers.
+// Without Origin/Referer/Cookie, YouTube's CDN returns 403 on the actual
+// media stream even when the URL itself is valid.
+%hook NSMutableURLRequest
+- (void)setValue:(NSString *)value forHTTPHeaderField:(NSString *)field {
+    // Only intercept requests to YouTube's video CDN.
+    NSString *host = self.URL.host ?: @"";
+    if (![host containsString:@"googlevideo.com"]) {
+        %orig;
+        return;
+    }
+    // Don't overwrite an explicitly-set value.
+    if ([self valueForHTTPHeaderField:field]) {
+        %orig;
+        return;
+    }
+    %orig;
+    // Inject missing critical headers after the original set.
+    if (!field) { %orig; return; }
+    if ([field caseInsensitiveCompare:@"Origin"] == NSOrderedSame && !value) {
+        [super setValue:@"https://www.youtube.com" forHTTPHeaderField:@"Origin"];
+    } else if ([field caseInsensitiveCompare:@"Referer"] == NSOrderedSame && !value) {
+        [super setValue:@"https://www.youtube.com/" forHTTPHeaderField:@"Referer"];
+    }
+}
+%end
+
+// Ensure download data tasks always carry Origin + Referer.
+%hook NSURLSession
+- (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)request
+                            completionHandler:(void (^)(NSData *, NSURLResponse *, NSError *))completionHandler {
+    NSMutableURLRequest *mutableReq = [request isKindOfClass:[NSMutableURLRequest class]]
+        ? (NSMutableURLRequest *)request
+        : [request mutableCopy];
+    NSString *host = mutableReq.URL.host ?: @"";
+    if ([host containsString:@"googlevideo.com"]) {
+        if (![mutableReq valueForHTTPHeaderField:@"Origin"])
+            [mutableReq setValue:@"https://www.youtube.com" forHTTPHeaderField:@"Origin"];
+        if (![mutableReq valueForHTTPHeaderField:@"Referer"])
+            [mutableReq setValue:@"https://www.youtube.com/" forHTTPHeaderField:@"Referer"];
+        // Carry session cookies for authenticated streams.
+        if (![mutableReq valueForHTTPHeaderField:@"Cookie"]) {
+            NSString *cookies = UYTYouTubeCookiesString();
+            if (cookies.length > 0)
+                [mutableReq setValue:cookies forHTTPHeaderField:@"Cookie"];
+        }
+    }
+    return %orig(mutableReq, completionHandler);
 }
 %end
 
