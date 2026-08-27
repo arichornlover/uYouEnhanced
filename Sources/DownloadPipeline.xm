@@ -294,33 +294,6 @@ static NSString *UYTResolvedVideoURL(NSString *vid) {
 - (void)setRemoteURL:(NSURL *)url;
 @end
 
-%hook DownloadsManager
-- (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
-    NSString *vid = [NSString stringWithFormat:@"%@", videoID];
-
-    // Pre-fetch working stream URLs via innertube BEFORE %orig runs.
-    // The completion handler chains %orig directly — no delay, no race condition.
-    [UYTDownloadPipeline fetchFormatsForVideoID:vid completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
-        if (error || formats.count == 0) {
-            NSLog(@"[UYTPipeline] pre-fetch failed for %@: %@", vid, error.localizedDescription);
-        } else {
-            UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
-            UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
-            UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
-            UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
-            NSLog(@"[UYTPipeline] cached URLs for %@ (muxed=%ld, audio=%ld, video=%ld)",
-                  vid, (long)muxed.itag, (long)audio.itag, (long)video.itag);
-        }
-
-        // Let uYou's native flow proceed. Our DownloadItem hook below will
-        // swap any broken URL with our cached working one.
-        dispatch_async(dispatch_get_main_queue(), ^{
-            %orig;
-        });
-    }];
-}
-%end
-
 // Swap broken extraction URLs with working innertube ones. Audio items get the
 // resolved audio stream — uYou's own audio URLs are often throttled (#161).
 %hook DownloadItem
@@ -448,7 +421,7 @@ static NSTimeInterval UYTExtractExpirationFromURL(NSURL *url) {
 // Check if captured URL is still valid
 static BOOL UYTIsCapturedURLValid(void) {
     return UYTCapturedVideoPlaybackURL && UYTCapturedRequestBody && UYTCapturedRequestHeaders &&
-           UYTCapturedURLExpiration > [NSDate timeIntervalSince1970] + 60; // 60s buffer
+           UYTCapturedURLExpiration > [NSDate date].timeIntervalSince1970 + 60; // 60s buffer
 }
 
 // Hook to capture the app's live signed videoplayback request
@@ -469,7 +442,7 @@ static BOOL UYTIsCapturedURLValid(void) {
                     UYTCapturedRequestHeaders = [request.allHTTPHeaderFields mutableCopy] ?: [NSMutableDictionary dictionary];
                     UYTCapturedURLExpiration = UYTExtractExpirationFromURL(request.URL);
                     NSLog(@"[UYTSABR] Captured signed videoplayback request (expires in %.0fs)",
-                          UYTCapturedURLExpiration - [NSDate timeIntervalSince1970]);
+                          UYTCapturedURLExpiration - [NSDate date].timeIntervalSince1970);
                 });
             }
         }
@@ -486,7 +459,7 @@ static void UYTAttemptSABRDownload(NSString *videoID, NSInteger videoItag, NSInt
         if (!UYTIsCapturedURLValid()) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 completion(nil, nil, [NSError errorWithDomain:@"UYTSABR" code:-1
-                    userInfo:@{NSLocalizedDescriptionKey: @"No valid captured videoplayback request. Play the video first."}]);
+                    userInfo:@{NSLocalizedDescriptionKey: @"No valid captured videoplayback request. Play the video first."}]); 
             });
             return;
         }
@@ -506,14 +479,14 @@ static void UYTAttemptSABRDownload(NSString *videoID, NSInteger videoItag, NSInt
             // Note: This is simplified. Real SABR requires proper UMP FormatId encoding.
         }
         
-        modifiedBody = [bodyStr dataUsingEncoding:NSUTF8StringEncoding];
-        if (!modifiedBody) modifiedBody = UYTCapturedRequestBody;
+        NSData *newBodyData = [bodyStr dataUsingEncoding:NSUTF8StringEncoding];
+        if (newBodyData) modifiedBody = [newBodyData mutableCopy];
 
         NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:UYTCapturedVideoPlaybackURL];
         req.HTTPMethod = @"POST";
         req.HTTPBody = modifiedBody;
         [UYTCapturedRequestHeaders enumerateKeysAndObjectsUsingBlock:^(NSString *k, NSString *v, BOOL *stop) {
-            if (![k caseInsensitiveCompare:@"Content-Encoding"] == NSOrderedSame) { // Don't copy Brotli encoding
+            if (!([k caseInsensitiveCompare:@"Content-Encoding"] == NSOrderedSame)) { // Don't copy Brotli encoding
                 [req setValue:v forHTTPHeaderField:k];
             }
         }];
@@ -526,7 +499,7 @@ static void UYTAttemptSABRDownload(NSString *videoID, NSInteger videoItag, NSInt
                 if (err || !data) {
                     dispatch_async(dispatch_get_main_queue(), ^{
                         completion(nil, nil, err ?: [NSError errorWithDomain:@"UYTSABR" code:-2
-                            userInfo:@{NSLocalizedDescriptionKey: @"SABR download request failed"}]);
+                            userInfo:@{NSLocalizedDescriptionKey: @"SABR download request failed"}]); 
                     });
                     return;
                 }
@@ -534,7 +507,7 @@ static void UYTAttemptSABRDownload(NSString *videoID, NSInteger videoItag, NSInt
                 if (http.statusCode != 200 || !data.length) {
                     dispatch_async(dispatch_get_main_queue(), ^{
                         completion(nil, nil, [NSError errorWithDomain:@"UYTSABR" code:http.statusCode
-                            userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"HTTP %ld", (long)http.statusCode]}]);
+                            userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"HTTP %ld", (long)http.statusCode]}]); 
                     });
                     return;
                 }
@@ -546,31 +519,16 @@ static void UYTAttemptSABRDownload(NSString *videoID, NSInteger videoItag, NSInt
                 NSString *sabrDir = [docs stringByAppendingPathComponent:@"uYouDownloads/SABR"];
                 [[NSFileManager defaultManager] createDirectoryAtPath:sabrDir withIntermediateDirectories:YES attributes:nil error:nil];
                 
-                NSString *videoPath = [sabrDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@_video_%ld.mp4", videoID, (long)videoItag]];
-                NSString *audioPath = [sabrDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@_audio_%ld.m4a", videoID, (long)audioItag]];
-                
                 // This is a placeholder - real SABR implementation needed
                 // For now, we return an error to fall back to other methods
                 dispatch_async(dispatch_get_main_queue(), ^{
                     completion(nil, nil, [NSError errorWithDomain:@"UYTSABR" code:-3
-                        userInfo:@{NSLocalizedDescriptionKey: @"SABR download not fully implemented - requires UMP parsing (see YouMod SABRDownload.x)"}]);
+                        userInfo:@{NSLocalizedDescriptionKey: @"SABR download not fully implemented - requires UMP parsing (see YouMod SABRDownload.x)"}]); 
                 });
             });
         }] resume];
     });
 }
-
-// Fallback hook in DownloadsManager to try SABR when innertube fails
-%hook DownloadsManager
-- (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
-    // This hook is already in uYouPatches.xm; we add a notification observer here
-    // to trigger SABR fallback when pipeline reports 403
-    %orig;
-}
-%end
-
-// Notification observer for pipeline 403 errors -> trigger SABR fallback
-%ctor {
     %init;
     [[NSNotificationCenter defaultCenter] addObserverForName:@"UYTPipeline403Error" object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
         NSString *vid = note.userInfo[@"videoID"];
