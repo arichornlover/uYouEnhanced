@@ -87,6 +87,117 @@ BOOL uYouIsSideStore() {
 }
 %end
 
+//  Shorts uYou Button Crash Fix (#995)
+// YouTube 21.xx.x+ changed the Shorts player hierarchy. The uYou overlay
+// button's target doesn't respond on Shorts → crash. Detect version and
+// Shorts context, then route the download through the native path directly.
+
+// Global safety net for any button with a broken target-action.
+%group gShortsButtonGuard
+%hook UIControl
+- (void)sendAction:(SEL)action to:(id)target forEvent:(UIEvent *)event {
+    if (target && action && ![target respondsToSelector:action]) {
+        NSLog(@"[uYouEnhanced] Blocked sendAction:%s to non-responding target %@ (class: %@)",
+              sel_getName(action), target, NSStringFromClass([target class]));
+        return;
+    }
+    @try {
+        %orig;
+    } @catch (NSException *e) {
+        NSLog(@"[uYouEnhanced] Caught sendAction crash: %@", e);
+    }
+}
+%end
+%end
+
+// Make the uYou button actually work on Shorts instead of crashing.
+// Hooks uYou on the overlay view — on Shorts, extracts the video ID and
+// calls getLinksLocallyPlayerItem: directly with isShorts:YES.
+%group gShortsUYouDownload
+static BOOL UYTIsShortsOverlay(id overlay) {
+    @try {
+        NSString *ident = [overlay accessibilityIdentifier] ?: @"";
+        if ([ident containsString:@"reel"] || [ident containsString:@"shorts"])
+            return YES;
+
+        UIResponder *responder = [overlay nextResponder];
+        while (responder) {
+            NSString *cls = NSStringFromClass([responder class]);
+            if ([cls containsString:@"ReelWatch"] ||
+                [cls containsString:@"ShortsPlayer"] ||
+                [cls containsString:@"ReelPlayer"])
+                return YES;
+            responder = [responder nextResponder];
+        }
+
+        UIView *view = [overlay superview];
+        while (view) {
+            NSString *cls = NSStringFromClass([view class]);
+            if ([cls containsString:@"Reel"] || [cls containsString:@"Shorts"])
+                return YES;
+            view = view.superview;
+        }
+    } @catch (NSException *e) {}
+    return NO;
+}
+
+static NSString *UYTShortsVideoID(id overlay) {
+    @try {
+        // Walk responder chain for a video ID
+        UIResponder *r = [overlay nextResponder];
+        while (r) {
+            if ([r respondsToSelector:@selector(activeReelPlaybackVideoID)]) {
+                NSString *v = [r performSelector:@selector(activeReelPlaybackVideoID)];
+                if (v.length > 0) return v;
+            }
+            if ([r respondsToSelector:@selector(currentVideoID)]) {
+                NSString *v = [r performSelector:@selector(currentVideoID)];
+                if (v.length > 0) return v;
+            }
+            if ([r respondsToSelector:@selector(videoID)]) {
+                NSString *v = [r performSelector:@selector(videoID)];
+                if (v.length > 0) return v;
+            }
+            @try {
+                NSString *v = [r valueForKey:@"videoID"];
+                if (v.length > 0) return v;
+            } @catch (NSException *e2) {}
+            r = [r nextResponder];
+        }
+        // Fallback: PlayerManager
+        if ([%c(PlayerManager) respondsToSelector:@selector(sharedInstance)]) {
+            id pm = [%c(PlayerManager) sharedInstance];
+            if ([pm respondsToSelector:@selector(videoID)]) {
+                NSString *v = [pm performSelector:@selector(videoID)];
+                if (v.length > 0) return v;
+            }
+        }
+    } @catch (NSException *e) {}
+    return nil;
+}
+
+%hook YTMainAppControlsOverlayView
+- (void)uYou {
+    @try {
+        if (UYTIsShortsOverlay(self)) {
+            NSString *videoID = UYTShortsVideoID(self);
+            if (videoID.length > 0) {
+                NSLog(@"[uYouEnhanced] uYou button on Shorts → download %@", videoID);
+                id dlManager = [%c(DownloadsManager) sharedInstance];
+                if (dlManager && [dlManager respondsToSelector:@selector(getLinksLocallyPlayerItem:videoID:sourceView:isShorts:)]) {
+                    [dlManager getLinksLocallyPlayerItem:nil videoID:videoID sourceView:self isShorts:YES];
+                    return;
+                }
+            }
+        }
+    } @catch (NSException *e) {
+        NSLog(@"[uYouEnhanced] Shorts uYou hook failed: %@", e);
+    }
+    %orig;
+}
+%end
+%end
+
 // Prevent uYou player bar from showing when not playing downloaded media
 %hook PlayerManager
 - (void)pause {
@@ -1258,4 +1369,13 @@ static float uYouSavedPlaybackRate = 0.0f;
 
     // Initialize fullscreen fixes (always active when noSuggestedVideo is used)
     %init(gYouFullscreenFixes);
+
+    // Shorts uYou button fix (#995) — only needed on 21.xx.x+ where the
+    // Shorts player hierarchy changed. Uses YTVersionUtils so the version
+    // spoofer is respected.
+    NSString *appVersion = [%c(YTVersionUtils) performSelector:@selector(appVersion)];
+    if (appVersion && [appVersion compare:@"21.10.2" options:NSNumericSearch] != NSOrderedAscending) {
+        %init(gShortsButtonGuard);
+        %init(gShortsUYouDownload);
+    }
 }
