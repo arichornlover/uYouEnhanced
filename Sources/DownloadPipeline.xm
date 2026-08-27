@@ -183,6 +183,22 @@ static NSString *UYTYouTubeCookiesString(void) {
     return best;
 }
 
++ (UYTStreamFormat *)bestVideoFormat:(NSArray<UYTStreamFormat *> *)formats {
+    // Adaptive video-only streams. Prefer mp4 (H.264) over webm (VP9/AV1)
+    // so the merge step doesn't need to re-encode.
+    UYTStreamFormat *bestMp4 = nil;
+    UYTStreamFormat *bestOther = nil;
+    for (UYTStreamFormat *f in formats) {
+        if (!f.hasVideo || f.hasAudio) continue;
+        if ([f.mimeType containsString:@"mp4"]) {
+            if (!bestMp4 || f.bitrate > bestMp4.bitrate) bestMp4 = f;
+        } else {
+            if (!bestOther || f.bitrate > bestOther.bitrate) bestOther = f;
+        }
+    }
+    return bestMp4 ?: bestOther;
+}
+
 + (UYTStreamFormat *)bestAudioFormat:(NSArray<UYTStreamFormat *> *)formats {
     // Prefer m4a, but fall back to the best webm track — modern YouTube serves
     // adaptive audio mostly as webm, and uYouPatches converts it afterwards.
@@ -209,7 +225,7 @@ static NSString *UYTYouTubeCookiesString(void) {
 // downloads get a real audio URL instead of a throttled one.
 static NSMutableDictionary<NSString *, NSDictionary *> *UYTResolvedURLs;
 
-static void UYTStoreResolvedURLs(NSString *vid, NSString *muxedURL, NSString *audioURL) {
+static void UYTStoreResolvedURLs(NSString *vid, NSString *muxedURL, NSString *audioURL, NSString *videoURL) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         UYTResolvedURLs = [NSMutableDictionary dictionary];
@@ -218,12 +234,19 @@ static void UYTStoreResolvedURLs(NSString *vid, NSString *muxedURL, NSString *au
     NSMutableDictionary *entry = [UYTResolvedURLs[vid] mutableCopy] ?: [NSMutableDictionary dictionary];
     if (muxedURL.length) entry[@"muxed"] = muxedURL;
     if (audioURL.length) entry[@"audio"] = audioURL;
+    if (videoURL.length) entry[@"video"] = videoURL;
     UYTResolvedURLs[vid] = entry;
 }
 
 static NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
     NSDictionary *entry = UYTResolvedURLs[vid];
     return entry[audio ? @"audio" : @"muxed"] ?: nil;
+}
+
+static NSString *UYTResolvedVideoURL(NSString *vid) {
+    NSDictionary *entry = UYTResolvedURLs[vid];
+    // Prefer the dedicated video-only stream for adaptive downloads.
+    return entry[@"video"] ?: entry[@"muxed"];
 }
 
 @interface DownloadsManager : NSObject
@@ -247,9 +270,10 @@ static NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
         } else {
             UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
             UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
-            UYTStoreResolvedURLs(vid, muxed.url, audio.url);
-            NSLog(@"[UYTPipeline] cached URLs for %@ (muxed=%ld, audio=%ld)",
-                  vid, (long)muxed.itag, (long)audio.itag);
+            UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
+            UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
+            NSLog(@"[UYTPipeline] cached URLs for %@ (muxed=%ld, audio=%ld, video=%ld)",
+                  vid, (long)muxed.itag, (long)audio.itag, (long)video.itag);
         }
 
         // Let uYou's native flow proceed. Our DownloadItem hook below will
@@ -276,16 +300,26 @@ static NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
         wantsAudio = [ext isEqualToString:@"m4a"] || [ext isEqualToString:@"mp3"];
     } @catch (NSException *e) {}
 
-    NSString *working = UYTResolvedURLForVideo(vid, wantsAudio);
-    if (working.length == 0 && wantsAudio) {
-        // No audio stream resolved — fall back to the muxed URL like before.
-        working = UYTResolvedURLForVideo(vid, NO);
+    NSString *working = nil;
+    if (wantsAudio) {
+        // Audio-only item (.m4a, .mp3) — use the dedicated audio stream.
+        working = UYTResolvedURLForVideo(vid, YES);
+        if (!working.length) {
+            // No audio stream resolved — fall back to the muxed URL.
+            working = UYTResolvedURLForVideo(vid, NO);
+        }
+    } else {
+        // Video item (.mp4) — use the dedicated video-only stream for
+        // adaptive downloads (prevents duplicate audio after merge).
+        // Falls back to muxed URL for lower-quality muxed downloads.
+        working = UYTResolvedVideoURL(vid);
     }
+
     if (working.length) {
         NSURL *fixed = [NSURL URLWithString:working];
         if (fixed) {
-            NSLog(@"[UYTPipeline] swapped broken URL -> %@ innertube URL for %@",
-                  wantsAudio ? @"audio" : @"muxed", vid);
+            NSLog(@"[UYTPipeline] swapped broken URL -> %@ URL for %@",
+                  wantsAudio ? @"audio" : @"video", vid);
             %orig(fixed);
             return;
         }

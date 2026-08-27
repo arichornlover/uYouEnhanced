@@ -104,3 +104,78 @@ BOOL UYTFFRemuxVideoAudioToMP4(NSString *videoPath, NSString *audioPath, NSStrin
         outputPath,
     ]);
 }
+
+// Detect webm container by extension.
+static BOOL uytPathIsWebm(NSString *path) {
+    return path.length > 0 && [path.pathExtension.lowercaseString isEqualToString:@"webm"];
+}
+
+BOOL UYTFFConvertWebmVideoToMp4(NSString *webmPath, NSString *mp4Path) {
+    if (!webmPath.length || !mp4Path.length) return NO;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    if (![fm fileExistsAtPath:webmPath]) return NO;
+    if ([fm fileExistsAtPath:mp4Path]) [fm removeItemAtPath:mp4Path error:nil];
+
+    // Try libx264 first (software encoder — always available in standard builds).
+    BOOL ok = UYTFFRun(@[
+        @"-i", webmPath,
+        @"-c:v", @"libx264",
+        @"-preset", @"ultrafast",
+        @"-crf", @"23",
+        @"-pix_fmt", @"yuv420p",
+        @"-c:a", @"copy",
+        @"-movflags", @"+faststart",
+        @"-y",
+        mp4Path,
+    ]);
+    if (ok && [fm fileExistsAtPath:mp4Path]) {
+        unsigned long long sz = [[fm attributesOfItemAtPath:mp4Path error:nil] fileSize];
+        if (sz > 0) return YES;
+    }
+    // Clean up partial output on failure.
+    if ([fm fileExistsAtPath:mp4Path]) [fm removeItemAtPath:mp4Path error:nil];
+
+    // Fallback: VideoToolbox hardware encoder (available on iOS 11+).
+    ok = UYTFFRun(@[
+        @"-i", webmPath,
+        @"-c:v", @"h264_videotoolbox",
+        @"-b:v", @"5M",
+        @"-pix_fmt", @"420v",
+        @"-c:a", @"copy",
+        @"-movflags", @"+faststart",
+        @"-y",
+        mp4Path,
+    ]);
+    if (ok && [fm fileExistsAtPath:mp4Path]) {
+        unsigned long long sz = [[fm attributesOfItemAtPath:mp4Path error:nil] fileSize];
+        if (sz > 0) return YES;
+    }
+    if ([fm fileExistsAtPath:mp4Path]) [fm removeItemAtPath:mp4Path error:nil];
+    return NO;
+}
+
+BOOL UYTFFSmartRemuxToMP4(NSString *videoPath, NSString *audioPath, NSString *outputPath) {
+    if (!videoPath.length || !audioPath.length || !outputPath.length) return NO;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    if (![fm fileExistsAtPath:videoPath] || ![fm fileExistsAtPath:audioPath]) return NO;
+    if ([fm fileExistsAtPath:outputPath]) [fm removeItemAtPath:outputPath error:nil];
+
+    if (!uytPathIsWebm(videoPath)) {
+        // Video is already mp4-compatible — fast stream-copy.
+        return UYTFFRemuxVideoAudioToMP4(videoPath, audioPath, outputPath);
+    }
+
+    // Video is webm (VP9/AV1) — can't stream-copy into mp4.
+    // First transcode video to H.264, then mux with audio.
+    NSString *tmpVideo = [outputPath stringByAppendingString:@".vt.mp4"];
+    BOOL converted = UYTFFConvertWebmVideoToMp4(videoPath, tmpVideo);
+    if (!converted || ![fm fileExistsAtPath:tmpVideo]) {
+        if ([fm fileExistsAtPath:tmpVideo]) [fm removeItemAtPath:tmpVideo error:nil];
+        return NO;
+    }
+
+    // Now mux the converted H.264 video with the audio track.
+    BOOL ok = UYTFFRemuxVideoAudioToMP4(tmpVideo, audioPath, outputPath);
+    [fm removeItemAtPath:tmpVideo error:nil];
+    return ok;
+}

@@ -351,6 +351,15 @@ static NSString *UYTShortsVideoID(id overlay) {
                 NSString *v = [r valueForKey:@"videoID"];
                 if ([v isKindOfClass:[NSString class]] && v.length > 0) return v;
             } @catch (NSException *e3) {}
+            // Also try reelID / reelId on the reel player
+            @try {
+                NSString *v = [r valueForKey:@"reelID"];
+                if ([v isKindOfClass:[NSString class]] && v.length > 0) return v;
+            } @catch (NSException *e4) {}
+            @try {
+                NSString *v = [r valueForKey:@"reelId"];
+                if ([v isKindOfClass:[NSString class]] && v.length > 0) return v;
+            } @catch (NSException *e5) {}
             r = [r nextResponder];
         }
         // 3) Fallback: PlayerManager
@@ -361,6 +370,33 @@ static NSString *UYTShortsVideoID(id overlay) {
                 if (v.length > 0) return v;
             }
         }
+        // 4) Fallback: NSUserDefaults (uYou stores last-played video ID)
+        NSString *lastVid = [[NSUserDefaults standardUserDefaults] stringForKey:@"playerVideoID"];
+        if (lastVid.length > 0) return lastVid;
+        // 5) Fallback: extract from current navigation URL
+        @try {
+            id navController = nil;
+            UIWindow *keyWindow = nil;
+            for (UIWindow *w in [UIApplication sharedApplication].windows) {
+                if (w.isKeyWindow) { keyWindow = w; break; }
+            }
+            if (keyWindow.rootViewController) {
+                // Walk presented VCs to find a YTNavigationController
+                UIViewController *top = keyWindow.rootViewController;
+                while (top.presentedViewController) top = top.presentedViewController;
+                if ([top respondsToSelector:@selector(URL)]) {
+                    NSURL *url = [top performSelector:@selector(URL)];
+                    NSString *urlStr = url.absoluteString;
+                    NSRange shortsRange = [urlStr rangeOfString:@"/shorts/"];
+                    if (shortsRange.location != NSNotFound) {
+                        NSString *vid = [urlStr substringFromIndex:shortsRange.location + shortsRange.length];
+                        vid = [vid componentsSeparatedByString:@"?"].firstObject;
+                        vid = [vid componentsSeparatedByString:@"&"].firstObject;
+                        if (vid.length > 0 && vid.length <= 20) return vid;
+                    }
+                }
+            }
+        } @catch (NSException *e) {}
     } @catch (NSException *e) {}
     return nil;
 }
@@ -379,25 +415,27 @@ static NSString *UYTShortsVideoID(id overlay) {
                 }
             }
 
-            // Try the native uYou flow first — this shows the download menu
-            // (quality picker, etc.) instead of silently starting the download.
-            @try {
-                %orig;
-                return;
-            } @catch (NSException *e) {
-                NSLog(@"[uYouEnhanced] Shorts uYou native menu failed: %@ \u2014 falling back to direct download", e);
-            }
-
-            // If the native flow crashed (e.g. delegate still broken), fall
-            // back to direct download via getLinksLocallyPlayerItem:.
+            // On Shorts, uYou's native %orig often silently does nothing even
+            // after we wire playerViewController — the internal code expects
+            // metadata state that the Shorts player doesn't populate the same
+            // way as the regular player. Skip %orig and go directly to the
+            // download menu via getLinksLocallyPlayerItem:.
             NSString *videoID = UYTShortsVideoID(self);
             if (videoID.length > 0) {
-                NSLog(@"[uYouEnhanced] uYou button on Shorts → direct download fallback %@", videoID);
+                NSLog(@"[uYouEnhanced] uYou button on Shorts -> direct download for %@", videoID);
                 id dlManager = [%c(DownloadsManager) sharedInstance];
                 if (dlManager && [dlManager respondsToSelector:@selector(getLinksLocallyPlayerItem:videoID:sourceView:isShorts:)]) {
                     [dlManager getLinksLocallyPlayerItem:nil videoID:videoID sourceView:self isShorts:YES];
                     return;
                 }
+            }
+
+            // If we couldn't get a video ID, try %orig as absolute last resort.
+            @try {
+                %orig;
+                return;
+            } @catch (NSException *e) {
+                NSLog(@"[uYouEnhanced] Shorts uYou native fallback also failed: %@", e);
             }
         }
     } @catch (NSException *e) {
@@ -594,8 +632,10 @@ static BOOL UYTEnsureMergeableAudio(id item, NSString *phase) {
     }
 }
 
-// Remux video+audio with ffmpeg stream copy instead of AVAssetExportSession,
-// which hangs forever on some formats. Returns YES on success.
+// Remux video+audio with ffmpeg instead of AVAssetExportSession,
+// which hangs forever on some formats. Handles webm video by re-encoding
+// to H.264 when stream-copy isn't possible (VP9 in mp4 container).
+// Returns YES on success.
 static BOOL UYTRemuxWithFFmpeg(id ui, NSString *phase) {
     @try {
         if (!ui) return NO;
@@ -603,9 +643,8 @@ static BOOL UYTRemuxWithFFmpeg(id ui, NSString *phase) {
 
         NSString *videoPath = nil, *audioPath = nil;
         if ([ui respondsToSelector:@selector(tmpVideoPath)]) videoPath = [ui tmpVideoPath];
-        if ((!videoPath.length || UYTPathIsWebm(videoPath)) && [ui respondsToSelector:@selector(cachedVideoPath)]) {
-            NSString *cached = [ui cachedVideoPath];
-            if (cached.length && !UYTPathIsWebm(cached)) videoPath = cached;
+        if (!videoPath.length) {
+            if ([ui respondsToSelector:@selector(cachedVideoPath)]) videoPath = [ui cachedVideoPath];
         }
         if ([ui respondsToSelector:@selector(tmpAudioPath)]) audioPath = [ui tmpAudioPath];
         if (!audioPath.length && [ui respondsToSelector:@selector(cachedAudioPath)]) audioPath = [ui cachedAudioPath];
@@ -613,28 +652,31 @@ static BOOL UYTRemuxWithFFmpeg(id ui, NSString *phase) {
 
         if (!videoPath.length || !audioPath.length || !finalPath.length) return NO;
         if (![fm fileExistsAtPath:videoPath] || ![fm fileExistsAtPath:audioPath]) return NO;
-        if (UYTPathIsWebm(audioPath)) return NO; // caller converts first
 
         NSString *tmpOut = [finalPath stringByAppendingFormat:@".merging.mp4"];
         if ([fm fileExistsAtPath:tmpOut]) [fm removeItemAtPath:tmpOut error:nil];
 
         if (UYTFFActiveBackend() == UYTFFBackendNone) return NO;
 
-        HBLogInfo(@"[uYouPatches] %@: ffmpeg remux started (%@ + %@)", phase,
+        HBLogInfo(@"[uYouPatches] %@: remux started (%@ + %@)", phase,
                   videoPath.lastPathComponent, audioPath.lastPathComponent);
-        BOOL ok = UYTFFRemuxVideoAudioToMP4(videoPath, audioPath, tmpOut);
+
+        // UYTFFSmartRemuxToMP4 handles both cases:
+        // - mp4 video → fast stream copy (-c copy)
+        // - webm video → transcode to H.264 + mux
+        BOOL ok = UYTFFSmartRemuxToMP4(videoPath, audioPath, tmpOut);
 
         NSDictionary *attrs = [fm attributesOfItemAtPath:tmpOut error:nil];
         if (ok && attrs && [attrs fileSize] > 0) {
             if ([fm fileExistsAtPath:finalPath]) [fm removeItemAtPath:finalPath error:nil];
             NSError *moveErr = nil;
             if ([fm moveItemAtPath:tmpOut toPath:finalPath error:&moveErr]) {
-                HBLogWarn(@"[uYouPatches] %@: ffmpeg remux OK â†’ %@", phase, finalPath.lastPathComponent);
+                HBLogWarn(@"[uYouPatches] %@: remux OK -> %@", phase, finalPath.lastPathComponent);
                 return YES;
             }
             HBLogWarn(@"[uYouPatches] %@: remux move failed: %@", phase, moveErr);
         } else {
-            HBLogWarn(@"[uYouPatches] %@: ffmpeg remux failed (backend %ld)", phase, (long)UYTFFActiveBackend());
+            HBLogWarn(@"[uYouPatches] %@: remux failed (backend %ld)", phase, (long)UYTFFActiveBackend());
             [fm removeItemAtPath:tmpOut error:nil];
         }
     } @catch (NSException *e) {
@@ -1031,18 +1073,14 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
         return;
     }
 
-    // Stall watchdog for the metadata phase ("Adding Metadata to the M4A..."
-    // stuck at 0% on audio-only downloads). If metadata writing stalls, the
-    // watchdog completes the item from the converted m4a directly.
+    // Stall watchdog for the metadata phase.
     UYTArmStallWatchdog(item, 30.0);
     @try {
         %orig;
     } @catch (NSException *e) {
         HBLogWarn(@"[uYouPatches] addMetadataToAudio failed: %@ for item: %@", e, item);
-
-        // Metadata failed but the download itself is still valid.
-        // The audio file can still be played without metadata tags.
-        // Post a notification so the UI knows to update.
+        // Finalize from whatever file we have — audio is still playable without tags.
+        UYTFinalizeItem(item, @"metadata exception recovery");
         dispatch_async(dispatch_get_main_queue(), ^{
             [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouDownloadMetadataFailed" object:nil];
         });
@@ -1093,7 +1131,26 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     } @catch (NSException *e) {
         HBLogWarn(@"[uYouPatches] mergeAudioWithMP4Video failed: %@ for item: %@", e, item);
         UYTFinalizeItem(item, @"merge exception recovery");
+        return;
     }
+
+    // Verify the merge actually produced output — AVAssetExportSession can
+    // fail silently (no exception, but no file either), leaving the item stuck.
+    @try {
+        id ui = UYTResolveUYouItem(item);
+        if (ui) {
+            NSString *finalPath = [ui respondsToSelector:@selector(filePath)] ? [ui filePath] : nil;
+            if (finalPath.length) {
+                NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:finalPath error:nil];
+                if (!attrs || [attrs fileSize] == 0) {
+                    HBLogWarn(@"[uYouPatches] mergeAudioWithMP4Video: %orig produced no output — recovering");
+                    if (!UYTFinalizeItem(item, @"post-merge recovery")) {
+                        UYTFinalizeItem(item, @"merge no-output fallback");
+                    }
+                }
+            }
+        }
+    } @catch (NSException *e) {}
 }
 
 - (void)mergeAudioWithVideoForDownloadItem:(id)item {
@@ -1130,7 +1187,25 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     } @catch (NSException *e) {
         HBLogWarn(@"[uYouPatches] mergeAudioWithVideo failed: %@ for item: %@", e, item);
         UYTFinalizeItem(item, @"merge exception recovery");
+        return;
     }
+
+    // Verify the merge actually produced output.
+    @try {
+        id ui = UYTResolveUYouItem(item);
+        if (ui) {
+            NSString *finalPath = [ui respondsToSelector:@selector(filePath)] ? [ui filePath] : nil;
+            if (finalPath.length) {
+                NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:finalPath error:nil];
+                if (!attrs || [attrs fileSize] == 0) {
+                    HBLogWarn(@"[uYouPatches] mergeAudioWithVideo: %orig produced no output — recovering");
+                    if (!UYTFinalizeItem(item, @"post-merge recovery")) {
+                        UYTFinalizeItem(item, @"merge no-output fallback");
+                    }
+                }
+            }
+        }
+    } @catch (NSException *e) {}
 }
 %end
 
