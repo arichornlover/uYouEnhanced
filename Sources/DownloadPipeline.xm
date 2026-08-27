@@ -118,21 +118,34 @@ static NSString *UYTYouTubeCookiesString(void) {
             NSArray *streams = json[@"streamingData"][@"adaptiveFormats"];
             NSArray *muxed = json[@"streamingData"][@"formats"];
             NSMutableArray *out = [NSMutableArray array];
-            for (NSArray *list in @[streams ?: @[], muxed ?: @[]]) {
-                for (NSDictionary *f in list) {
-                    NSString *u = f[@"url"];
-                    if (!u) continue;
-                    UYTStreamFormat *sf = [[UYTStreamFormat alloc] init];
-                    sf.url = u;
-                    sf.itag = [f[@"itag"] integerValue];
-                    sf.mimeType = f[@"mimeType"];
-                    sf.bitrate = [f[@"bitrate"] longLongValue];
-                    sf.qualityLabel = f[@"qualityLabel"];
-                    sf.hasVideo = [sf.mimeType hasPrefix:@"video"];
-                    sf.hasAudio = [sf.mimeType hasPrefix:@"audio"] ||
-                                  ([sf.mimeType hasPrefix:@"video"] && ![f objectForKey:@"qualityLabel"]);
-                    [out addObject:sf];
-                }
+            // Process muxed streams FIRST (they have both video+audio combined),
+            // then adaptive (separate video-only and audio-only).
+            for (NSDictionary *f in muxed ?: @[]) {
+                NSString *u = f[@"url"];
+                if (!u) continue;
+                UYTStreamFormat *sf = [[UYTStreamFormat alloc] init];
+                sf.url = u;
+                sf.itag = [f[@"itag"] integerValue];
+                sf.mimeType = f[@"mimeType"];
+                sf.bitrate = [f[@"bitrate"] longLongValue];
+                sf.qualityLabel = f[@"qualityLabel"];
+                // Muxed streams always have both video and audio.
+                sf.hasVideo = YES;
+                sf.hasAudio = YES;
+                [out addObject:sf];
+            }
+            for (NSDictionary *f in streams ?: @[]) {
+                NSString *u = f[@"url"];
+                if (!u) continue;
+                UYTStreamFormat *sf = [[UYTStreamFormat alloc] init];
+                sf.url = u;
+                sf.itag = [f[@"itag"] integerValue];
+                sf.mimeType = f[@"mimeType"];
+                sf.bitrate = [f[@"bitrate"] longLongValue];
+                sf.qualityLabel = f[@"qualityLabel"];
+                sf.hasVideo = [sf.mimeType hasPrefix:@"video"];
+                sf.hasAudio = [sf.mimeType hasPrefix:@"audio"];
+                [out addObject:sf];
             }
             completion(out, nil);
         }];
@@ -303,15 +316,15 @@ static NSString *UYTResolvedVideoURL(NSString *vid) {
     NSString *working = nil;
     if (wantsAudio) {
         // Audio-only item (.m4a, .mp3) — use the dedicated audio stream.
+        // Do NOT fall back to the muxed URL: for lower qualities (240p, 144p)
+        // the muxed stream IS a video file, which would produce a black-screen
+        // "audio" file.  If no audio-only stream exists, leave the URL alone
+        // so uYou's own extraction handles it (may be throttled but correct).
         working = UYTResolvedURLForVideo(vid, YES);
-        if (!working.length) {
-            // No audio stream resolved — fall back to the muxed URL.
-            working = UYTResolvedURLForVideo(vid, NO);
-        }
     } else {
         // Video item (.mp4) — use the dedicated video-only stream for
-        // adaptive downloads (prevents duplicate audio after merge).
-        // Falls back to muxed URL for lower-quality muxed downloads.
+        // adaptive downloads. Falls back to muxed URL for lower-quality
+        // muxed-only downloads.
         working = UYTResolvedVideoURL(vid);
     }
 
