@@ -978,22 +978,36 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 %hook DownloadsManager
 - (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
     HBLogInfo(@"[uYouPatches] download requested (vid: %@, shorts: %@)", videoID, isShorts ? @"YES" : @"NO");
-    %orig;
-    // Lifecycle catch-all (#992): covers stalls in phases we cannot hook â€”
-    // e.g. bytes reach 100% but uYou's URLSession completion handler silently
-    // bails on an expired/403 stream URL, so no merge method ever runs and
-    // nothing else recovers. Generous 5-minute timeout avoids interrupting
-    // legitimately slow downloads; the watchdog's growth check also defers
-    // recovery while candidate files are still being written.
-    UYTArmStallWatchdog(item, 300.0);
-    // Start idle timer prevention when download setup begins
-    uYouActiveDownloadCount++;
-    if (!uYouDownloadIsActive) {
-        uYouDownloadIsActive = YES;
+    
+    NSString *vid = [NSString stringWithFormat:@"%@", videoID];
+    [UYTDownloadPipeline fetchFormatsForVideoID:vid completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
+        if (error || formats.count == 0) {
+            NSLog(@"[UYTPipeline] pre-fetch failed for %@: %@", vid, error.localizedDescription);
+        } else {
+            UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
+            UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
+            UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
+            UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
+            NSLog(@"[UYTPipeline] cached URLs for %@ (muxed=%ld, audio=%ld, video=%ld)",
+                  vid, (long)muxed.itag, (long)audio.itag, (long)video.itag);
+        }
+
+        // Let uYou's native flow proceed. Our DownloadItem hook below will
+        // swap any broken URL with our cached working one.
         dispatch_async(dispatch_get_main_queue(), ^{
-            [[UIApplication sharedApplication] setIdleTimerDisabled:YES];
+            %orig;
+            // Lifecycle catch-all (#992): covers stalls in phases we cannot hook —
+            UYTArmStallWatchdog(item, 300.0);
+            // Start idle timer prevention when download setup begins
+            uYouActiveDownloadCount++;
+            if (!uYouDownloadIsActive) {
+                uYouDownloadIsActive = YES;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [[UIApplication sharedApplication] setIdleTimerDisabled:YES];
+                });
+            }
         });
-    }
+    }];
 }
 %end
 
