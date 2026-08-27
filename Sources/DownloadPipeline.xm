@@ -98,6 +98,14 @@ static NSString *UYTYouTubeCookiesString(void) {
             if (err || !data || http.statusCode == 403) {
                 NSString *msg = [NSString stringWithFormat:@"client=%@ status=%ld",
                                  clientName, (long)http.statusCode];
+                // Post notification for SABR fallback (includes videoID for capture correlation)
+                if (http.statusCode == 403) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [[NSNotificationCenter defaultCenter] postNotificationName:@"UYTPipeline403Error"
+                                                                          object:nil
+                                                                        userInfo:@{@"videoID": videoID, @"client": clientName}];
+                    });
+                }
                 completion(@[], [NSError errorWithDomain:@"UYTDownload" code:http.statusCode
                         userInfo:@{NSLocalizedDescriptionKey: msg}]);
                 return;
@@ -118,22 +126,10 @@ static NSString *UYTYouTubeCookiesString(void) {
             NSArray *streams = json[@"streamingData"][@"adaptiveFormats"];
             NSArray *muxed = json[@"streamingData"][@"formats"];
             NSMutableArray *out = [NSMutableArray array];
-            // Process muxed streams FIRST (they have both video+audio combined),
-            // then adaptive (separate video-only and audio-only).
-            for (NSDictionary *f in muxed ?: @[]) {
-                NSString *u = f[@"url"];
-                if (!u) continue;
-                UYTStreamFormat *sf = [[UYTStreamFormat alloc] init];
-                sf.url = u;
-                sf.itag = [f[@"itag"] integerValue];
-                sf.mimeType = f[@"mimeType"];
-                sf.bitrate = [f[@"bitrate"] longLongValue];
-                sf.qualityLabel = f[@"qualityLabel"];
-                // Muxed streams always have both video and audio.
-                sf.hasVideo = YES;
-                sf.hasAudio = YES;
-                [out addObject:sf];
-            }
+            NSMutableSet *seenQualityLabels = [NSMutableSet set];
+            
+            // Process adaptive streams FIRST (separate video-only and audio-only).
+            // These are preferred because they allow flexible quality selection.
             for (NSDictionary *f in streams ?: @[]) {
                 NSString *u = f[@"url"];
                 if (!u) continue;
@@ -145,6 +141,33 @@ static NSString *UYTYouTubeCookiesString(void) {
                 sf.qualityLabel = f[@"qualityLabel"];
                 sf.hasVideo = [sf.mimeType hasPrefix:@"video"];
                 sf.hasAudio = [sf.mimeType hasPrefix:@"audio"];
+                // Track quality labels we've seen to deduplicate later
+                if (sf.qualityLabel.length > 0) {
+                    [seenQualityLabels addObject:sf.qualityLabel];
+                }
+                [out addObject:sf];
+            }
+            
+            // Process muxed streams (they have both video+audio combined).
+            // Only add muxed formats for quality labels NOT already covered by adaptive.
+            // This prevents duplicate entries in the quality picker (e.g., 480p showing 3 times).
+            for (NSDictionary *f in muxed ?: @[]) {
+                NSString *u = f[@"url"];
+                if (!u) continue;
+                NSString *qualityLabel = f[@"qualityLabel"];
+                // Skip if we already have an adaptive format for this quality
+                if (qualityLabel.length > 0 && [seenQualityLabels containsObject:qualityLabel]) {
+                    continue;
+                }
+                UYTStreamFormat *sf = [[UYTStreamFormat alloc] init];
+                sf.url = u;
+                sf.itag = [f[@"itag"] integerValue];
+                sf.mimeType = f[@"mimeType"];
+                sf.bitrate = [f[@"bitrate"] longLongValue];
+                sf.qualityLabel = qualityLabel;
+                // Muxed streams always have both video and audio.
+                sf.hasVideo = YES;
+                sf.hasAudio = YES;
                 [out addObject:sf];
             }
             completion(out, nil);
@@ -318,9 +341,18 @@ static NSString *UYTResolvedVideoURL(NSString *vid) {
         // Audio-only item (.m4a, .mp3) — use the dedicated audio stream.
         // Do NOT fall back to the muxed URL: for lower qualities (240p, 144p)
         // the muxed stream IS a video file, which would produce a black-screen
-        // "audio" file.  If no audio-only stream exists, leave the URL alone
-        // so uYou's own extraction handles it (may be throttled but correct).
+        // "audio" file. If no audio-only stream exists, we still use the muxed
+        // URL but mark it for audio extraction in the merge phase.
         working = UYTResolvedURLForVideo(vid, YES);
+        if (!working.length) {
+            // No adaptive audio stream — check if muxed exists for audio extraction
+            working = UYTResolvedURLForVideo(vid, NO);
+            if (working.length) {
+                // Mark this item as needing audio extraction from muxed
+                @try { [self setValue:@YES forKey:@"uYouNeedsAudioExtraction"]; } @catch (NSException *e) {}
+                NSLog(@"[UYTPipeline] audio-only download for %@: using muxed URL with extraction flag", vid);
+            }
+        }
     } else {
         // Video item (.mp4) — use the dedicated video-only stream for
         // adaptive downloads. Falls back to muxed URL for lower-quality
@@ -364,6 +396,196 @@ static NSString *UYTResolvedVideoURL(NSString *vid) {
 }
 %end
 
+// SABR Download Fallback (@Tonwalter888 - YouMod 2.0.0's SABRDownload.x)
+// When innertube API fails with 403 (PO-token enforcement), we fall back to
+// capturing the app's own live, fully-signed `videoplayback` request and
+// replaying it with our desired format selection. This bypasses PO-token
+// checks because the request already carries the session's auth/PoToken.
+// Credit: YouMod (https://github.com/Tonwalter888/YouMod) for the SABR
+// on-device download approach and UMP protocol implementation.
+//
+// This is a simplified implementation focusing on the capture + replay concept.
+// Full SABR protocol (UMP parsing, buffered ranges, etc.) is complex and
+// version-sensitive; this captures the core idea: reuse the app's signed URL.
+
+// UMP part type IDs (from LuanRT/googlevideo ump_part_id.proto)
+typedef NS_ENUM(NSInteger, UYTUMPPartType) {
+    UYTUMPPartMediaHeader      = 20,
+    UYTUMPPartMedia            = 21,
+    UYTUMPPartMediaEnd         = 22,
+    UYTUMPPartFormatInit       = 42, // FORMAT_INITIALIZATION_METADATA
+    UYTUMPPartRedirect         = 43, // SABR_REDIRECT (new URL)
+    UYTUMPPartError            = 44, // SABR_ERROR
+    UYTUMPPartReload           = 46, // RELOAD_PLAYER_RESPONSE
+};
+
+// Captured videoplayback request state
+static NSURL *UYTCapturedVideoPlaybackURL = nil;
+static NSData *UYTCapturedRequestBody = nil;
+static NSDictionary *UYTCapturedRequestHeaders = nil;
+static NSTimeInterval UYTCapturedURLExpiration = 0;
+static dispatch_queue_t UYTSABRQueue = nil;
+
+static dispatch_queue_t UYTGetSABRQueue(void) {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        UYTSABRQueue = dispatch_queue_create("com.uyouenhanced.sabr", DISPATCH_QUEUE_SERIAL);
+    });
+    return UYTSABRQueue;
+}
+
+// Extract expiration time from videoplayback URL
+static NSTimeInterval UYTExtractExpirationFromURL(NSURL *url) {
+    NSURLComponents *components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+    for (NSURLQueryItem *item in components.queryItems) {
+        if ([item.name isEqualToString:@"expire"]) {
+            return [item.value doubleValue];
+        }
+    }
+    return 0;
+}
+
+// Check if captured URL is still valid
+static BOOL UYTIsCapturedURLValid(void) {
+    return UYTCapturedVideoPlaybackURL && UYTCapturedRequestBody && UYTCapturedRequestHeaders &&
+           UYTCapturedURLExpiration > [NSDate timeIntervalSince1970] + 60; // 60s buffer
+}
+
+// Hook to capture the app's live signed videoplayback request
+%hook HAMDataLoadRequest
+- (NSURLRequest *)buildURLRequest {
+    NSURLRequest *request = %orig;
+    @try {
+        NSString *host = request.URL.host ?: @"";
+        NSString *path = request.URL.path ?: @"";
+        if ([host containsString:@"googlevideo"] && [path containsString:@"videoplayback"] &&
+            [request.HTTPMethod isEqualToString:@"POST"]) {
+            NSData *body = request.HTTPBody;
+            if (body && body.length > 0) {
+                dispatch_async(UYTGetSABRQueue(), ^{
+                    // Most-recent-wins: always track the latest videoplayback request
+                    UYTCapturedVideoPlaybackURL = request.URL;
+                    UYTCapturedRequestBody = [body copy];
+                    UYTCapturedRequestHeaders = [request.allHTTPHeaderFields mutableCopy] ?: [NSMutableDictionary dictionary];
+                    UYTCapturedURLExpiration = UYTExtractExpirationFromURL(request.URL);
+                    NSLog(@"[UYTSABR] Captured signed videoplayback request (expires in %.0fs)",
+                          UYTCapturedURLExpiration - [NSDate timeIntervalSince1970]);
+                });
+            }
+        }
+    } @catch (NSException *e) {}
+    return request;
+}
+%end
+
+// SABR download entry point - called when innertube fails
+// This is a simplified version; full SABR requires UMP protocol handling
+static void UYTAttemptSABRDownload(NSString *videoID, NSInteger videoItag, NSInteger audioItag,
+                                   void (^completion)(NSURL *videoURL, NSURL *audioURL, NSError *error)) {
+    dispatch_async(UYTGetSABRQueue(), ^{
+        if (!UYTIsCapturedURLValid()) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completion(nil, nil, [NSError errorWithDomain:@"UYTSABR" code:-1
+                    userInfo:@{NSLocalizedDescriptionKey: @"No valid captured videoplayback request. Play the video first."}]);
+            });
+            return;
+        }
+
+        // Build modified request body with our desired format selection
+        // This is a simplified version - full implementation requires UMP protobuf parsing
+        // like YouMod's SABRDownload.x does. For now, we modify the itag parameters directly.
+        
+        NSMutableData *modifiedBody = [UYTCapturedRequestBody mutableCopy];
+        NSString *bodyStr = [[NSString alloc] initWithData:modifiedBody encoding:NSUTF8StringEncoding];
+        
+        // Try to replace itag parameters in the request body
+        // The body is typically form-encoded or protobuf; this is a best-effort approach
+        if (bodyStr && bodyStr.length > 0) {
+            // Replace video itag (typically 'itag' or 'v_itag' parameter)
+            bodyStr = [bodyStr stringByReplacingOccurrencesOfString:@"itag=" withString:[NSString stringWithFormat:@"itag=%ld", (long)videoItag]];
+            // Note: This is simplified. Real SABR requires proper UMP FormatId encoding.
+        }
+        
+        modifiedBody = [bodyStr dataUsingEncoding:NSUTF8StringEncoding];
+        if (!modifiedBody) modifiedBody = UYTCapturedRequestBody;
+
+        NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:UYTCapturedVideoPlaybackURL];
+        req.HTTPMethod = @"POST";
+        req.HTTPBody = modifiedBody;
+        [UYTCapturedRequestHeaders enumerateKeysAndObjectsUsingBlock:^(NSString *k, NSString *v, BOOL *stop) {
+            if (![k caseInsensitiveCompare:@"Content-Encoding"] == NSOrderedSame) { // Don't copy Brotli encoding
+                [req setValue:v forHTTPHeaderField:k];
+            }
+        }];
+        // Ensure no Content-Encoding (we send uncompressed)
+        [req setValue:@"" forHTTPHeaderField:@"Content-Encoding"];
+
+        NSURLSession *session = [NSURLSession sessionWithConfiguration:[NSURLSessionConfiguration ephemeralSessionConfiguration]];
+        [[session dataTaskWithRequest:req completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
+            dispatch_async(UYTGetSABRQueue(), ^{
+                if (err || !data) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        completion(nil, nil, err ?: [NSError errorWithDomain:@"UYTSABR" code:-2
+                            userInfo:@{NSLocalizedDescriptionKey: @"SABR download request failed"}]);
+                    });
+                    return;
+                }
+                NSHTTPURLResponse *http = (NSHTTPURLResponse *)resp;
+                if (http.statusCode != 200 || !data.length) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        completion(nil, nil, [NSError errorWithDomain:@"UYTSABR" code:http.statusCode
+                            userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"HTTP %ld", (long)http.statusCode]}]);
+                    });
+                    return;
+                }
+
+                // Parse UMP response - simplified: just save the raw data
+                // Full implementation would parse UMP parts and write media segments
+                // For now, we save the response as-is and let the existing pipeline handle it
+                NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+                NSString *sabrDir = [docs stringByAppendingPathComponent:@"uYouDownloads/SABR"];
+                [[NSFileManager defaultManager] createDirectoryAtPath:sabrDir withIntermediateDirectories:YES attributes:nil error:nil];
+                
+                NSString *videoPath = [sabrDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@_video_%ld.mp4", videoID, (long)videoItag]];
+                NSString *audioPath = [sabrDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@_audio_%ld.m4a", videoID, (long)audioItag]];
+                
+                // This is a placeholder - real SABR implementation needed
+                // For now, we return an error to fall back to other methods
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    completion(nil, nil, [NSError errorWithDomain:@"UYTSABR" code:-3
+                        userInfo:@{NSLocalizedDescriptionKey: @"SABR download not fully implemented - requires UMP parsing (see YouMod SABRDownload.x)"}]);
+                });
+            });
+        }] resume];
+    });
+}
+
+// Fallback hook in DownloadsManager to try SABR when innertube fails
+%hook DownloadsManager
+- (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
+    // This hook is already in uYouPatches.xm; we add a notification observer here
+    // to trigger SABR fallback when pipeline reports 403
+    %orig;
+}
+%end
+
+// Notification observer for pipeline 403 errors -> trigger SABR fallback
 %ctor {
     %init;
+    [[NSNotificationCenter defaultCenter] addObserverForName:@"UYTPipeline403Error" object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
+        NSString *vid = note.userInfo[@"videoID"];
+        NSInteger videoItag = [note.userInfo[@"videoItag"] integerValue];
+        NSInteger audioItag = [note.userInfo[@"audioItag"] integerValue];
+        if (vid.length > 0 && videoItag > 0 && audioItag > 0) {
+            NSLog(@"[UYTSABR] Pipeline 403 for %@, attempting SABR fallback", vid);
+            UYTAttemptSABRDownload(vid, videoItag, audioItag, ^(NSURL *videoURL, NSURL *audioURL, NSError *error) {
+                if (!error && videoURL && audioURL) {
+                    NSLog(@"[UYTSABR] SABR download succeeded for %@", vid);
+                    // TODO: Integrate with uYou's download queue
+                } else {
+                    NSLog(@"[UYTSABR] SABR fallback failed: %@", error.localizedDescription);
+                }
+            });
+        }
+    }];
 }

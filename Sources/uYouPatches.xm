@@ -279,7 +279,11 @@ static BOOL UYTIsShortsOverlay(id overlay) {
             NSString *cls = NSStringFromClass([responder class]);
             if ([cls containsString:@"ReelWatch"] ||
                 [cls containsString:@"ShortsPlayer"] ||
-                [cls containsString:@"ReelPlayer"])
+                [cls containsString:@"ReelPlayer"] ||
+                [cls containsString:@"YTShorts"] ||
+                [cls containsString:@"YTReel"] ||
+                [cls containsString:@"ShortsViewController"] ||
+                [cls containsString:@"ReelsViewController"])
                 return YES;
             responder = [responder nextResponder];
         }
@@ -287,21 +291,8 @@ static BOOL UYTIsShortsOverlay(id overlay) {
         UIView *view = [overlay superview];
         while (view) {
             NSString *cls = NSStringFromClass([view class]);
-            if ([cls containsString:@"Reel"] || [cls containsString:@"Shorts"])
-                return YES;
-            view = view.superview;
-        }
-    } @catch (NSException *e) {}
-    return NO;
-}
-
-// Walk the responder chain to find the YTReelPlayerViewController (or
-// YTShortsPlayerViewController, which is a subclass) and return its `.player`
-// property — the YTPlayerViewController that uYou needs to read the video ID.
-static id UYTFindShortsPlayerVC(id overlay) {
-    @try {
-        UIResponder *r = [overlay nextResponder];
-        while (r) {
+            if ([cls containsString:@"Reel"] || [cls containsString:@"Shorts"] ||
+                [cls containsString:@"YTShorts"] || [cls containsString:@"YTReel"])
             NSString *cls = NSStringFromClass([r class]);
             if ([cls containsString:@"ReelPlayer"] || [cls containsString:@"ShortsPlayer"]) {
                 // YTReelPlayerViewController has a `.player` property (YTPlayerViewController)
@@ -1051,6 +1042,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 // audio file is corrupted, the export session fails, or AVAsset can't
 // be initialized (especially when audio is webm instead of m4a).
 // Fix: convert webm audio to m4a BEFORE adding metadata, then wrap in try-catch.
+// Also: extract audio from muxed video for low-quality audio-only downloads.
 
 %hook DownloadsManager
 - (void)addMetadataToAudioForDownloadItem:(id)item {
@@ -1058,6 +1050,53 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     dispatch_async(dispatch_get_main_queue(), ^{
         [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouConversionStarted" object:item];
     });
+
+    // Check if this is an audio-only download that needs extraction from muxed video
+    BOOL needsAudioExtraction = NO;
+    @try {
+        needsAudioExtraction = [[item valueForKey:@"uYouNeedsAudioExtraction"] boolValue];
+    } @catch (NSException *e) {}
+
+    if (needsAudioExtraction) {
+        HBLogInfo(@"[uYouPatches] Audio-only download needs extraction from muxed video");
+        id ui = UYTResolveUYouItem(item);
+        if (ui) {
+            NSString *videoPath = nil;
+            if ([ui respondsToSelector:@selector(tmpVideoPath)]) videoPath = [ui tmpVideoPath];
+            if (!videoPath.length && [ui respondsToSelector:@selector(cachedVideoPath)]) videoPath = [ui cachedVideoPath];
+            NSString *finalPath = [ui respondsToSelector:@selector(filePath)] ? [ui filePath] : nil;
+
+            if (videoPath.length && finalPath.length) {
+                // Extract audio from muxed video using FFmpeg
+                NSString *tmpAudio = [finalPath stringByAppendingString:@".extracted.m4a"];
+                [[NSFileManager defaultManager] removeItemAtPath:tmpAudio error:nil];
+
+                if (UYTFFActiveBackend() != UYTFFBackendNone) {
+                    BOOL ok = UYTFFRun(@[
+                        @"-i", videoPath,
+                        @"-vn",
+                        @"-acodec", @"aac",
+                        @"-strict", @"-2",
+                        @"-y",
+                        tmpAudio,
+                    ]);
+                    if (ok && [[NSFileManager defaultManager] fileExistsAtPath:tmpAudio]) {
+                        NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:tmpAudio error:nil];
+                        if (attrs && [attrs fileSize] > 0) {
+                            // Move extracted audio to final path
+                            [[NSFileManager defaultManager] removeItemAtPath:finalPath error:nil];
+                            [[NSFileManager defaultManager] moveItemAtPath:tmpAudio toPath:finalPath error:nil];
+                            HBLogInfo(@"[uYouPatches] Extracted audio from muxed video for %@", finalPath);
+                            UYTFinalizeItem(item, @"audio extracted from muxed");
+                            return;
+                        }
+                    }
+                    [[NSFileManager defaultManager] removeItemAtPath:tmpAudio error:nil];
+                }
+            }
+        }
+        // Fall through to normal metadata handling if extraction fails
+    }
 
     // Pre-fix: convert webm audio to m4a if needed (#771, #465)
     if (!UYTEnsureMergeableAudio(item, @"addMetadata")) {
