@@ -283,7 +283,7 @@ static void refreshUYouAppearance() {
         // Set target to the overlay view's uYou method
         // Find the overlay view (YTMainAppControlsOverlayView) in the view hierarchy
         id overlay = nil;
-        UIView *view = self;
+        UIView *view = (UIView *)self;
         while (view) {
             UIResponder *next = [view nextResponder];
             while (next) {
@@ -429,6 +429,27 @@ static NSString *UYTShortsVideoID(id overlay) {
                 }
             }
         } @catch (NSException *e) {}
+    } @catch (NSException *e) {}
+    return nil;
+}
+
+// Find the Shorts player view controller in the responder chain
+static id UYTFindShortsPlayerVC(id overlay) {
+    @try {
+        UIResponder *r = [overlay nextResponder];
+        while (r) {
+            NSString *cls = NSStringFromClass([r class]);
+            if ([cls containsString:@"ReelWatch"] ||
+                [cls containsString:@"ShortsPlayer"] ||
+                [cls containsString:@"ReelPlayer"] ||
+                [cls containsString:@"YTShorts"] ||
+                [cls containsString:@"YTReel"] ||
+                [cls containsString:@"ShortsViewController"] ||
+                [cls containsString:@"ReelsViewController"]) {
+                return r;
+            }
+            r = [r nextResponder];
+        }
     } @catch (NSException *e) {}
     return nil;
 }

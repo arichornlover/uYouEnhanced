@@ -106,6 +106,11 @@ BOOL uYouIsSideStore();
 @interface YTFullScreenEngagementOverlayView : UIView
 @end
 
+// YTReelHeaderView (Shorts) — has uYouButton property (YTReelPlayerButton)
+@interface YTReelHeaderView : UIView
+@property (nonatomic, strong) id uYouButton;
+@end
+
 @interface DownloadsPagerVC : UIViewController
 - (NSArray<UIViewController *> *)viewControllers;
 - (void)updatePageStyles;
