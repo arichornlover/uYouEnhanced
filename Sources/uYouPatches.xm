@@ -1023,11 +1023,12 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     
     NSString *vid = [NSString stringWithFormat:@"%@", videoID];
     [UYTDownloadPipeline fetchFormatsForVideoID:vid isShorts:isShorts completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
-            UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
-            UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
-            NSLog(@"[UYTPipeline] cached URLs for %@ (muxed=%ld, audio=%ld, video=%ld)",
-                  vid, (long)muxed.itag, (long)audio.itag, (long)video.itag);
-        }];
+        UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
+        UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
+        UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
+        UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
+        NSLog(@"[UYTPipeline] cached URLs for %@ (muxed=%ld, audio=%ld, video=%ld)",
+              vid, (long)muxed.itag, (long)audio.itag, (long)video.itag);
 
         // Let uYou's native flow proceed. Our DownloadItem hook below will
         // swap any broken URL with our cached working one.
