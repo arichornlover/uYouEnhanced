@@ -52,7 +52,7 @@ on:
         required: false
         type: boolean
       sponsorblock:
-        description: "Include iSponsorBlock (KEEP IT DISABLED - may crash the app.)"
+        description: "Include iSponsorBlock"
         default: false
         required: false
         type: boolean
