@@ -117,11 +117,12 @@ BOOL UYTFFConvertWebmVideoToMp4(NSString *webmPath, NSString *mp4Path) {
     if ([fm fileExistsAtPath:mp4Path]) [fm removeItemAtPath:mp4Path error:nil];
 
     // Try libx264 first (software encoder — always available in standard builds).
+    // Use medium preset for better quality/speed balance, and ensure proper pixel format.
     BOOL ok = UYTFFRun(@[
         @"-i", webmPath,
         @"-c:v", @"libx264",
-        @"-preset", @"ultrafast",
-        @"-crf", @"23",
+        @"-preset", @"medium",
+        @"-crf", @"22",
         @"-pix_fmt", @"yuv420p",
         @"-c:a", @"copy",
         @"-movflags", @"+faststart",
@@ -136,11 +137,12 @@ BOOL UYTFFConvertWebmVideoToMp4(NSString *webmPath, NSString *mp4Path) {
     if ([fm fileExistsAtPath:mp4Path]) [fm removeItemAtPath:mp4Path error:nil];
 
     // Fallback: VideoToolbox hardware encoder (available on iOS 11+).
+    // Use correct pixel format for VideoToolbox (nv12/yuv420p equivalent).
     ok = UYTFFRun(@[
         @"-i", webmPath,
         @"-c:v", @"h264_videotoolbox",
-        @"-b:v", @"5M",
-        @"-pix_fmt", @"420v",
+        @"-b:v", @"8M",
+        @"-pix_fmt", @"yuv420p",
         @"-c:a", @"copy",
         @"-movflags", @"+faststart",
         @"-y",
@@ -160,22 +162,48 @@ BOOL UYTFFSmartRemuxToMP4(NSString *videoPath, NSString *audioPath, NSString *ou
     if (![fm fileExistsAtPath:videoPath] || ![fm fileExistsAtPath:audioPath]) return NO;
     if ([fm fileExistsAtPath:outputPath]) [fm removeItemAtPath:outputPath error:nil];
 
-    if (!uytPathIsWebm(videoPath)) {
-        // Video is already mp4-compatible — fast stream-copy.
+    BOOL videoIsWebm = uytPathIsWebm(videoPath);
+    BOOL audioIsWebm = uytPathIsWebm(audioPath);
+
+    if (!videoIsWebm && !audioIsWebm) {
+        // Both are mp4-compatible — fast stream-copy.
         return UYTFFRemuxVideoAudioToMP4(videoPath, audioPath, outputPath);
     }
 
-    // Video is webm (VP9/AV1) — can't stream-copy into mp4.
-    // First transcode video to H.264, then mux with audio.
-    NSString *tmpVideo = [outputPath stringByAppendingString:@".vt.mp4"];
-    BOOL converted = UYTFFConvertWebmVideoToMp4(videoPath, tmpVideo);
-    if (!converted || ![fm fileExistsAtPath:tmpVideo]) {
-        if ([fm fileExistsAtPath:tmpVideo]) [fm removeItemAtPath:tmpVideo error:nil];
-        return NO;
+    // Need to transcode webm streams to H.264/AAC before muxing.
+    NSString *tmpVideo = videoPath;
+    NSString *tmpAudio = audioPath;
+    BOOL cleanupVideo = NO;
+    BOOL cleanupAudio = NO;
+
+    if (videoIsWebm) {
+        NSString *tmpVideoPath = [outputPath stringByAppendingString:@".vt.mp4"];
+        BOOL converted = UYTFFConvertWebmVideoToMp4(videoPath, tmpVideoPath);
+        if (!converted || ![fm fileExistsAtPath:tmpVideoPath]) {
+            if ([fm fileExistsAtPath:tmpVideoPath]) [fm removeItemAtPath:tmpVideoPath error:nil];
+            return NO;
+        }
+        tmpVideo = tmpVideoPath;
+        cleanupVideo = YES;
     }
 
-    // Now mux the converted H.264 video with the audio track.
-    BOOL ok = UYTFFRemuxVideoAudioToMP4(tmpVideo, audioPath, outputPath);
-    [fm removeItemAtPath:tmpVideo error:nil];
+    if (audioIsWebm) {
+        NSString *tmpAudioPath = [outputPath stringByAppendingString:@".at.m4a"];
+        BOOL converted = UYTFFConvertWebmAudioToM4a(audioPath, tmpAudioPath);
+        if (!converted || ![fm fileExistsAtPath:tmpAudioPath]) {
+            if ([fm fileExistsAtPath:tmpAudioPath]) [fm removeItemAtPath:tmpAudioPath error:nil];
+            if (cleanupVideo && [fm fileExistsAtPath:tmpVideo]) [fm removeItemAtPath:tmpVideo error:nil];
+            return NO;
+        }
+        tmpAudio = tmpAudioPath;
+        cleanupAudio = YES;
+    }
+
+    // Now mux the converted H.264 video with the AAC audio track.
+    BOOL ok = UYTFFRemuxVideoAudioToMP4(tmpVideo, tmpAudio, outputPath);
+
+    if (cleanupVideo && [fm fileExistsAtPath:tmpVideo]) [fm removeItemAtPath:tmpVideo error:nil];
+    if (cleanupAudio && [fm fileExistsAtPath:tmpAudio]) [fm removeItemAtPath:tmpAudio error:nil];
+
     return ok;
 }

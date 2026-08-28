@@ -15,6 +15,7 @@
 
 @interface UYTDownloadPipeline : NSObject
 + (void)fetchFormatsForVideoID:(NSString *)videoID
+                    isShorts:(BOOL)isShorts
                     completion:(void (^)(NSArray<UYTStreamFormat *> *formats, NSError *error))completion;
 + (UYTStreamFormat *)bestMuxedFormat:(NSArray<UYTStreamFormat *> *)formats;
 + (UYTStreamFormat *)bestAudioFormat:(NSArray<UYTStreamFormat *> *)formats;

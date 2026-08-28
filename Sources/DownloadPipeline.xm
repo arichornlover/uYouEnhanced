@@ -2,12 +2,27 @@
 // Pre-fetches working stream URLs via innertube, then swaps them into uYou's
 // native download flow so progress bars, DB, and queue all work natively.
 // Conversion/remux handled by FFmpegKitNext (UYTMediaKit).
+// SABR primary for YouTube 21.29+ (-1002) via vendored YouMod SABRDownload.x
+// (UYTSABR.xm — credit: @Tonwalter888 / YouMod 2.0.0).
+// Innertube fallback for older versions.
 
 #import "DownloadPipeline.h"
+#import "UYTSABR.h"
 #import <UIKit/UIKit.h>
 
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
 static NSString * const UYTClientVersion = @"21.14.4";
+
+// YouTube 21.29+ is the version where SABR became mandatory (no direct stream URLs)
+static NSString * const UYTSABRMinimumVersion = @"21.29.0";
+
+static BOOL UYTIsYouTubeVersion2129OrNewer(void) {
+    Class versionUtils = %c(YTVersionUtils);
+    if (!versionUtils) return NO;
+    NSString *appVersion = [versionUtils performSelector:@selector(appVersion)];
+    if (!appVersion) return NO;
+    return [appVersion compare:UYTSABRMinimumVersion options:NSNumericSearch] != NSOrderedAscending;
+}
 
 @implementation UYTStreamFormat
 @end
@@ -81,14 +96,6 @@ static NSString *UYTYouTubeCookiesString(void) {
             if (err || !data || http.statusCode == 403) {
                 NSString *msg = [NSString stringWithFormat:@"client=%@ status=%ld",
                                  clientName, (long)http.statusCode];
-                // Post notification for SABR fallback (includes videoID for capture correlation)
-                if (http.statusCode == 403) {
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                        [[NSNotificationCenter defaultCenter] postNotificationName:@"UYTPipeline403Error"
-                                                                          object:nil
-                                                                        userInfo:@{@"videoID": videoID, @"client": clientName}];
-                    });
-                }
                 completion(@[], [NSError errorWithDomain:@"UYTDownload" code:http.statusCode
                         userInfo:@{NSLocalizedDescriptionKey: msg}]);
                 return;
@@ -158,36 +165,81 @@ static NSString *UYTYouTubeCookiesString(void) {
     [task resume];
 }
 
-// Fetch stream formats with automatic fallback chain:
-// IOS → IOS_MUSIC → IOS_CREATOR → WEB
-// IOS may get 403'd by PO-token enforcement. IOS_MUSIC / IOS_CREATOR are
-// more permissive; WEB is the last resort (no PO-token needed but streams
-// may be lower quality).
+// Fetch stream formats with version-aware strategy:
+// - YouTube 21.29+: SABR primary (innertube returns -1002), innertube fallback
+// - Older versions: innertube primary (IOS -> IOS_MUSIC -> IOS_CREATOR -> WEB), SABR fallback
+// For Shorts, SABR only downloads audio (video downloaded via innertube if available)
 + (void)fetchFormatsForVideoID:(NSString *)videoID
+                    isShorts:(BOOL)isShorts
                     completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
+    BOOL is2129OrNewer = UYTIsYouTubeVersion2129OrNewer();
+    
+    if (is2129OrNewer) {
+        NSLog(@"[UYTPipeline] YouTube 21.29+ detected — trying SABR primary for %@", videoID);
+        
+        // Try SABR first for 21.29+
+        if (UYTSABRHasValidCapture()) {
+            // For Shorts, only use SABR for audio (skip video to avoid unwanted downloads)
+            BOOL audioOnlyForShorts = isShorts;
+            UYTSABRFallbackDownloadForVideoID(videoID, nil, audioOnlyForShorts, ^(BOOL success, NSString *errMsg) {
+                if (success) {
+                    // SABR produced elementary files; re-resolve URLs from stashed paths
+                    NSString *vPath = [[NSUserDefaults standardUserDefaults] stringForKey:@"UYTSABRVideoPath"];
+                    NSString *aPath = [[NSUserDefaults standardUserDefaults] stringForKey:@"UYTSABRAudioPath"];
+                    if (vPath.length || aPath.length) {
+                        // Stash as file:// URLs so DownloadItem swap can pick them up
+                        NSString *vURL = vPath.length ? [NSURL fileURLWithPath:vPath].absoluteString : nil;
+                        NSString *aURL = aPath.length ? [NSURL fileURLWithPath:aPath].absoluteString : nil;
+                        UYTStoreResolvedURLs(videoID, vURL, aURL, vURL);
+                        // Build synthetic formats so caller can proceed
+                        NSMutableArray *sabrFormats = [NSMutableArray array];
+                        if (vURL) {
+                            UYTStreamFormat *vf = [[UYTStreamFormat alloc] init];
+                            vf.url = vURL; vf.itag = 137; vf.mimeType = @"video/mp4"; vf.hasVideo = YES; vf.hasAudio = NO; vf.qualityLabel = @"1080p";
+                            [sabrFormats addObject:vf];
+                        }
+                        if (aURL) {
+                            UYTStreamFormat *af = [[UYTStreamFormat alloc] init];
+                            af.url = aURL; af.itag = 140; af.mimeType = @"audio/mp4"; af.hasVideo = NO; af.hasAudio = YES;
+                            [sabrFormats addObject:af];
+                        }
+                        completion(sabrFormats, nil);
+                        return;
+                    }
+                }
+                NSLog(@"[UYTPipeline] SABR primary failed for %@: %@ — falling back to innertube", videoID, errMsg);
+            });
+            
+            // SABR failed or no capture — fall through to innertube fallback
+        } else {
+            NSLog(@"[UYTPipeline] YouTube 21.29+ but no SABR capture yet — using innertube fallback");
+        }
+    }
+    
+    // Innertube fallback chain: IOS -> IOS_MUSIC -> IOS_CREATOR -> WEB
     NSDictionary *iosCtx = [self clientContextForClient:@"IOS" osVersion:nil deviceModel:nil];
     [self fetchWithClient:iosCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts, NSError *err) {
         if (fmts.count > 0) { completion(fmts, nil); return; }
-
+        
         // IOS failed — try IOS_MUSIC as fallback.
         NSLog(@"[UYTPipeline] IOS client failed (%@), trying IOS_MUSIC", err.localizedDescription);
         NSDictionary *musicCtx = [self clientContextForClient:@"IOS_MUSIC" osVersion:@"18.5.0" deviceModel:@"iPhone16,2"];
         [self fetchWithClient:musicCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts2, NSError *err2) {
             if (fmts2.count > 0) { completion(fmts2, nil); return; }
-
+            
             // IOS_MUSIC failed — try IOS_CREATOR (YouTube Creator iOS client).
             NSLog(@"[UYTPipeline] IOS_MUSIC failed (%@), trying IOS_CREATOR", err2.localizedDescription);
             NSDictionary *creatorCtx = [self clientContextForClient:@"IOS_CREATOR" osVersion:@"19.45.4" deviceModel:@"iPhone16,2"];
             [self fetchWithClient:creatorCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts3, NSError *err3) {
                 if (fmts3.count > 0) { completion(fmts3, nil); return; }
-
+                
                 // IOS_CREATOR failed — try WEB client as last resort.
                 NSLog(@"[UYTPipeline] IOS_CREATOR failed (%@), trying WEB", err3.localizedDescription);
                 NSMutableDictionary *webCtx = [[self clientContextForClient:@"WEB" osVersion:@"2.20250825.01.00" deviceModel:nil] mutableCopy];
                 webCtx[@"context"][@"client"][@"hl"] = @"en";
                 [self fetchWithClient:webCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts4, NSError *err4) {
                     if (fmts4.count > 0) { completion(fmts4, nil); return; }
-                    NSLog(@"[UYTPipeline] all clients failed for %@", videoID);
+                    NSLog(@"[UYTPipeline] all innertube clients failed for %@", videoID);
                     completion(@[], err4 ?: err3 ?: err2 ?: err);
                 }];
             }];
@@ -328,7 +380,9 @@ NSString *UYTResolvedVideoURL(NSString *vid) {
     %orig;
 }
 %end
-// Ensure download data tasks always carry Origin + Referer + Cookie.
+// Ensure download data tasks always carry Origin + Referer + Cookie + ratebypass.
+// Adapted from YouMod's Download.x (YouModApplyDownloadHeaders / YouModURLStringBypassingThrottle).
+// Credit: @Tonwalter888 / YouMod — https://github.com/Tonwalter888/YouMod
 %hook NSURLSession
 - (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)request
                             completionHandler:(void (^)(NSData *, NSURLResponse *, NSError *))completionHandler {
@@ -347,188 +401,58 @@ NSString *UYTResolvedVideoURL(NSString *vid) {
             if (cookies.length > 0)
                 [mutableReq setValue:cookies forHTTPHeaderField:@"Cookie"];
         }
+        // Bypass throttling (YouMod: YouModURLStringBypassingThrottle)
+        // Adds ratebypass=yes and strips &n= param if present.
+        NSURL *url = mutableReq.URL;
+        if (url) {
+            NSURLComponents *comps = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+            if (comps) {
+                NSMutableArray *filtered = [NSMutableArray array];
+                BOOL hasRateBypass = NO;
+                for (NSURLQueryItem *item in comps.queryItems ?: @[]) {
+                    if ([item.name isEqualToString:@"n"]) continue; // strip throttling param
+                    if ([item.name isEqualToString:@"ratebypass"]) hasRateBypass = YES;
+                    [filtered addObject:item];
+                }
+                if (!hasRateBypass) {
+                    [filtered addObject:[NSURLQueryItem queryItemWithName:@"ratebypass" value:@"yes"]];
+                }
+                comps.queryItems = filtered;
+                NSURL *newURL = comps.URL;
+                if (newURL) mutableReq.URL = newURL;
+            }
+        }
+        // Ensure CPN for tracking (YouMod: YouModURLStringWithCPN)
+        // Only if not already present — YTDataUtils may not be available on all versions
+        if (![mutableReq.URL.absoluteString containsString:@"cpn="]) {
+            @try {
+                Class YTDataUtils = NSClassFromString(@"YTDataUtils");
+                if (YTDataUtils && [YTDataUtils respondsToSelector:@selector(generateClientSideNonce)]) {
+                    NSString *cpn = [YTDataUtils performSelector:@selector(generateClientSideNonce)];
+                    if (cpn.length) {
+                        NSURLComponents *comps = [NSURLComponents componentsWithURL:mutableReq.URL resolvingAgainstBaseURL:NO];
+                        NSMutableArray *items = [comps.queryItems mutableCopy] ?: [NSMutableArray array];
+                        [items addObject:[NSURLQueryItem queryItemWithName:@"cpn" value:cpn]];
+                        comps.queryItems = items;
+                        NSURL *newURL = comps.URL;
+                        if (newURL) mutableReq.URL = newURL;
+                    }
+                }
+            } @catch (NSException *e) {}
+        }
+        if (![mutableReq valueForHTTPHeaderField:@"Accept-Encoding"])
+            [mutableReq setValue:@"identity" forHTTPHeaderField:@"Accept-Encoding"];
     }
     return %orig(mutableReq, completionHandler);
 }
 %end
 
-// SABR Download Fallback (@Tonwalter888 - YouMod 2.0.0's SABRDownload.x)
-// When innertube API fails with 403 (PO-token enforcement), we fall back to
-// capturing the app's own live, fully-signed `videoplayback` request and
-// replaying it with our desired format selection. This bypasses PO-token
-// checks because the request already carries the session's auth/PoToken.
-// Credit: YouMod (https://github.com/Tonwalter888/YouMod) for the SABR
-// on-device download approach and UMP protocol implementation.
-//
-// This is a simplified implementation focusing on the capture + replay concept.
-// Full SABR protocol (UMP parsing, buffered ranges, etc.) is complex and
-// version-sensitive; this captures the core idea: reuse the app's signed URL.
-
-// UMP part type IDs (from LuanRT/googlevideo ump_part_id.proto)
-typedef NS_ENUM(NSInteger, UYTUMPPartType) {
-    UYTUMPPartMediaHeader      = 20,
-    UYTUMPPartMedia            = 21,
-    UYTUMPPartMediaEnd         = 22,
-    UYTUMPPartFormatInit       = 42, // FORMAT_INITIALIZATION_METADATA
-    UYTUMPPartRedirect         = 43, // SABR_REDIRECT (new URL)
-    UYTUMPPartError            = 44, // SABR_ERROR
-    UYTUMPPartReload           = 46, // RELOAD_PLAYER_RESPONSE
-};
-
-// Captured videoplayback request state
-static NSURL *UYTCapturedVideoPlaybackURL = nil;
-static NSData *UYTCapturedRequestBody = nil;
-static NSDictionary *UYTCapturedRequestHeaders = nil;
-static NSTimeInterval UYTCapturedURLExpiration = 0;
-static dispatch_queue_t UYTSABRQueue = nil;
-
-static dispatch_queue_t UYTGetSABRQueue(void) {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        UYTSABRQueue = dispatch_queue_create("com.uyouenhanced.sabr", DISPATCH_QUEUE_SERIAL);
-    });
-    return UYTSABRQueue;
-}
-
-// Extract expiration time from videoplayback URL
-static NSTimeInterval UYTExtractExpirationFromURL(NSURL *url) {
-    NSURLComponents *components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
-    for (NSURLQueryItem *item in components.queryItems) {
-        if ([item.name isEqualToString:@"expire"]) {
-            return [item.value doubleValue];
-        }
-    }
-    return 0;
-}
-
-// Check if captured URL is still valid
-static BOOL UYTIsCapturedURLValid(void) {
-    return UYTCapturedVideoPlaybackURL && UYTCapturedRequestBody && UYTCapturedRequestHeaders &&
-           UYTCapturedURLExpiration > [NSDate date].timeIntervalSince1970 + 60; // 60s buffer
-}
-
-// Hook to capture the app's live signed videoplayback request
-%hook HAMDataLoadRequest
-- (NSURLRequest *)buildURLRequest {
-    NSURLRequest *request = %orig;
-    @try {
-        NSString *host = request.URL.host ?: @"";
-        NSString *path = request.URL.path ?: @"";
-        if ([host containsString:@"googlevideo"] && [path containsString:@"videoplayback"] &&
-            [request.HTTPMethod isEqualToString:@"POST"]) {
-            NSData *body = request.HTTPBody;
-            if (body && body.length > 0) {
-                dispatch_async(UYTGetSABRQueue(), ^{
-                    // Most-recent-wins: always track the latest videoplayback request
-                    UYTCapturedVideoPlaybackURL = request.URL;
-                    UYTCapturedRequestBody = [body copy];
-                    UYTCapturedRequestHeaders = [request.allHTTPHeaderFields mutableCopy] ?: [NSMutableDictionary dictionary];
-                    UYTCapturedURLExpiration = UYTExtractExpirationFromURL(request.URL);
-                    NSLog(@"[UYTSABR] Captured signed videoplayback request (expires in %.0fs)",
-                          UYTCapturedURLExpiration - [NSDate date].timeIntervalSince1970);
-                });
-            }
-        }
-    } @catch (NSException *e) {}
-    return request;
-}
-%end
-
-// SABR download entry point - called when innertube fails
-// This is a simplified version; full SABR requires UMP protocol handling
-static void UYTAttemptSABRDownload(NSString *videoID, NSInteger videoItag, NSInteger audioItag,
-                                   void (^completion)(NSURL *videoURL, NSURL *audioURL, NSError *error)) {
-    dispatch_async(UYTGetSABRQueue(), ^{
-        if (!UYTIsCapturedURLValid()) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                completion(nil, nil, [NSError errorWithDomain:@"UYTSABR" code:-1
-                    userInfo:@{NSLocalizedDescriptionKey: @"No valid captured videoplayback request. Play the video first."}]); 
-            });
-            return;
-        }
-
-        // Build modified request body with our desired format selection
-        // This is a simplified version - full implementation requires UMP protobuf parsing
-        // like YouMod's SABRDownload.x does. For now, we modify the itag parameters directly.
-        
-        NSMutableData *modifiedBody = [UYTCapturedRequestBody mutableCopy];
-        NSString *bodyStr = [[NSString alloc] initWithData:modifiedBody encoding:NSUTF8StringEncoding];
-        
-        // Try to replace itag parameters in the request body
-        // The body is typically form-encoded or protobuf; this is a best-effort approach
-        if (bodyStr && bodyStr.length > 0) {
-            // Replace video itag (typically 'itag' or 'v_itag' parameter)
-            bodyStr = [bodyStr stringByReplacingOccurrencesOfString:@"itag=" withString:[NSString stringWithFormat:@"itag=%ld", (long)videoItag]];
-            // Note: This is simplified. Real SABR requires proper UMP FormatId encoding.
-        }
-        
-        NSData *newBodyData = [bodyStr dataUsingEncoding:NSUTF8StringEncoding];
-        if (newBodyData) modifiedBody = [newBodyData mutableCopy];
-
-        NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:UYTCapturedVideoPlaybackURL];
-        req.HTTPMethod = @"POST";
-        req.HTTPBody = modifiedBody;
-        [UYTCapturedRequestHeaders enumerateKeysAndObjectsUsingBlock:^(NSString *k, NSString *v, BOOL *stop) {
-            if (!([k caseInsensitiveCompare:@"Content-Encoding"] == NSOrderedSame)) { // Don't copy Brotli encoding
-                [req setValue:v forHTTPHeaderField:k];
-            }
-        }];
-        // Ensure no Content-Encoding (we send uncompressed)
-        [req setValue:@"" forHTTPHeaderField:@"Content-Encoding"];
-
-        NSURLSession *session = [NSURLSession sessionWithConfiguration:[NSURLSessionConfiguration ephemeralSessionConfiguration]];
-        [[session dataTaskWithRequest:req completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
-            dispatch_async(UYTGetSABRQueue(), ^{
-                if (err || !data) {
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                        completion(nil, nil, err ?: [NSError errorWithDomain:@"UYTSABR" code:-2
-                            userInfo:@{NSLocalizedDescriptionKey: @"SABR download request failed"}]); 
-                    });
-                    return;
-                }
-                NSHTTPURLResponse *http = (NSHTTPURLResponse *)resp;
-                if (http.statusCode != 200 || !data.length) {
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                        completion(nil, nil, [NSError errorWithDomain:@"UYTSABR" code:http.statusCode
-                            userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"HTTP %ld", (long)http.statusCode]}]); 
-                    });
-                    return;
-                }
-
-                // Parse UMP response - simplified: just save the raw data
-                // Full implementation would parse UMP parts and write media segments
-                // For now, we save the response as-is and let the existing pipeline handle it
-                NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-                NSString *sabrDir = [docs stringByAppendingPathComponent:@"uYouDownloads/SABR"];
-                [[NSFileManager defaultManager] createDirectoryAtPath:sabrDir withIntermediateDirectories:YES attributes:nil error:nil];
-                
-                // This is a placeholder - real SABR implementation needed
-                // For now, we return an error to fall back to other methods
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    completion(nil, nil, [NSError errorWithDomain:@"UYTSABR" code:-3
-                        userInfo:@{NSLocalizedDescriptionKey: @"SABR download not fully implemented - requires UMP parsing (see YouMod SABRDownload.x)"}]); 
-                });
-            });
-        }] resume];
-    });
-}
+// NOTE: Full SABR engine is in Sources/UYTSABR.xm (vendored from
+// YouMod's SABRDownload.x — credit: @Tonwalter888 / YouMod 2.0.0).
+// That file provides the capture hook (HAMDataLoadRequest) and the
+// UMP/SABR download engine (YMSABR). This file only needs to trigger
+// the fallback when innertube fails on YouTube 21.29+ (-1002).
 
 %ctor {
     %init;
-    [[NSNotificationCenter defaultCenter] addObserverForName:@"UYTPipeline403Error" object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
-        NSString *vid = note.userInfo[@"videoID"];
-        NSInteger videoItag = [note.userInfo[@"videoItag"] integerValue];
-        NSInteger audioItag = [note.userInfo[@"audioItag"] integerValue];
-        if (vid.length > 0 && videoItag > 0 && audioItag > 0) {
-            NSLog(@"[UYTSABR] Pipeline 403 for %@, attempting SABR fallback", vid);
-            UYTAttemptSABRDownload(vid, videoItag, audioItag, ^(NSURL *videoURL, NSURL *audioURL, NSError *error) {
-                if (!error && videoURL && audioURL) {
-                    NSLog(@"[UYTSABR] SABR download succeeded for %@", vid);
-                    // TODO: Integrate with uYou's download queue
-                } else {
-                    NSLog(@"[UYTSABR] SABR fallback failed: %@", error.localizedDescription);
-                }
-            });
-        }
-    }];
 }

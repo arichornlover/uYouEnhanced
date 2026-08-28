@@ -264,6 +264,57 @@ static void refreshUYouAppearance() {
 %end
 %end
 
+// Modern Shorts UI (YTReelHeaderView) — ensure uYou download button works.
+// Credit: FLEX debug info — YTReelHeaderView has uYouButton property (YTReelPlayerButton).
+// The button exists but its action isn't wired to call uYou on the overlay view.
+%group gModernShortsUIButton
+%hook YTReelHeaderView
+- (void)layoutSubviews {
+    %orig;
+    
+    if (!IS_ENABLED(@"downloadButton_enabled")) return;
+    
+    // Ensure the existing uYouButton has its action wired to call uYou on the overlay view
+    id btn = [self valueForKey:@"uYouButton"];
+    if (btn && [btn isKindOfClass:[UIControl class]]) {
+        // Remove any existing targets to avoid duplicates
+        [btn removeTarget:nil action:nil forControlEvents:UIControlEventAllEvents];
+        
+        // Set target to the overlay view's uYou method
+        // Find the overlay view (YTMainAppControlsOverlayView) in the view hierarchy
+        id overlay = nil;
+        UIView *view = self;
+        while (view) {
+            UIResponder *next = [view nextResponder];
+            while (next) {
+                if ([next isKindOfClass:%c(YTMainAppControlsOverlayView)]) {
+                    overlay = next;
+                    break;
+                }
+                next = [next nextResponder];
+            }
+            if (overlay) break;
+            view = view.superview;
+        }
+        
+        if (overlay && [overlay respondsToSelector:@selector(uYou)]) {
+            [btn addTarget:overlay action:@selector(uYou) forControlEvents:UIControlEventTouchUpInside];
+            // Ensure button is visible and enabled
+            if ([btn respondsToSelector:@selector(setHidden:)]) {
+                [btn performSelector:@selector(setHidden:) withObject:@NO];
+            }
+            if ([btn respondsToSelector:@selector(setEnabled:)]) {
+                [btn performSelector:@selector(setEnabled:) withObject:@YES];
+            }
+            if ([btn respondsToSelector:@selector(setAlpha:)]) {
+                [btn performSelector:@selector(setAlpha:) withObject:@(1.0)];
+            }
+        }
+    }
+}
+%end
+%end
+
 // Make the uYou button actually work on Shorts instead of crashing.
 // Hooks uYou on the overlay view — on Shorts, wires up the playerViewController
 // so uYou's native menu can find the video ID, then calls %orig to show the
@@ -284,7 +335,8 @@ static BOOL UYTIsShortsOverlay(id overlay) {
                 [cls containsString:@"YTShorts"] ||
                 [cls containsString:@"YTReel"] ||
                 [cls containsString:@"ShortsViewController"] ||
-                [cls containsString:@"ReelsViewController"])
+                [cls containsString:@"ReelsViewController"] ||
+                [cls containsString:@"YTReelHeaderView"])
                 return YES;
             responder = [responder nextResponder];
         }
@@ -293,22 +345,8 @@ static BOOL UYTIsShortsOverlay(id overlay) {
         while (view) {
             NSString *cls = NSStringFromClass([view class]);
             if ([cls containsString:@"Reel"] || [cls containsString:@"Shorts"] ||
-                [cls containsString:@"YTShorts"] || [cls containsString:@"YTReel"])
-                return YES;
-            view = view.superview;
-        }
-    } @catch (NSException *e) {}
-    return NO;
-}
-
-static id UYTFindShortsPlayerVC(id overlay) {
-    @try {
-        UIResponder *r = [overlay nextResponder];
-        while (r) {
-            NSString *cls = NSStringFromClass([r class]);
-            if ([cls containsString:@"ReelPlayer"] || [cls containsString:@"ShortsPlayer"]) {
-                // YTReelPlayerViewController has a `.player` property (YTPlayerViewController)
-                if ([r respondsToSelector:@selector(player)]) {
+                [cls containsString:@"YTShorts"] || [cls containsString:@"YTReel"] ||
+                [cls containsString:@"YTReelHeaderView"])
                     id player = [r performSelector:@selector(player)];
                     if (player) return player;
                 }
@@ -992,12 +1030,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     HBLogInfo(@"[uYouPatches] download requested (vid: %@, shorts: %@)", videoID, isShorts ? @"YES" : @"NO");
     
     NSString *vid = [NSString stringWithFormat:@"%@", videoID];
-    [UYTDownloadPipeline fetchFormatsForVideoID:vid completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
-        if (error || formats.count == 0) {
-            NSLog(@"[UYTPipeline] pre-fetch failed for %@: %@", vid, error.localizedDescription);
-        } else {
-            UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
-            UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
+    [UYTDownloadPipeline fetchFormatsForVideoID:vid isShorts:isShorts completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
             UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
             UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
             NSLog(@"[UYTPipeline] cached URLs for %@ (muxed=%ld, audio=%ld, video=%ld)",
