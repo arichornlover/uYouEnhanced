@@ -1621,6 +1621,7 @@ static float uYouSavedPlaybackRate = 0.0f;
     // spoofer is respected.
     NSString *appVersion = [%c(YTVersionUtils) performSelector:@selector(appVersion)];
     if (appVersion && [appVersion compare:@"21.10.2" options:NSNumericSearch] != NSOrderedAscending) {
+        %init(gModernShortsUIButton);
         %init(gShortsButtonGuard);
         %init(gShortsUYouDownload);
     }
