@@ -347,19 +347,11 @@ static BOOL UYTIsShortsOverlay(id overlay) {
             if ([cls containsString:@"Reel"] || [cls containsString:@"Shorts"] ||
                 [cls containsString:@"YTShorts"] || [cls containsString:@"YTReel"] ||
                 [cls containsString:@"YTReelHeaderView"])
-                    id player = [r performSelector:@selector(player)];
-                    if (player) return player;
-                }
-                // KVC fallback
-                @try {
-                    id player = [r valueForKey:@"player"];
-                    if (player) return player;
-                } @catch (NSException *e2) {}
-            }
-            r = [r nextResponder];
+                return YES;
+            view = view.superview;
         }
     } @catch (NSException *e) {}
-    return nil;
+    return NO;
 }
 
 static NSString *UYTShortsVideoID(id overlay) {
