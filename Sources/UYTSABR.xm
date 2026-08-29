@@ -24,6 +24,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#import "MediaKit/UYTMediaKit.h"
 
 // uYouEnhanced: SABR is always enabled as a fallback for YouTube 21.29+
 // where innertube returns -1002 (unsupported URL). The capture hook runs
@@ -871,7 +872,6 @@ void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
                         if (!kit) kit = NSClassFromString(@"MobileFFmpeg");
                         if (kit) {
                             // Use UYTMediaKit smart remux (handles webm→mp4 transcoding)
-                            extern BOOL UYTFFSmartRemuxToMP4(NSString *, NSString *, NSString *);
                             muxed = UYTFFSmartRemuxToMP4(videoURL.path, audioURL.path, outPath);
                         }
                     } @catch (NSException *e) {}
