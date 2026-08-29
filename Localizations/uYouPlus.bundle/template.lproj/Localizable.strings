@@ -344,3 +344,5 @@ https://github.com/PoomSmart/Return-YouTube-Dislikes/tree/main/layout/Library/Ap
 "DEFAULT" = "Default";
 "CUSTOM_COLOR" = "Custom Color";
 "RESTART_REQUIRED" = "App restart is required.";
+"OK" = "OK";
+"FAILED" = "Failed";

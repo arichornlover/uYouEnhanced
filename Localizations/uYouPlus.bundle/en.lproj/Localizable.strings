@@ -329,3 +329,5 @@
 "DEFAULT" = "Default";
 "CUSTOM_COLOR" = "Custom Color";
 "RESTART_REQUIRED" = "App restart is required.";
+"OK" = "OK";
+"FAILED" = "Failed";
