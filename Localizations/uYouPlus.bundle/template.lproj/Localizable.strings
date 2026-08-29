@@ -319,6 +319,14 @@ https://github.com/PoomSmart/Return-YouTube-Dislikes/tree/main/layout/Library/Ap
 "NEW_SETTINGS_UI" = "Use New Settings UI";
 "NEW_SETTINGS_UI_DESC" = "Enables the new Settings UI with tweak categories.";
 
+// YouMod migration
+"YOU_MOD_GITHUB" = "YouMod on GitHub";
+"YOU_MOD_GITHUB_DESC" = "Lightweight alternative — visit the YouMod repo first to prepare!";
+"MIGRATE_TO_YOU_MOD" = "⭐ Migrate to YouMod 2.0.0 (Recommended)";
+"MIGRATE_TO_YOU_MOD_DESC" = "Copies your compatible uYouEnhanced settings over to YouMod 2.0.0. Your uYouEnhanced settings are kept. A HUD message confirms how many keys migrated.";
+"MIGRATE_TO_YOU_MOD_RESET" = "⚠️ Migrate to YouMod 2.0.0 + Reset uYouEnhanced (Advanced)";
+"MIGRATE_TO_YOU_MOD_RESET_DESC" = "Copies your settings to YouMod 2.0.0, then REMOVES all toggled uYouEnhanced settings. Only use this if you fully intend to switch to YouMod 2.0.0.";
+
 "DEFAULT" = "Default";
 "CUSTOM_COLOR" = "Custom Color";
 "RESTART_REQUIRED" = "App restart is required.";
