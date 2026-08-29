@@ -748,6 +748,16 @@ static void SABRRunDownload(uint64_t videoItag, uint64_t audioItag,
 // Download the chosen mp4 video itag + m4a audio itag on-device via SABR, producing
 // two elementary files. `progress` (0..1) and `completion` are always delivered on
 // the main queue. The caller hands the two files to its existing muxer.
+@interface YMSABR : NSObject
++ (void)downloadVideoItag:(int)videoItag audioItag:(int)audioItag
+                 progress:(void (^)(float fraction, unsigned long long bytesDownloaded, BOOL isAudio))progress
+               completion:(void (^)(NSURL *videoURL, NSURL *audioURL, NSString *err))completion;
++ (void)downloadAudioItag:(int)audioItag
+                 progress:(void (^)(float fraction, unsigned long long bytesDownloaded))progress
+               completion:(void (^)(NSURL *audioURL, NSString *err))completion;
++ (void)cancelCurrent;
+@end
+
 @implementation YMSABR
 + (void)downloadVideoItag:(int)videoItag audioItag:(int)audioItag
                  progress:(void (^)(float fraction, unsigned long long bytesDownloaded, BOOL isAudio))progress
