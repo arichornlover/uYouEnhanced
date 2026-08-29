@@ -1,10 +1,23 @@
 #import "AppIconOptionsController.h"
+#import "uYouPlus.h"
 #import <notify.h>
 
 static NSString *const kPrefDomain = @"com.arichornlover.uYouEnhanced";
 static NSString *const kPrefEnableIconOverride = @"appIconCustomization_enabled";
 static NSString *const kPrefIconName = @"customAppIcon_name";
 static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefschanged";
+
+// YouTube's own font family. Falls back to the system font if YTSans isn't
+// loaded (e.g. when the controller is previewed outside the YouTube app).
+static UIFont *YTFont(CGFloat size, NSString *weight) {
+    UIFont *font = [UIFont fontWithName:[NSString stringWithFormat:@"YTSans-%@", weight] size:size];
+    if (font) return font;
+    UIFontWeight sysWeight = UIFontWeightRegular;
+    if ([weight isEqualToString:@"Bold"]) sysWeight = UIFontWeightBold;
+    else if ([weight isEqualToString:@"Medium"]) sysWeight = UIFontWeightMedium;
+    else if ([weight isEqualToString:@"Semibold"]) sysWeight = UIFontWeightSemibold;
+    return [UIFont systemFontOfSize:size weight:sysWeight];
+}
 
 @interface AppIconOptionsController () <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout>
 @property (strong, nonatomic) UICollectionView *collectionView;
@@ -26,8 +39,14 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"App Icon";
-    self.view.backgroundColor = [UIColor systemGroupedBackgroundColor];
+    self.title = LOC(@"CHANGE_APP_ICON");
+    self.view.backgroundColor = [self ytBackgroundColor];
+
+    // Match YouTube's navigation bar typography.
+    [self.navigationController.navigationBar setTitleTextAttributes:@{
+        NSFontAttributeName: YTFont(22, @"Bold"),
+        NSForegroundColorAttributeName: [UIColor labelColor]
+    }];
 
     NSDictionary *mainInfo = [[NSBundle mainBundle] infoDictionary];
     NSDictionary *iconsDict = mainInfo[@"CFBundleIcons"];
@@ -54,8 +73,8 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
 
     UICollectionViewFlowLayout *layout = [[UICollectionViewFlowLayout alloc] init];
     layout.minimumInteritemSpacing = 16;
-    layout.minimumLineSpacing = 24;
-    layout.sectionInset = UIEdgeInsetsMake(16, 16, 24, 16);
+    layout.minimumLineSpacing = 28;
+    layout.sectionInset = UIEdgeInsetsMake(20, 20, 28, 20);
 
     self.collectionView = [[UICollectionView alloc] initWithFrame:CGRectZero collectionViewLayout:layout];
     self.collectionView.backgroundColor = UIColor.clearColor;
@@ -76,10 +95,10 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
     [super viewWillLayoutSubviews];
     UICollectionViewFlowLayout *layout = (UICollectionViewFlowLayout *)self.collectionView.collectionViewLayout;
     CGFloat width = self.collectionView.bounds.size.width - layout.sectionInset.left - layout.sectionInset.right;
-    NSUInteger columns = MAX(3, MIN(6, (NSUInteger)(width / 130.0)));
+    NSUInteger columns = MAX(3, MIN(6, (NSUInteger)(width / 140.0)));
     CGFloat spacing = layout.minimumInteritemSpacing * (columns - 1);
     CGFloat side = floorf((width - spacing) / columns);
-    CGSize newSize = CGSizeMake(side, side + 30);
+    CGSize newSize = CGSizeMake(side, side + 34);
     if (!CGSizeEqualToSize(layout.itemSize, newSize)) {
         layout.itemSize = newSize;
         [layout invalidateLayout];
@@ -98,17 +117,18 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
     NSString *name = isDefault ? nil : self.appIcons[indexPath.item - 1];
     BOOL selected = isDefault ? (self.selectedIconIndex == -1) : (indexPath.item - 1 == self.selectedIconIndex);
 
-    UIView *tileView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cell.contentView.bounds.size.width, cell.contentView.bounds.size.width)];
-    tileView.backgroundColor = [UIColor secondarySystemGroupedBackgroundColor];
-    tileView.layer.cornerRadius = 18;
+    CGFloat tileSize = cell.contentView.bounds.size.width;
+    UIView *tileView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, tileSize, tileSize)];
+    tileView.backgroundColor = [self ytTileColor];
+    tileView.layer.cornerRadius = 20;
     tileView.layer.cornerCurve = kCACornerCurveContinuous;
     tileView.clipsToBounds = YES;
     [cell.contentView addSubview:tileView];
 
-    UIImageView *preview = [[UIImageView alloc] initWithFrame:CGRectMake(14, 14, tileView.bounds.size.width - 28, tileView.bounds.size.width - 28)];
+    UIImageView *preview = [[UIImageView alloc] initWithFrame:CGRectMake(16, 16, tileSize - 32, tileSize - 32)];
     preview.contentMode = UIViewContentModeScaleAspectFill;
     preview.clipsToBounds = YES;
-    preview.layer.cornerRadius = 12;
+    preview.layer.cornerRadius = 14;
     preview.layer.cornerCurve = kCACornerCurveContinuous;
 
     UIImage *img = nil;
@@ -122,20 +142,21 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
     preview.tintColor = [UIColor secondaryLabelColor];
     [tileView addSubview:preview];
 
-    UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(0, tileView.bounds.size.height + 6, cell.contentView.bounds.size.width, 18)];
-    label.text = isDefault ? @"Default" : name;
-    label.font = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
+    UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(0, tileSize + 8, cell.contentView.bounds.size.width, 20)];
+    label.text = isDefault ? LOC(@"DEFAULT") : name;
+    label.font = YTFont(13, @"Medium");
     label.textColor = [UIColor labelColor];
     label.textAlignment = NSTextAlignmentCenter;
     label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.7;
     [cell.contentView addSubview:label];
 
     if (selected) {
-        UIView *badge = [[UIView alloc] initWithFrame:CGRectMake(tileView.bounds.size.width - 26, 8, 20, 20)];
+        UIView *badge = [[UIView alloc] initWithFrame:CGRectMake(tileSize - 30, 10, 22, 22)];
         badge.backgroundColor = [UIColor systemBlueColor];
-        badge.layer.cornerRadius = 10;
+        badge.layer.cornerRadius = 11;
         [tileView addSubview:badge];
-        UIImageView *check = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"checkmark" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:11 weight:UIFontWeightBold]]];
+        UIImageView *check = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"checkmark" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:12 weight:UIFontWeightBold]]];
         check.tintColor = UIColor.whiteColor;
         check.frame = badge.bounds;
         check.center = badge.center;
@@ -159,15 +180,15 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
     self.selectedIconIndex = isDefault ? -1 : indexPath.item - 1;
     [cv reloadData];
 
+    // Apple already presents its own "app icon changed" confirmation, so we
+    // only surface real failures here — no redundant success alert.
     if (@available(iOS 10.3, *)) {
         if ([[UIApplication sharedApplication] respondsToSelector:@selector(setAlternateIconName:completionHandler:)]) {
             [[UIApplication sharedApplication] setAlternateIconName:isDefault ? nil : iconName completionHandler:^(NSError * _Nullable error) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     if (error) {
                         NSLog(@"[uYouEnhanced] Icon '%@' rejected: %@", iconName, error.localizedDescription);
-                        [self showAlertWithTitle:@"Failed" message:error.localizedDescription];
-                    } else {
-                        [self showAlertWithTitle:@"Done" message:isDefault ? @"Restored the default app icon." : [NSString stringWithFormat:@"App icon changed to “%@”.", iconName]];
+                        [self showAlertWithTitle:LOC(@"FAILED") message:error.localizedDescription];
                     }
                 });
             }];
@@ -177,12 +198,28 @@ static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefsc
 
 - (void)showAlertWithTitle:(NSString *)title message:(NSString *)message {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:LOC(@"OK") style:UIAlertActionStyleDefault handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)back {
     [self.navigationController popViewControllerAnimated:YES];
+}
+
+#pragma mark - YouTube theme support
+
+// Background adapts to the active uYouEnhanced theme: OLED → pure black,
+// otherwise the standard grouped background (which follows light/dark).
+- (UIColor *)ytBackgroundColor {
+    if (APP_THEME_IDX == 2) return [UIColor blackColor]; // OLED
+    return [UIColor systemGroupedBackgroundColor];
+}
+
+// Tile surface: OLED → dark grey, otherwise the standard secondary grouped
+// background (white in light, dark grey in dark).
+- (UIColor *)ytTileColor {
+    if (APP_THEME_IDX == 2) return [UIColor colorWithWhite:0.13 alpha:1.0]; // OLED tile
+    return [UIColor secondarySystemGroupedBackgroundColor];
 }
 
 @end
