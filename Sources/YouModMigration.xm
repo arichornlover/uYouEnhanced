@@ -272,8 +272,6 @@ static void UYMCopyInverted(NSUserDefaults *defaults, NSString *oldKey, NSString
         kYTMiniPlayer: ForceMiniPlayer,
         kBigYTMiniPlayer: ForceMiniPlayer,
         kDisableHints: DisableHints,
-        kYTPremiumLogo: YTPremiumLogo,
-        kHideYouTubeLogo: HideYTLogo,
         kHideHomeTab: HideHomeTab,
         kHideShareButton: RemoveVideoShareButton,
         kHideDownloadButton: RemoveVideoDownloadButton,
@@ -323,6 +321,16 @@ static void UYMCopyInverted(NSUserDefaults *defaults, NSString *oldKey, NSString
     // appTheme (0=light, 1=dark, 2=OLED, 3=custom) → OLEDTheme BOOL
     if ([defaults objectForKey:kAppTheme] != nil) {
         [defaults setBool:([defaults integerForKey:kAppTheme] == 2) forKey:OLEDTheme];
+        migrated++;
+    }
+
+    // kYTPremiumLogo / kHideYouTubeLogo → YTLogoIndex picker (0=default, 1=premium, 2=hide)
+    BOOL hasLogoPref = [defaults objectForKey:kYTPremiumLogo] != nil || [defaults objectForKey:kHideYouTubeLogo] != nil;
+    if (hasLogoPref) {
+        NSInteger logoIndex = 0;
+        if ([defaults boolForKey:kHideYouTubeLogo]) logoIndex = 2;
+        else if ([defaults boolForKey:kYTPremiumLogo]) logoIndex = 1;
+        [defaults setInteger:logoIndex forKey:YTLogoIndex];
         migrated++;
     }
 
