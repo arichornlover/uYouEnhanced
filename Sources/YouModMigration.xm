@@ -272,7 +272,6 @@ static void UYMCopyInverted(NSUserDefaults *defaults, NSString *oldKey, NSString
         kYTMiniPlayer: ForceMiniPlayer,
         kBigYTMiniPlayer: ForceMiniPlayer,
         kDisableHints: DisableHints,
-        kHideHomeTab: HideHomeTab,
         kHideShareButton: RemoveVideoShareButton,
         kHideDownloadButton: RemoveVideoDownloadButton,
         kHideClipButton: RemoveVideoClipButton,
