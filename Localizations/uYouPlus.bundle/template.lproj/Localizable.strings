@@ -186,7 +186,7 @@ https://github.com/PoomSmart/Return-YouTube-Dislikes/tree/main/layout/Library/Ap
 "ENABLE_PORTRAIT_FULLSCREEN" = "Enable Portrait Fullscreen";
 "ENABLE_PORTRAIT_FULLSCREEN_DESC" = "Enables Portrait Fullscreen on the YouTube App. App restart is required.";
 "FULLSCREEN_TO_THE_RIGHT" = "Fullscreen to the Right";
-"FULLSCREEN_TO_THE_RIGHT_DESC" = "FULLSCREEN_TO_THE_RIGHT_DESC" = "Force the video to always go to landscape right. App restart is required.";
+"FULLSCREEN_TO_THE_RIGHT_DESC" = "Force the video to always go to landscape right. App restart is required.";
 "ENABLE_TAP_TO_SEEK" = "Enable Tap To Seek";
 "ENABLE_TAP_TO_SEEK_DESC" = "Jump to anywhere in a video by single-tapping the seek bar";
 "DISABLE_PULL_TO_FULLSCREEN_GESTURE" = "Disable pull-to-fullscreen gesture";
@@ -231,6 +231,15 @@ https://github.com/PoomSmart/Return-YouTube-Dislikes/tree/main/layout/Library/Ap
 
 "SHORTS_QUALITY_PICKER" = "Shorts Quality Picker";
 "SHORTS_QUALITY_PICKER_DESC" = "Enables the YouTube Shorts Quality Picker";
+
+"HIDE_SHORTS_CLIP_BUTTON" = "Hide Clip Button on Shorts";
+"HIDE_SHORTS_CLIP_BUTTON_DESC" = "Hides the Clip button when a Short is paused.";
+"HIDE_SHORTS_DOWNLOAD_BUTTON" = "Hide Download Button on Shorts";
+"HIDE_SHORTS_DOWNLOAD_BUTTON_DESC" = "Hides the Download button when a Short is paused.";
+"HIDE_SHORTS_REMIX_BUTTON" = "Hide Remix Button on Shorts";
+"HIDE_SHORTS_REMIX_BUTTON_DESC" = "Hides the Remix button when a Short is paused.";
+"HIDE_SHORTS_STATS_BUTTON" = "Hide Stats for Nerds Button on Shorts";
+"HIDE_SHORTS_STATS_BUTTON_DESC" = "Hides the Stats for Nerds button when a Short is paused.";
 
 "VIDEO_PLAYER_BUTTON_OPTIONS" = "Video Player Button Options";
 
@@ -292,8 +301,13 @@ https://github.com/PoomSmart/Return-YouTube-Dislikes/tree/main/layout/Library/Ap
 
 "ADBLOCK_WORKAROUND_LITE" = "AdBlock Workaround (Lite)";
 "ADBLOCK_WORKAROUND_LITE_DESC" = "Uses weaker adblocking code, this will disable uYou's Adblocking Option.";
+"ENABLE_DYNAMIC_ISLAND_FIX" = "Enable Dynamic Island Fix";
+"ENABLE_DYNAMIC_ISLAND_FIX_DESC" = "Off by default. Turn on only if the Dynamic Island expands while using the app on an iPhone 14 Pro or newer (sideloaded). Takes effect after an app restart.";
 "ADBLOCK_WORKAROUND" = "AdBlock Workaround";
 "ADBLOCK_WORKAROUND_DESC" = "Uses stronger adblocking code.";
+
+"FIX_PLAYBACK_ISSUES" = "Fix playback issues";
+"FIX_PLAYBACK_ISSUES_DESC" = "Automatically recovers playback when a video stops or errors out mid-playback (e.g. after about a minute). Recommended for everyone.";
 "FAKE_PREMIUM" = "Fake Premium";
 "FAKE_PREMIUM_DESC" = "Uses Premium logo and creates fake buttons in the You tab. Will disable animated YouTube logo.";
 "FAKE_PREMIUM_WARNING" = "The *You* Tab doesn't exist in v%@, fake buttons will not be created.\nBut the *Fake Premium Logo* will still work.";
