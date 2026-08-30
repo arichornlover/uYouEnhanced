@@ -11,7 +11,17 @@
 #import <UIKit/UIKit.h>
 
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
-static NSString * const UYTClientVersion = @"21.14.4";
+
+// Client versions are deliberately DOWNGRADED from the app's own version.
+// Sending the current app version (21.14.4) to innertube triggers 403
+// "forbidden" because the server applies stricter PO-token / bot checks to
+// newer clients. Older, well-known client versions (19.45.x era) are served
+// direct stream URLs without the extra server-side checks, so downloads work.
+// Each client type gets its own realistic version string.
+static NSString * const UYTClientVersionIOS        = @"19.45.1";   // iOS app
+static NSString * const UYTClientVersionIOSMusic   = @"6.33.1";    // YouTube Music iOS
+static NSString * const UYTClientVersionIOSCreator = @"19.45.4";   // YouTube Studio iOS
+static NSString * const UYTClientVersionWeb        = @"2.20250825.01.00"; // WEB
 
 // YouTube 21.29+ is the version where SABR became mandatory (no direct stream URLs)
 static NSString * const UYTSABRMinimumVersion = @"21.29.0";
@@ -34,9 +44,15 @@ static BOOL UYTIsYouTubeVersion2129OrNewer(void) {
 + (NSDictionary *)clientContextForClient:(NSString *)clientName
                               osVersion:(NSString *)osVer
                           deviceModel:(NSString *)model {
+    // Pick a realistic, downgraded client version per client type.
+    NSString *clientVersion = UYTClientVersionIOS;
+    if ([clientName isEqualToString:@"IOS_MUSIC"]) clientVersion = UYTClientVersionIOSMusic;
+    else if ([clientName isEqualToString:@"IOS_CREATOR"]) clientVersion = UYTClientVersionIOSCreator;
+    else if ([clientName isEqualToString:@"WEB"]) clientVersion = UYTClientVersionWeb;
+
     return @{@"context": @{@"client": @{
         @"clientName": clientName,
-        @"clientVersion": UYTClientVersion,
+        @"clientVersion": clientVersion,
         @"deviceMake": @"Apple",
         @"deviceModel": model ?: @"iPhone16,2",
         @"osName": @"iOS",
@@ -75,9 +91,10 @@ static NSString *UYTYouTubeCookiesString(void) {
     body[@"playbackContext"] = @{@"contentPlaybackContext": @{@"html5Preference": @"HTML5_PREF_WANTS"}};
 
     NSString *clientName = clientCtx[@"context"][@"client"][@"clientName"] ?: @"IOS";
+    NSString *clientVersion = clientCtx[@"context"][@"client"][@"clientVersion"] ?: UYTClientVersionIOS;
     NSString *sysVer = [[UIDevice currentDevice].systemVersion stringByReplacingOccurrencesOfString:@"." withString:@"_"] ?: @"18_5_0";
     NSString *ua = [NSString stringWithFormat:@"com.google.ios.youtube/%@ (iPhone16,2; U; CPU iOS %@ like Mac OS X; en_US)",
-                     UYTClientVersion, sysVer];
+                     clientVersion, sysVer];
 
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:UYTInnertubeURL]];
     req.HTTPMethod = @"POST";
@@ -177,7 +194,9 @@ static NSString *UYTYouTubeCookiesString(void) {
     if (is2129OrNewer) {
         NSLog(@"[UYTPipeline] YouTube 21.29+ detected — trying SABR primary for %@", videoID);
         
-        // Try SABR first for 21.29+
+        // Try SABR first for 21.29+. If SABR has a valid capture, it owns the
+        // completion (success OR failure) — we must NOT fall through to the
+        // innertube chain below, or completion would fire twice.
         if (UYTSABRHasValidCapture()) {
             // For Shorts, only use SABR for audio (skip video to avoid unwanted downloads)
             BOOL audioOnlyForShorts = isShorts;
@@ -207,16 +226,26 @@ static NSString *UYTYouTubeCookiesString(void) {
                         return;
                     }
                 }
+                // SABR failed — fall back to innertube chain (single completion).
                 NSLog(@"[UYTPipeline] SABR primary failed for %@: %@ — falling back to innertube", videoID, errMsg);
+                [self runInnertubeFallbackChainForVideoID:videoID completion:completion];
             });
-            
-            // SABR failed or no capture — fall through to innertube fallback
+            // SABR owns the completion from here — do NOT fall through.
+            return;
         } else {
             NSLog(@"[UYTPipeline] YouTube 21.29+ but no SABR capture yet — using innertube fallback");
         }
     }
     
     // Innertube fallback chain: IOS -> IOS_MUSIC -> IOS_CREATOR -> WEB
+    [self runInnertubeFallbackChainForVideoID:videoID completion:completion];
+}
+
+// Innertube fallback chain: IOS -> IOS_MUSIC -> IOS_CREATOR -> WEB.
+// Extracted so both the 21.29+ SABR-failure path and the older-version path
+// share one implementation and guarantee exactly ONE completion call.
++ (void)runInnertubeFallbackChainForVideoID:(NSString *)videoID
+                                completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
     NSDictionary *iosCtx = [self clientContextForClient:@"IOS" osVersion:nil deviceModel:nil];
     [self fetchWithClient:iosCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts, NSError *err) {
         if (fmts.count > 0) { completion(fmts, nil); return; }
@@ -320,6 +349,22 @@ NSString *UYTResolvedVideoURL(NSString *vid) {
     return entry[@"video"] ?: entry[@"muxed"];
 }
 
+void UYTMarkAudioOnly(NSString *vid, BOOL audioOnly) {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        if (!UYTResolvedURLs) UYTResolvedURLs = [NSMutableDictionary dictionary];
+    });
+    if (!vid.length) return;
+    NSMutableDictionary *entry = [UYTResolvedURLs[vid] mutableCopy] ?: [NSMutableDictionary dictionary];
+    entry[@"audioOnly"] = @(audioOnly);
+    UYTResolvedURLs[vid] = entry;
+}
+
+BOOL UYTIsAudioOnly(NSString *vid) {
+    NSDictionary *entry = UYTResolvedURLs[vid];
+    return [entry[@"audioOnly"] boolValue];
+}
+
 @interface DownloadsManager : NSObject
 + (instancetype)sharedInstance;
 @end
@@ -343,6 +388,10 @@ NSString *UYTResolvedVideoURL(NSString *vid) {
         NSString *ext = path.pathExtension.lowercaseString;
         wantsAudio = [ext isEqualToString:@"m4a"] || [ext isEqualToString:@"mp3"];
     } @catch (NSException *e) {}
+
+    // Shorts audio-only: even though uYou creates a video item (.mp4), the user
+    // asked for audio only — force the audio stream so no video is downloaded.
+    if (UYTIsAudioOnly(vid)) wantsAudio = YES;
 
     NSString *working = nil;
     if (wantsAudio) {

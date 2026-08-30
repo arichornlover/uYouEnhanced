@@ -18,6 +18,22 @@ static UIFont *YTFont(CGFloat size, NSString *weight) {
     else if ([weight isEqualToString:@"Semibold"]) sysWeight = UIFontWeightSemibold;
     return [UIFont systemFontOfSize:size weight:sysWeight];
 }
+static UIImage *YTDefaultAppIcon(void) {
+    NSDictionary *mainInfo = [[NSBundle mainBundle] infoDictionary];
+    NSDictionary *primary = mainInfo[@"CFBundleIcons"][@"CFBundlePrimaryIcon"];
+    NSArray *files = primary[@"CFBundleIconFiles"];
+    for (NSString *name in files) {
+        for (NSString *suffix in @[@"", @"@2x", @"@3x"]) {
+            UIImage *img = [UIImage imageNamed:[name stringByAppendingString:suffix]];
+            if (img) return img;
+        }
+    }
+    NSString *bundlePath = [[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"];
+    NSBundle *bundle = bundlePath ? [NSBundle bundleWithPath:bundlePath] : [NSBundle mainBundle];
+    UIImage *logo = [UIImage imageNamed:@"youtube_logo.png" inBundle:bundle compatibleWithTraitCollection:nil];
+    if (logo) return logo;
+    return [UIImage systemImageNamed:@"play.rectangle.fill"];
+}
 
 @interface AppIconOptionsController () <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout>
 @property (strong, nonatomic) UICollectionView *collectionView;
@@ -132,13 +148,16 @@ static UIFont *YTFont(CGFloat size, NSString *weight) {
     preview.layer.cornerCurve = kCACornerCurveContinuous;
 
     UIImage *img = nil;
-    if (!isDefault) {
+    if (isDefault) {
+        // Show the real current app icon (regular YouTube icon).
+        img = YTDefaultAppIcon();
+    } else {
         NSString *bundlePath = [[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"];
         NSBundle *bundle = bundlePath ? [NSBundle bundleWithPath:bundlePath] : [NSBundle mainBundle];
         img = [UIImage imageWithContentsOfFile:[bundle.bundlePath stringByAppendingPathComponent:[NSString stringWithFormat:@"AppIcons/%@.png", name]]];
         if (!img) img = [UIImage imageWithContentsOfFile:[NSString stringWithFormat:@"/Library/Application Support/uYouEnhanced/AppIcons/%@.png", name]];
     }
-    preview.image = img ?: [UIImage systemImageNamed:isDefault ? @"paintbrush" : @"photo"];
+    preview.image = img ?: [UIImage systemImageNamed:@"photo"];
     preview.tintColor = [UIColor secondaryLabelColor];
     [tileView addSubview:preview];
 

@@ -6,7 +6,12 @@
 static NSInteger UYTFFCachedBackend = -1; // -1 = not probed yet
 
 static void UYTFFProbe(void) {
-    if (UYTFFCachedBackend != -1) return;
+    // Re-probe whenever we haven't found a backend yet: uYou.dylib (which
+    // provides MobileFFmpeg) may not be loaded at the first probe (e.g. if a
+    // conversion is attempted during our %ctor before uYou finishes loading).
+    // Caching "none" permanently would break conversion forever after an
+    // early probe. Only cache a positive result.
+    if (UYTFFCachedBackend != -1 && UYTFFCachedBackend != UYTFFBackendNone) return;
 
     // ffmpegkit.framework hard-links every av*/sw* library, and its install
     // names use @rpath which the host app may not resolve. Preload each

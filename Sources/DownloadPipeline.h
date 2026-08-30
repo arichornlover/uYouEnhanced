@@ -26,3 +26,9 @@
 void UYTStoreResolvedURLs(NSString *vid, NSString *muxedURL, NSString *audioURL, NSString *videoURL);
 NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio);
 NSString *UYTResolvedVideoURL(NSString *vid);
+
+// Audio-only marker for a video ID (used for Shorts audio-only downloads).
+// Stored alongside the resolved URLs so the DownloadItem swap can force the
+// audio stream even though uYou creates a video (.mp4) item.
+void UYTMarkAudioOnly(NSString *vid, BOOL audioOnly);
+BOOL UYTIsAudioOnly(NSString *vid);

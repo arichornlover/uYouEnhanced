@@ -468,19 +468,11 @@ static id UYTFindShortsPlayerVC(id overlay) {
                 }
             }
 
-            // On Shorts, uYou's native %orig often silently does nothing even
-            // after we wire playerViewController — the internal code expects
-            // metadata state that the Shorts player doesn't populate the same
-            // way as the regular player. Skip %orig and go directly to the
-            // download menu via getLinksLocallyPlayerItem:.
             NSString *videoID = UYTShortsVideoID(self);
             if (videoID.length > 0) {
-                NSLog(@"[uYouEnhanced] uYou button on Shorts -> direct download for %@", videoID);
-                id dlManager = [%c(DownloadsManager) sharedInstance];
-                if (dlManager && [dlManager respondsToSelector:@selector(getLinksLocallyPlayerItem:videoID:sourceView:isShorts:)]) {
-                    [dlManager getLinksLocallyPlayerItem:nil videoID:videoID sourceView:self isShorts:YES];
-                    return;
-                }
+                NSLog(@"[uYouEnhanced] uYou button on Shorts -> download menu for %@", videoID);
+                [self _uytShowShortsDownloadMenuForVideoID:videoID sourceView:self];
+                return;
             }
 
             // If we couldn't get a video ID, try %orig as absolute last resort.
@@ -497,7 +489,162 @@ static id UYTFindShortsPlayerVC(id overlay) {
     %orig;
 }
 %end
+
+// --- Shorts Download Menu (1:1 remake of uYou's menu using modern classes) ---
+// uYou's native getLinksLocallyPlayerItem: builds its YTActionSheetController
+// menu ONLY when its internal stream extraction succeeds (video+audio arrays
+// non-empty). On the modern Shorts UI (YT 21.xx.x+) that extraction fails, so
+// the menu never appears. We rebuild the menu here from formats fetched via
+// UYTDownloadPipeline, then hand the chosen quality to uYou's native flow.
+
+// Read uYou's download-type setting (default "both"). Values: "both"/"audio"/"video".
+static NSString *UYTDownloadTypeSetting(void) {
+    NSString *t = [[NSUserDefaults standardUserDefaults] stringForKey:@"downloadType"];
+    if (!t.length) t = @"both";
+    return t;
+}
+
+// Present a YTActionSheetController from the top-most view controller.
+static void UYTPresentActionSheet(id controller) {
+    @try {
+        id topVC = nil;
+        if ([%c(YTUIUtils) respondsToSelector:@selector(topViewControllerForPresenting)]) {
+            topVC = [%c(YTUIUtils) topViewControllerForPresenting];
+        }
+        if (!topVC) {
+            // Fallback: walk the key window's root VC.
+            UIWindow *keyWindow = nil;
+            for (UIWindow *w in [UIApplication sharedApplication].windows) {
+                if (w.isKeyWindow) { keyWindow = w; break; }
+            }
+            topVC = keyWindow.rootViewController;
+            while (topVC.presentedViewController) topVC = topVC.presentedViewController;
+        }
+        if (topVC && [controller respondsToSelector:@selector(presentFromViewController:animated:completion:)]) {
+            [controller presentFromViewController:topVC animated:YES completion:nil];
+        }
+    } @catch (NSException *e) {
+        NSLog(@"[uYouEnhanced] present action sheet failed: %@", e);
+    }
+}
+
+// Kick off the actual download at the chosen quality via uYou's native flow.
+static void UYTStartShortsDownload(NSString *videoID, id sourceView, NSString *quality, BOOL audioOnly) {
+    @try {
+        id dlManager = [%c(DownloadsManager) sharedInstance];
+        if (!dlManager) return;
+        if ([dlManager respondsToSelector:@selector(getLinksLocallyPlayerItem:videoID:sourceView:isShorts:)]) {
+            // Stash the requested quality so the pipeline can honor it.
+            if (quality.length) {
+                [[NSUserDefaults standardUserDefaults] setObject:quality forKey:@"UYTRequestedQuality"];
+            }
+            if (audioOnly) {
+                [[NSUserDefaults standardUserDefaults] setObject:@"audio" forKey:@"UYTRequestedAudioOnly"];
+            } else {
+                [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedAudioOnly"];
+            }
+            [dlManager getLinksLocallyPlayerItem:nil videoID:videoID sourceView:sourceView isShorts:YES];
+        }
+    } @catch (NSException *e) {
+        NSLog(@"[uYouEnhanced] start shorts download failed: %@", e);
+    }
+}
+
+// Build and present the download menu for a Shorts video.
+- (void)_uytShowShortsDownloadMenuForVideoID:(NSString *)videoID sourceView:(id)sourceView {
+    @try {
+        // Fetch formats first so we can offer real quality options.
+        [UYTDownloadPipeline fetchFormatsForVideoID:videoID isShorts:YES completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                @try {
+                    Class controllerClass = %c(YTActionSheetController);
+                    Class actionClass = %c(YTActionSheetAction);
+                    if (!controllerClass || !actionClass) {
+                        NSLog(@"[uYouEnhanced] YTActionSheet classes unavailable — falling back to direct download");
+                        UYTStartShortsDownload(videoID, sourceView, nil, NO);
+                        return;
+                    }
+
+                    id controller = [controllerClass actionSheetController];
+                    if (!controller) {
+                        UYTStartShortsDownload(videoID, sourceView, nil, NO);
+                        return;
+                    }
+
+                    NSString *downloadType = UYTDownloadTypeSetting();
+                    BOOL wantAudio = [downloadType isEqualToString:@"audio"];
+                    BOOL wantVideo = [downloadType isEqualToString:@"video"] || [downloadType isEqualToString:@"both"];
+
+                    // Collect distinct quality labels from video formats (highest first).
+                    NSMutableArray<NSString *> *qualities = [NSMutableArray array];
+                    NSMutableDictionary<NSString *, UYTStreamFormat *> *byQuality = [NSMutableDictionary dictionary];
+                    UYTStreamFormat *bestAudio = [UYTDownloadPipeline bestAudioFormat:formats];
+                    UYTStreamFormat *bestMuxed = [UYTDownloadPipeline bestMuxedFormat:formats];
+                    UYTStreamFormat *bestVideo = [UYTDownloadPipeline bestVideoFormat:formats];
+
+                    // Prefer muxed (video+audio) for the quality list; fall back to video-only.
+                    NSArray *videoFormats = formats;
+                    for (UYTStreamFormat *f in videoFormats) {
+                        if (!f.hasVideo) continue;
+                        NSString *ql = f.qualityLabel.length ? f.qualityLabel : [NSString stringWithFormat:@"%ldp", (long)f.itag];
+                        if (![qualities containsObject:ql]) {
+                            [qualities addObject:ql];
+                            byQuality[ql] = f;
+                        }
+                    }
+                    // Sort by resolution descending (parse leading number).
+                    [qualities sortUsingComparator:^NSComparisonResult(NSString *a, NSString *b) {
+                        NSInteger na = [a integerValue], nb = [b integerValue];
+                        if (na == nb) return [a compare:b];
+                        return na > nb ? NSOrderedAscending : NSOrderedDescending;
+                    }];
+
+                    // If we have no video formats but do have a muxed stream, offer it.
+                    if (qualities.count == 0 && bestMuxed) {
+                        NSString *ql = bestMuxed.qualityLabel.length ? bestMuxed.qualityLabel : @"Best";
+                        [qualities addObject:ql];
+                        byQuality[ql] = bestMuxed;
+                    }
+
+                    // Add a quality action for each distinct quality.
+                    for (NSString *ql in qualities) {
+                        UYTStreamFormat *fmt = byQuality[ql];
+                        id action = [actionClass actionWithTitle:ql style:0 handler:^(YTActionSheetAction *a) {
+                            UYTStartShortsDownload(videoID, sourceView, ql, NO);
+                        }];
+                        if (action && [controller respondsToSelector:@selector(addAction:)]) {
+                            [controller addAction:action];
+                        }
+                    }
+
+                    // Audio-only action (if an audio stream exists).
+                    if (bestAudio && wantAudio) {
+                        id audioAction = [actionClass actionWithTitle:@"Audio only" style:0 handler:^(YTActionSheetAction *a) {
+                            UYTStartShortsDownload(videoID, sourceView, nil, YES);
+                        }];
+                        if (audioAction && [controller respondsToSelector:@selector(addAction:)]) {
+                            [controller addAction:audioAction];
+                        }
+                    }
+
+                    // If nothing was added, fall back to a direct download.
+                    if ([controller respondsToSelector:@selector(addCancelActionIfNeeded)]) {
+                        [controller addCancelActionIfNeeded];
+                    }
+                    UYTPresentActionSheet(controller);
+                } @catch (NSException *e) {
+                    NSLog(@"[uYouEnhanced] build shorts menu failed: %@", e);
+                    UYTStartShortsDownload(videoID, sourceView, nil, NO);
+                }
+            });
+        }];
+    } @catch (NSException *e) {
+        NSLog(@"[uYouEnhanced] shorts menu exception: %@", e);
+        UYTStartShortsDownload(videoID, sourceView, nil, NO);
+    }
+}
 %end
+%end // gShortsUYouDownload
 
 // Fix uYou varispeed controller fallback.
 %group gVarispeedFallbackFix
@@ -657,6 +804,28 @@ static NSString *UYTAudioPathForItem(id ui) {
 static BOOL UYTAudioStillWebm(id item) {
     @try {
         return UYTPathIsWebm(UYTAudioPathForItem(UYTResolveUYouItem(item)));
+    } @catch (NSException *e) {
+        return NO;
+    }
+}
+
+// Is this an audio-only download (no video stream)? Used to skip the video+audio
+// merge for Shorts audio-only downloads, which uYou creates as .mp4 items.
+static BOOL UYTItemIsAudioOnly(id item) {
+    @try {
+        id ui = UYTResolveUYouItem(item);
+        if (!ui) return NO;
+        NSString *vid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
+        if (vid.length && UYTIsAudioOnly(vid)) return YES;
+        // Fallback: no video file present but an audio file exists.
+        NSString *videoPath = nil;
+        if ([ui respondsToSelector:@selector(tmpVideoPath)]) videoPath = [ui tmpVideoPath];
+        if (!videoPath.length && [ui respondsToSelector:@selector(cachedVideoPath)]) videoPath = [ui cachedVideoPath];
+        NSString *audioPath = UYTAudioPathForItem(ui);
+        NSFileManager *fm = [NSFileManager defaultManager];
+        BOOL hasVideo = videoPath.length && [fm fileExistsAtPath:videoPath];
+        BOOL hasAudio = audioPath.length && [fm fileExistsAtPath:audioPath];
+        return hasAudio && !hasVideo;
     } @catch (NSException *e) {
         return NO;
     }
@@ -1043,13 +1212,43 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     HBLogInfo(@"[uYouPatches] download requested (vid: %@, shorts: %@)", videoID, isShorts ? @"YES" : @"NO");
     
     NSString *vid = [NSString stringWithFormat:@"%@", videoID];
+
+    // Honor a quality/audio-only choice made from the Shorts download menu.
+    NSString *requestedQuality = [[NSUserDefaults standardUserDefaults] stringForKey:@"UYTRequestedQuality"];
+    BOOL requestedAudioOnly = [[NSUserDefaults standardUserDefaults] boolForKey:@"UYTRequestedAudioOnly"];
+
     [UYTDownloadPipeline fetchFormatsForVideoID:vid isShorts:isShorts completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
         UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
         UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
         UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
+
+        // If a specific quality was requested, find the matching video format.
+        if (requestedQuality.length) {
+            for (UYTStreamFormat *f in formats) {
+                if (!f.hasVideo) continue;
+                NSString *ql = f.qualityLabel.length ? f.qualityLabel : [NSString stringWithFormat:@"%ldp", (long)f.itag];
+                if ([ql isEqualToString:requestedQuality]) {
+                    video = f;
+                    break;
+                }
+            }
+        }
+
+        // Shorts audio-only: exclude the video stream entirely so uYou doesn't
+        // download video for an audio-only request (#ShortsAudioOnly).
+        if (requestedAudioOnly) {
+            video = nil;
+            muxed = nil;
+        }
+
         UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
-        NSLog(@"[UYTPipeline] cached URLs for %@ (muxed=%ld, audio=%ld, video=%ld)",
-              vid, (long)muxed.itag, (long)audio.itag, (long)video.itag);
+        UYTMarkAudioOnly(vid, requestedAudioOnly);
+        NSLog(@"[UYTPipeline] cached URLs for %@ (muxed=%ld, audio=%ld, video=%ld, audioOnly=%d)",
+              vid, (long)muxed.itag, (long)audio.itag, (long)video.itag, requestedAudioOnly);
+
+        // Consume the one-shot menu choices so they don't leak into later downloads.
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedQuality"];
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedAudioOnly"];
 
         // Let uYou's native flow proceed. Our DownloadItem hook below will
         // swap any broken URL with our cached working one.
@@ -1213,6 +1412,14 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
         [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouConversionStarted" object:item];
     });
 
+    // Audio-only download (e.g. Shorts audio-only): there's no video to merge —
+    // finalize the audio file directly instead of hanging on a video+audio merge.
+    if (UYTItemIsAudioOnly(item)) {
+        HBLogInfo(@"[uYouPatches] audio-only item — finalizing without merge");
+        UYTFinalizeItem(item, @"audio-only no-merge");
+        return;
+    }
+
     // Pre-fix: convert webm audio to m4a before the merge (#771, #465)
     if (!UYTEnsureMergeableAudio(item, @"mergeMP4")) {
         UYTFinalizeItem(item, @"no-merge fallback");
@@ -1269,6 +1476,13 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     dispatch_async(dispatch_get_main_queue(), ^{
         [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouConversionStarted" object:item];
     });
+
+    // Audio-only download (e.g. Shorts audio-only): no video to merge.
+    if (UYTItemIsAudioOnly(item)) {
+        HBLogInfo(@"[uYouPatches] audio-only item — finalizing without merge");
+        UYTFinalizeItem(item, @"audio-only no-merge");
+        return;
+    }
 
     // Pre-fix: convert webm audio to m4a before the merge (#771, #465)
     if (!UYTEnsureMergeableAudio(item, @"mergeAudio")) {
