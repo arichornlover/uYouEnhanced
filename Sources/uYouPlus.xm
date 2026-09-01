@@ -393,6 +393,8 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end // gMisc1
 
 // Fix Casting: https://github.com/arichornlover/uYouEnhanced/issues/606#issuecomment-2098289942
+// NOTE: These A/B flags aren't working in YouTube 19.24.2+ and no longer
+// affect casting on newer versions.
 %group gFixCasting
 %hook YTColdConfig
 - (BOOL)cxClientEnableIosLocalNetworkPermissionReliabilityFixes { return YES; }

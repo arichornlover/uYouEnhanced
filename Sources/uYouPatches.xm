@@ -488,7 +488,6 @@ static id UYTFindShortsPlayerVC(id overlay) {
     }
     %orig;
 }
-%end
 
 // --- Shorts Download Menu (1:1 remake of uYou's menu using modern classes) ---
 // uYou's native getLinksLocallyPlayerItem: builds its YTActionSheetController
