@@ -454,6 +454,15 @@ static id UYTFindShortsPlayerVC(id overlay) {
     return nil;
 }
 
+@interface YTMainAppControlsOverlayView (UYTShortsDownload)
+- (void)_uytShowShortsDownloadMenuForVideoID:(NSString *)videoID sourceView:(id)sourceView;
+@end
+
+// Forward-declare topViewControllerForPresenting (not in any shipped header).
+@interface YTUIUtils (UYTPresenting)
++ (id)topViewControllerForPresenting;
+@end
+
 %hook YTMainAppControlsOverlayView
 - (void)uYou {
     @try {
@@ -517,7 +526,8 @@ static void UYTPresentActionSheet(id controller) {
                 if (w.isKeyWindow) { keyWindow = w; break; }
             }
             topVC = keyWindow.rootViewController;
-            while (topVC.presentedViewController) topVC = topVC.presentedViewController;
+            while ([topVC respondsToSelector:@selector(presentedViewController)] && [topVC presentedViewController])
+                topVC = [topVC presentedViewController];
         }
         if (topVC && [controller respondsToSelector:@selector(presentFromViewController:animated:completion:)]) {
             [controller presentFromViewController:topVC animated:YES completion:nil];
@@ -572,14 +582,12 @@ static void UYTStartShortsDownload(NSString *videoID, id sourceView, NSString *q
 
                     NSString *downloadType = UYTDownloadTypeSetting();
                     BOOL wantAudio = [downloadType isEqualToString:@"audio"];
-                    BOOL wantVideo = [downloadType isEqualToString:@"video"] || [downloadType isEqualToString:@"both"];
 
                     // Collect distinct quality labels from video formats (highest first).
                     NSMutableArray<NSString *> *qualities = [NSMutableArray array];
                     NSMutableDictionary<NSString *, UYTStreamFormat *> *byQuality = [NSMutableDictionary dictionary];
                     UYTStreamFormat *bestAudio = [UYTDownloadPipeline bestAudioFormat:formats];
                     UYTStreamFormat *bestMuxed = [UYTDownloadPipeline bestMuxedFormat:formats];
-                    UYTStreamFormat *bestVideo = [UYTDownloadPipeline bestVideoFormat:formats];
 
                     // Prefer muxed (video+audio) for the quality list; fall back to video-only.
                     NSArray *videoFormats = formats;
@@ -607,7 +615,6 @@ static void UYTStartShortsDownload(NSString *videoID, id sourceView, NSString *q
 
                     // Add a quality action for each distinct quality.
                     for (NSString *ql in qualities) {
-                        UYTStreamFormat *fmt = byQuality[ql];
                         id action = [actionClass actionWithTitle:ql style:0 handler:^(YTActionSheetAction *a) {
                             UYTStartShortsDownload(videoID, sourceView, ql, NO);
                         }];
