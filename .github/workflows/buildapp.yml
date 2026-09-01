@@ -170,22 +170,7 @@ jobs:
           sed -i '' "s/^BUNDLE_ID .*/BUNDLE_ID = ${{ inputs.bundle_id }}/" Makefile || echo "BUNDLE_ID = ${{ inputs.bundle_id }}" >> Makefile
           sed -i '' "s/^DISPLAY_NAME .*/DISPLAY_NAME = ${{ inputs.app_name }}/" Makefile || echo "DISPLAY_NAME = ${{ inputs.app_name }}" >> Makefile
           sed -i '' "s/^export TARGET .*/export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0/" Makefile || echo "export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0" >> Makefile
-          
-          # YTUHD flag
-          if [ "${{ inputs.ytuhd }}" = "true" ]; then
-            echo "YTUHD_ENABLED=1" >> Makefile
-          else
-            echo "YTUHD_ENABLED=0" >> Makefile
-          fi
-
-          # iSponsorBlock flag (DISABLED by default)
-          if [ "${{ inputs.sponsorblock }}" = "true" ]; then
-            echo "SPONSORBLOCK_ENABLED=1" >> Makefile
-          else
-            echo "SPONSORBLOCK_ENABLED=0" >> Makefile
-          fi
-
-          make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app FINALPACKAGE=1
+          make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app FINALPACKAGE=1 YTUHD_ENABLED=${{ inputs.ytuhd && '1' || '0' }} SPONSORBLOCK_ENABLED=${{ inputs.sponsorblock && '1' || '0' }}
           echo "package=$(ls -t packages | head -n1)" >> $GITHUB_OUTPUT
 
         env:
@@ -299,7 +284,7 @@ jobs:
           for f in main/packages/*.deb; do
             [ -f "$f" ] && tweaks="$tweaks $f"
           done
-          cyan -i "$IPA_IN" -o "$OUTNAME" -uwef $tweaks -n "${{ inputs.app_name }}" -b ${{ inputs.bundle_id }}
+          cyan -i "$IPA_IN" -o "$OUTNAME" -uwef $tweaks -n "${{ inputs.app_name }}" -b ${{ inputs.bundle_id }} -x multicast.entitlements
 
       - name: Embed FFmpegKit Frameworks (if present)
         run: |
