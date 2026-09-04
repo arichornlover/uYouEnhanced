@@ -20,9 +20,10 @@ endif
 PACKAGE_NAME = $(TWEAK_NAME)
 PACKAGE_VERSION = $(YOUTUBE_VERSION)-$(UYOU_VERSION)
 
-$(TWEAK_NAME)_FILES := $(wildcard Sources/*.xm) $(wildcard Sources/*.x) $(wildcard Sources/*.m)
+$(TWEAK_NAME)_FILES := $(wildcard Sources/*.xm) $(wildcard Sources/*.x) $(wildcard Sources/*.m) Sources/MediaKit/UYTMediaKit.m
+$(info [UYT] compile list: $($(TWEAK_NAME)_FILES))
 $(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation AVFoundation AVKit Photos Accelerate CoreMotion GameController VideoToolbox Security MediaPlayer
-$(TWEAK_NAME)_LIBRARIES = bz2 c++ iconv z
+$(TWEAK_NAME)_LIBRARIES = bz2 c++ iconv z sqlite3
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-but-set-variable -DTWEAK_VERSION=\"$(PACKAGE_VERSION)\"
 
 export libcolorpicker_ARCHS = arm64
@@ -115,7 +116,7 @@ before-all::
 		fi; \
 	fi; \
 	perl -pi -e 's/3\.0\.4/3.0.5/g' $(UYOU_DYLIB); \
-	python3 Scripts/rebrand_uyou.py $(UYOU_DYLIB); \
+	python3 Scripts/build/rebrand_uyou.py $(UYOU_DYLIB); \
 	$(PRINT_FORMAT_BLUE) "uYou rebranded to 3.0.5 (Unofficial Build)";
 
 else

@@ -1,5 +1,11 @@
+//
+//  uYouPlus.xm — uYouEnhanced main tweak
+//  NOTE: every %group below needs a matching %init() in %ctor to load.
+//
 #import "uYouPlus.h"
 #import "uYouPlusPatches.h"
+
+#pragma mark - Localization Bundle
 
 // Tweak's bundle for Localizations support - @PoomSmart - https://github.com/PoomSmart/YouPiP/commit/aea2473f64c75d73cab713e1e2d5d0a77675024f
 NSBundle *uYouPlusBundle() {
@@ -17,6 +23,146 @@ NSBundle *uYouPlusBundle() {
 NSBundle *tweakBundle = uYouPlusBundle();
 //
 
+#pragma mark - Save To Playlist Reroute
+
+// Make the overlay's save button trigger the real save chip.
+@protocol UYTSlimTapDelegate <NSObject>
+- (void)didTapButton:(id)button fromRect:(CGRect)rect inView:(id)view;
+@end
+
+static BOOL UYTIsSaveChipView(UIView *view) {
+    if (!view) return NO;
+    NSString *ident = view.accessibilityIdentifier ?: @"";
+    return [ident isEqualToString:@"id.video.save_to.playlist.button"] ||
+           [ident containsString:@"save_to_playlist"] ||
+           [ident containsString:@"save.to.playlist"];
+}
+
+static UIView *UYTFindSaveChip(UIView *root, NSInteger depth) {
+    if (!root || depth > 20) return nil;
+    if (UYTIsSaveChipView(root)) return root;
+    for (UIView *sub in root.subviews) {
+        UIView *found = UYTFindSaveChip(sub, depth + 1);
+        if (found) return found;
+    }
+    return nil;
+}
+
+// Candidate windows, foreground scenes first.
+static NSArray<UIWindow *> *UYTCandidateWindows(void) {
+    NSMutableArray<UIWindow *> *windows = [NSMutableArray array];
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+        if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+        if (scene.activationState != UISceneActivationStateForegroundActive &&
+            scene.activationState != UISceneActivationStateForegroundInactive) continue;
+        for (UIWindow *w in ((UIWindowScene *)scene).windows) [windows addObject:w];
+    }
+    UIWindow *key = UIApplication.sharedApplication.keyWindow;
+    if (key && ![windows containsObject:key]) [windows insertObject:key atIndex:0];
+    return windows;
+}
+
+// Fire a gesture recognizer's targets directly.
+static BOOL UYTFireGestureTargets(UIView *view) {
+    for (UIGestureRecognizer *gesture in view.gestureRecognizers) {
+        @try {
+            NSArray *targets = [gesture valueForKey:@"_targets"];
+            for (id targetEntry in targets) {
+                id target = [targetEntry valueForKey:@"_target"];
+                NSString *actionName = [targetEntry valueForKey:@"_action"];
+                if (!target || !actionName.length) continue;
+                SEL action = NSSelectorFromString(actionName);
+                if (![target respondsToSelector:action]) continue;
+                NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:
+                    [(id)target methodSignatureForSelector:action]];
+                [invocation setTarget:target];
+                [invocation setSelector:action];
+                if ([invocation.methodSignature numberOfArguments] > 2) {
+                    __strong id arg = gesture;
+                    [invocation setArgument:&arg atIndex:2];
+                }
+                [invocation invoke];
+                NSLog(@"[uYouPlus] Save reroute: fired gesture target %@", actionName);
+                return YES;
+            }
+        } @catch (NSException *e) {}
+    }
+    return NO;
+}
+
+static BOOL UYTActivateRealSaveChip(void) {
+    UIView *chip = nil;
+    for (UIWindow *window in UYTCandidateWindows()) {
+        chip = UYTFindSaveChip(window, 0);
+        if (chip) break;
+    }
+    if (!chip) {
+        NSLog(@"[uYouPlus] Save reroute: real save chip not visible on screen");
+        return NO;
+    }
+
+    // Activate it however we can.
+    if ([chip isKindOfClass:[UIControl class]]) {
+        UIControl *control = (UIControl *)chip;
+        [control sendActionsForControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
+        NSLog(@"[uYouPlus] Save reroute: sent control actions to %@", NSStringFromClass([chip class]));
+        return YES;
+    }
+    if ([chip respondsToSelector:@selector(accessibilityActivate)]) {
+        @try {
+            BOOL ok = [(id)chip accessibilityActivate];
+            if (ok) {
+                NSLog(@"[uYouPlus] Save reroute: activated via accessibilityActivate");
+                return YES;
+            }
+        } @catch (NSException *e) {}
+    }
+    Class slimActionClass = %c(YTSlimVideoDetailsActionView);
+    if (slimActionClass && [chip isKindOfClass:slimActionClass]) {
+        id delegate = [chip respondsToSelector:@selector(delegate)] ? [chip performSelector:@selector(delegate)] : nil;
+        SEL tap = @selector(didTapButton:fromRect:inView:);
+        if (delegate && [delegate respondsToSelector:tap]) {
+            [(id<UYTSlimTapDelegate>)delegate didTapButton:chip fromRect:chip.bounds inView:chip];
+            NSLog(@"[uYouPlus] Save reroute: invoked slim action delegate");
+            return YES;
+        }
+    }
+    if (UYTFireGestureTargets(chip)) return YES;
+
+    NSLog(@"[uYouPlus] Save reroute: chip found (%@) but no activation path matched", NSStringFromClass([chip class]));
+    return NO;
+}
+
+@interface UYTSaveRerouteRouter : NSObject
++ (instancetype)sharedRouter;
+- (void)rerouteTapped:(UIButton *)sender;
+@end
+@implementation UYTSaveRerouteRouter
++ (instancetype)sharedRouter {
+    static UYTSaveRerouteRouter *shared;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{ shared = [[self alloc] init]; });
+    return shared;
+}
+- (void)rerouteTapped:(UIButton *)sender {
+    @try {
+        if (!UYTActivateRealSaveChip()) {
+            // The real chip may not be materialized yet right after playback
+            // starts — retry once shortly.
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)),
+                           dispatch_get_main_queue(), ^{
+                if (!UYTActivateRealSaveChip()) {
+                    NSLog(@"[uYouPlus] Save reroute: real save chip unavailable");
+                }
+            });
+        }
+    } @catch (NSException *e) {
+        NSLog(@"[uYouPlus] Save reroute exception: %@", e);
+    }
+}
+@end
+
+#pragma mark - [2] Always-On Hooks
 
 %group gAlwaysOn
 
@@ -35,36 +181,60 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     if (IS_ENABLED(kReplaceYTDownloadWithuYou) && [arg2 isKindOfClass:%c(ELMPBShowActionSheetCommand)]) {
         ELMPBShowActionSheetCommand *showCommand = (ELMPBShowActionSheetCommand *)arg2;
         NSArray *listOptions = [showCommand listOptionArray];
+        BOOL overlayAvailable = controlsOverlayView && [controlsOverlayView respondsToSelector:@selector(uYou)];
 
-        for (ELMPBElement *element in listOptions) {
+        NSString *sheetId = showCommand.sheetId;
+        BOOL isOfflineUpsell = (sheetId.length > 0 && [sheetId containsString:@"offline_upsell"]);
+        if (isOfflineUpsell) {
+            HBLogInfo(@"[uYouPlus] offline upsell detected via sheetId: %@", sheetId);
+        }
+
+        for (ELMPBElement *element in isOfflineUpsell ? @[] : listOptions) {
             ELMPBProperties *properties = [element properties];
             if (!properties) continue;
 
-            NSString *identifier = nil;
+            NSMutableArray<NSString *> *idHints = [NSMutableArray array];
 
             if ([properties respondsToSelector:@selector(firstSubmessage)]) {
                 id sub = [properties firstSubmessage];
-                if ([sub respondsToSelector:@selector(identifier)]) {
-                    identifier = [sub identifier];
+                if ([sub respondsToSelector:@selector(identifier)] && [sub identifier]) {
+                    [idHints addObject:[sub identifier]];
                 }
-            } else if ([properties respondsToSelector:@selector(submessageAtIndex:)]) {
+            }
+            if ([properties respondsToSelector:@selector(submessageAtIndex:)]) {
                 id sub = [properties submessageAtIndex:0];
-                if ([sub respondsToSelector:@selector(identifier)]) {
-                    identifier = [sub identifier];
+                if ([sub respondsToSelector:@selector(identifier)] && [sub identifier]) {
+                    [idHints addObject:[sub identifier]];
                 }
-            } else if ([properties respondsToSelector:@selector(description)]) {
-                NSString *desc = [properties description];
-                if ([desc containsString:@"offline_upsell_dialog"]) {
-                    identifier = @"offline_upsell_dialog";
+            }
+            NSString *desc = [properties description] ?: @"";
+
+            BOOL isOfflineUpsell = NO;
+            for (NSString *hint in idHints) {
+                if ([hint containsString:@"offline_upsell"]) {
+                    isOfflineUpsell = YES;
+                    break;
                 }
+            }
+            if (!isOfflineUpsell && [desc containsString:@"offline_upsell_dialog"]) {
+                isOfflineUpsell = YES;
             }
 
-            if (identifier && [identifier containsString:@"offline_upsell_dialog"]) {
-                if (controlsOverlayView && [controlsOverlayView respondsToSelector:@selector(uYou)]) {
+            if (isOfflineUpsell) {
+                if (overlayAvailable) {
+                    HBLogInfo(@"[uYouPlus] intercepted offline upsell sheet — launching uYou download");
                     [controlsOverlayView uYou];
+                    return;
                 }
-                return;
+                HBLogWarn(@"[uYouPlus] offline upsell detected but YTMainAppControlsOverlayView was never "
+                          "captured (iPad layout?) — showing original sheet");
+                break;
             }
+        }
+
+        if (!overlayAvailable) {
+            HBLogInfo(@"[uYouEnhanced] action sheet with %lu option(s); overlay view not captured",
+                      (unsigned long)listOptions.count);
         }
     }
     %orig;
@@ -127,6 +297,10 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
 %end // gAlwaysOn
 
+#pragma mark - [3] Feature Groups
+// Everything below is opt-in/opt-out via settings keys; each %group MUST have
+// a matching %init(...) in %ctor at the bottom of this file.
+
 // Ad Blocking - moved to Sources/AdBlocking.xm
 
 // Hide YouTube Logo - @dayanch96
@@ -147,23 +321,26 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 
 // Center YouTube Logo - @arichornlover
+// Centers YTNavigationBarTitleView in layoutSubviews.
 %group gCenterYouTubeLogo
 %hook YTNavigationBarTitleView
-- (void)alignCustomViewToCenterOfWindow {
-    UIView *superview = self.superview;
-    if (!superview) return;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        @try {
-            CGRect frame = self.frame;
-            CGFloat newX = (superview.bounds.size.width - frame.size.width) / 2;
-            frame.origin.x = newX;
+- (void)layoutSubviews {
+    %orig;
+    @try {
+        UIView *superview = self.superview;
+        if (!superview || superview.bounds.size.width <= 0) return;
+
+        if (self.hidden || self.frame.size.width <= 0) return;
+
+        CGRect frame = self.frame;
+        CGFloat centeredX = (superview.bounds.size.width - frame.size.width) / 2;
+        if (fabs(centeredX - frame.origin.x) > 0.5) {
+            frame.origin.x = centeredX;
             self.frame = frame;
-            [self setNeedsLayout];
-            [self layoutIfNeeded];
-        } @catch (NSException *ex) {
-            NSLog(@"[alignCustomViewToCenterOfWindow] Exception: %@", ex);
         }
-    });
+    } @catch (NSException *ex) {
+        NSLog(@"[CenterYouTubeLogo] Exception: %@", ex);
+    }
 }
 %end
 %end
@@ -216,6 +393,8 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end // gMisc1
 
 // Fix Casting: https://github.com/arichornlover/uYouEnhanced/issues/606#issuecomment-2098289942
+// NOTE: These A/B flags aren't working in YouTube 19.24.2+ and no longer
+// affect casting on newer versions.
 %group gFixCasting
 %hook YTColdConfig
 - (BOOL)cxClientEnableIosLocalNetworkPermissionReliabilityFixes { return YES; }
@@ -672,11 +851,58 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %end
 
+@interface YTMainAppControlsOverlayView (uYouEnhanced)
+- (void)uyt_attachSaveRerouteToSubviews:(UIView *)view depth:(NSInteger)depth;
+@end
+
 %group gSection9
 
 // Video Controls Overlay Options
 // Hide CC / Hide Autoplay switch / Hide YTMusic Button / Enable Share Button / Enable Save to Playlist Button
 %hook YTMainAppControlsOverlayView
+// Attach the reroute to any save/add-to control in the overlay.
+%new - (void)uyt_attachSaveRerouteToSubviews:(UIView *)view depth:(NSInteger)depth {
+    if (!view || depth > 8) return;
+    for (UIView *sub in [view.subviews copy]) {
+        if ([sub isKindOfClass:[UIControl class]]) {
+            NSString *ident = sub.accessibilityIdentifier.lowercaseString ?: @"";
+            NSString *lbl = sub.accessibilityLabel.lowercaseString ?: @"";
+            BOOL isSaveButton = [ident containsString:@"save_to"] || [ident containsString:@"add_to"]
+                             || [lbl containsString:@"save"] || [lbl containsString:@"add to"];
+            if (isSaveButton) {
+                id router = [UYTSaveRerouteRouter sharedRouter];
+                SEL reroute = @selector(rerouteTapped:);
+                NSArray *existing = [(UIControl *)sub actionsForTarget:router forControlEvent:UIControlEventTouchUpInside];
+                if (![existing containsObject:NSStringFromSelector(reroute)]) {
+                    [(UIControl *)sub addTarget:router action:reroute
+                                 forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
+                    NSLog(@"[uYouPlus] Save reroute attached via overlay scan (%@ / %@)", ident, lbl);
+                }
+            }
+        }
+        [self uyt_attachSaveRerouteToSubviews:sub depth:depth + 1];
+    }
+}
+- (YTQTMButton *)buttonWithImage:(UIImage *)image accessibilityLabel:(NSString *)accessibilityLabel verticalContentPadding:(CGFloat)verticalContentPadding {
+    YTQTMButton *button = %orig;
+    if (IS_ENABLED(kEnableSaveToButton) && button) {
+        NSString *ident = button.accessibilityIdentifier.lowercaseString ?: @"";
+        NSString *lbl = accessibilityLabel.lowercaseString ?: @"";
+        BOOL isSaveButton = [ident containsString:@"save_to"] || [ident containsString:@"add_to"]
+                         || [lbl containsString:@"save"];
+        if (isSaveButton) {
+            id router = [UYTSaveRerouteRouter sharedRouter];
+            SEL reroute = @selector(rerouteTapped:);
+            NSArray *existing = [button actionsForTarget:router forControlEvent:UIControlEventTouchUpInside];
+            if (![existing containsObject:NSStringFromSelector(reroute)]) {
+                [button addTarget:router action:reroute
+                           forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
+                NSLog(@"[uYouPlus] Save reroute attached to overlay button (%@)", accessibilityLabel);
+            }
+        }
+    }
+    return button;
+}
 - (void)setClosedCaptionsOrSubtitlesButtonAvailable:(BOOL)arg1 { // hide CC button
     if (IS_ENABLED(kHideCC)) {
         %orig(NO);
@@ -705,6 +931,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 - (void)setAddToButtonAvailable:(BOOL)arg1 {
     if (IS_ENABLED(kEnableSaveToButton)) {
         %orig(YES);
+        [self uyt_attachSaveRerouteToSubviews:self depth:0];
     } else {
         %orig(NO);
     }
@@ -1374,7 +1601,9 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %end
 
-# pragma mark - ctor
+#pragma mark - [4] Constructor
+// Group initialization. Groups whose feature is opt-in are initialized inside
+// an IS_ENABLED(...) check; everything unconditional is initialized up top.
 %ctor {
     // Load uYou first so its functions are available for hooks.
     // dlopen([[NSString stringWithFormat:@"%@/Frameworks/uYou.dylib", [[NSBundle mainBundle] bundlePath]] UTF8String], RTLD_LAZY);
