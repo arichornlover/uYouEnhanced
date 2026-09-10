@@ -253,6 +253,10 @@ YTMainAppControlsOverlayView *controlsOverlayView;
         [[%c(FLEXManager) performSelector:@selector(sharedManager)] performSelector:@selector(showExplorer)];
     }
 
+    // Disable resume to Shorts
+    if (IS_ENABLED(kDisableResumeToShorts)) {
+    }
+
     return didFinishLaunching;
 }
 - (void)appWillResignActive:(id)arg1 {
@@ -296,6 +300,27 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 
 %end // gAlwaysOn
+
+// Disable Resume to Shorts - force Home tab on startup
+%group gDisableResumeToShorts
+%hook YTAppViewControllerImpl
+- (void)setSelectedIndex:(NSUInteger)index {
+    if (IS_ENABLED(kDisableResumeToShorts) && index == 1) { // 1 is typically Shorts tab
+        %orig(0); // Force Home tab (index 0)
+        return;
+    }
+    %orig(index);
+}
+%end
+%hook YTTabBarController
+- (void)setSelectedIndex:(NSUInteger)index {
+    if (IS_ENABLED(kDisableResumeToShorts) && index == 1) {
+        %orig(0);
+        return;
+    }
+    %orig(index);
+}
+%end
 
 #pragma mark - [3] Feature Groups
 // Everything below is opt-in/opt-out via settings keys; each %group MUST have
@@ -1087,7 +1112,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %group gRedProgressBar
 %hook YTSegmentableInlinePlayerBarView
 - (void)setBufferedProgressBarColor:(id)arg1 {
-     [UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50];
+    %orig([UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50]);
 }
 %end
 
@@ -1737,6 +1762,9 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     }
     if (IS_ENABLED(kShortsQualityPicker)) {
         %init(gShortsQualityPicker);
+    }
+    if (IS_ENABLED(kDisableResumeToShorts)) {
+        %init(gDisableResumeToShorts);
     }
     if (IS_ENABLED(kFixCasting)) {
         %init(gFixCasting);

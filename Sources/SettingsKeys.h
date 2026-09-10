@@ -20,6 +20,7 @@ NSArray *NSUserDefaultsCopyKeys = @[
     kHideVideosInFullscreen, kHideRelatedWatchNexts, 
     kHideBuySuperThanks, kHideSubscriptions, kShortsQualityPicker, 
     kHideShortsClipButton, kHideShortsDownloadButton, kHideShortsRemixButton, kHideShortsStatsButton,
+    kDisableResumeToShorts,
     kRedSubscribeButton, kHideButtonContainers, kHideConnectButton, 
     kHideShareButton, kHideRemixButton, kHideThanksButton, 
     kHideDownloadButton, kHideClipButton, kHideSaveToPlaylistButton, 

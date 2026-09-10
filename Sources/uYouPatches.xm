@@ -458,10 +458,8 @@ static id UYTFindShortsPlayerVC(id overlay) {
 - (void)_uytShowShortsDownloadMenuForVideoID:(NSString *)videoID sourceView:(id)sourceView;
 @end
 
-// Forward-declare topViewControllerForPresenting (not in any shipped header).
-@interface YTUIUtils (UYTPresenting)
-+ (id)topViewControllerForPresenting;
-@end
+// YTUIUtils is only forward-declared (@class), so we can't add a category.
+// Use respondsToSelector:/performSelector: pattern instead (already done below).
 
 %hook YTMainAppControlsOverlayView
 - (void)uYou {

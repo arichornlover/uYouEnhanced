@@ -55,10 +55,20 @@
 - (void)adPlaying:(id)ad {}
 %end
 
+static BOOL YTUHDIsAdReel(YTReelModel *model) {
+    if (![model respondsToSelector:@selector(videoType)]) return NO;
+    NSInteger videoType = model.videoType;
+    if (videoType == 3) return YES;
+    if (videoType == 5 || videoType == 6 || videoType == 7) return YES;
+    if ([model respondsToSelector:@selector(adMetadata)] && model.adMetadata) return YES;
+    if ([model respondsToSelector:@selector(isAd)] && model.isAd) return YES;
+    return NO;
+}
+
 %hook YTReelInfinitePlaybackDataSource
 - (YTReelModel *)makeContentModelForEntry:(id)entry {
     YTReelModel *model = %orig;
-    if ([model respondsToSelector:@selector(videoType)] && model.videoType == 3)
+    if (YTUHDIsAdReel(model))
         return nil;
     return model;
 }
@@ -108,7 +118,7 @@
 %hook YTReelDataSource
 - (YTReelModel *)makeContentModelForEntry:(id)entry {
     YTReelModel *model = %orig;
-    if ([model respondsToSelector:@selector(videoType)] && model.videoType == 3)
+    if (YTUHDIsAdReel(model))
         return nil;
     return model;
 }
@@ -116,13 +126,13 @@
 %hook YTReelInfinitePlaybackDataSource
 - (YTReelModel *)makeContentModelForEntry:(id)entry {
     YTReelModel *model = %orig;
-    if ([model respondsToSelector:@selector(videoType)] && model.videoType == 3)
+    if (YTUHDIsAdReel(model))
         return nil;
     return model;
 }
 - (void)setReels:(NSMutableOrderedSet <YTReelModel *> *)reels {
     [reels removeObjectsAtIndexes:[reels indexesOfObjectsPassingTest:^BOOL(YTReelModel *obj, NSUInteger idx, BOOL *stop) {
-        return [obj respondsToSelector:@selector(videoType)] ? obj.videoType == 3 : NO;
+        return YTUHDIsAdReel(obj);
     }]];
     %orig;
 }

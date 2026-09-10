@@ -63,6 +63,10 @@
 #import <YouTubeHeader/YTWatchViewController.h>
 #import "uYouPlusThemes.h" // uYouPlus Themes
 
+// Forward declarations for classes not in YouTubeHeader
+@class YTAppViewControllerImpl;
+@class YTTabBarController;
+
 extern NSBundle *tweakBundle;
 
 #define LOC(x) [tweakBundle localizedStringForKey:x value:nil table:nil]
@@ -126,6 +130,7 @@ static NSString *const kHideShortsClipButton = @"hideShortsClipButton_enabled";
 static NSString *const kHideShortsDownloadButton = @"hideShortsDownloadButton_enabled";
 static NSString *const kHideShortsRemixButton = @"hideShortsRemixButton_enabled";
 static NSString *const kHideShortsStatsButton = @"hideShortsStatsButton_enabled";
+static NSString *const kDisableResumeToShorts = @"disableResumeToShorts_enabled";
 // Video player buttons
 static NSString *const kRedSubscribeButton = @"redSubscribeButton_enabled";
 static NSString *const kHideButtonContainers = @"hideButtonContainers_enabled";
