@@ -78,11 +78,20 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install ldid dpkg make wget unzip jq pipx
+          brew install ldid dpkg make wget unzip jq pipx libvpx libdav1d
 
       - name: Set PATH
-        run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
-
+        run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH 
+        
+      - name: Configure Library Paths for Codecs
+        run: |
+    export LDFLAGS="-L$(brew --prefix libvpx)/lib -L$(brew --prefix libdav1d)/lib"
+    export CPPFLAGS="-I$(brew --prefix libvpx)/include -I$(brew --prefix libdav1d)/include"
+    export LDFLAGS=$LDFLAGS
+    export CPPFLAGS=$CPPFLAGS
+    echo "LDFLAGS=$LDFLAGS" >> $GITHUB_ENV
+    echo "CPPFLAGS=$CPPFLAGS" >> $GITHUB_ENV
+    
       - name: Setup Theos
         uses: actions/checkout@v7
         with:
