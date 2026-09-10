@@ -2,7 +2,7 @@ ifndef SDK_VERSION
 SDK_VERSION = 18.6
 endif
 
-export TARGET = iphone:clang:$(SDK_VERSION):16.0
+export TARGET = iphone:clang:$(SDK_VERSION):15.0
 export SDK_PATH = $(THEOS)/sdks/iPhoneOS$(SDK_VERSION).sdk/
 export SYSROOT = $(SDK_PATH)
 export ARCHS = arm64
