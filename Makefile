@@ -80,6 +80,25 @@ UYOU_DEB = $(UYOU_PATH)/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb
 UYOU_DYLIB = $(UYOU_PATH)/Library/MobileSubstrate/DynamicLibraries/uYou.dylib
 UYOU_BUNDLE = $(UYOU_PATH)/Library/Application\ Support/uYouBundle.bundle
 
+YTUHD_VENDOR_DIR = Tweaks/YTUHD/vendor
+YTUHD_DAV1D_SRC = $(YTUHD_VENDOR_DIR)/dav1d
+YTUHD_LIBVPX_SRC = $(YTUHD_VENDOR_DIR)/libvpx
+
+ifeq ($(YTUHD_ENABLED),1)
+$(shell test -f $(YTUHD_DAV1D_SRC)/meson.build || (echo "Initializing YTUHD vendor submodules..." && cd Tweaks/YTUHD && git submodule update --init --recursive))
+endif
+
+.PHONY: ytuhd-vendor-init
+ytuhd-vendor-init:
+	@echo "Initializing YTUHD vendor submodules..."
+	@cd Tweaks/YTUHD && git submodule update --init --recursive
+
+# Target to manually build YTUHD vendor libraries
+.PHONY: ytuhd-vendor-build
+ytuhd-vendor-build:
+	@echo "Building YTUHD vendor libraries..."
+	@cd Tweaks/YTUHD && make libvpx dav1d
+
 include $(THEOS)/makefiles/common.mk
 
 ifneq ($(JAILBROKEN),1)
