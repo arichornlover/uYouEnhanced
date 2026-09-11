@@ -8,7 +8,7 @@ com.miro.uyou_3.0.5-unofficial_iphoneos-arm.deb containing:
   - control file marked Version 3.0.5-unofficial
 
 Usage:
-  python Scripts/build_unofficial_deb.py <uyou.deb> <tweak.dylib> [out.deb]
+  python Scripts/build_unofficial_deb.py Tweaks/uYou/com.miro.uyou_3.0.4_iphoneos-arm.deb uYouEnhanced.dylib [out.deb]
 
 NOTE: this artifact is NOT used by uYouEnhanced IPA builds (those keep the
 pristine 3.0.4 deb). It exists purely as an alternative distribution.

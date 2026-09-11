@@ -13,7 +13,7 @@ on:
         type: string
       uyou_version:
         description: "uYou Version"
-        default: "3.0.4"
+        default: "3.0.4.1"
         required: true
         type: string
       decrypted_youtube_url:
@@ -78,7 +78,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install ldid dpkg make wget unzip jq pipx
+          brew install ldid dpkg make wget unzip jq pipx meson ninja
 
       - name: Set PATH
         run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
@@ -286,6 +286,34 @@ jobs:
           done
           cyan -i "$IPA_IN" -o "$OUTNAME" -uwef $tweaks -n "${{ inputs.app_name }}" -b ${{ inputs.bundle_id }}
 
+      - name: Embed FFmpegKit Frameworks (if present)
+        run: |
+          set -euo pipefail
+          if ! compgen -G "main/Vendor/*.framework" > /dev/null; then
+            echo "No Vendor/*.framework — MobileFFmpeg stays active"
+            exit 0
+          fi
+          IPA="$(find . -maxdepth 2 -name 'uYouEnhanced_*.ipa' -print -quit)"
+          if [ -z "$IPA" ]; then
+            echo "No IPA found to embed framework into"
+            exit 0
+          fi
+          rm -rf fwwork && mkdir fwwork && cd fwwork
+          unzip -q "../$IPA"
+          mkdir -p Payload/YouTube.app/Frameworks
+          # Copy EVERY framework — ffmpegkit needs its av*/sw* engines.
+          for fw in ../main/Vendor/*.framework; do
+            NAME="$(basename "$fw")"
+            rm -rf "Payload/YouTube.app/Frameworks/$NAME"
+            cp -R "$fw" "Payload/YouTube.app/Frameworks/"
+            # Headers are compile-time only — strip from the embedded copy.
+            find "Payload/YouTube.app/Frameworks/$NAME" -type d \( -name Headers -o -name Modules -o -name PrivateHeaders \) -exec rm -rf {} + 2>/dev/null || true
+            echo "Embedded: $NAME"
+          done
+          zip -q -r "../$IPA" Payload/YouTube.app/Frameworks
+          cd .. && rm -rf fwwork
+          echo "FFmpegKit frameworks embedded into $IPA"
+
       - name: Strip Unresignable Extensions From Final IPA
         id: strip_ipa
         run: |
@@ -347,20 +375,6 @@ jobs:
           cd .. && rm -rf iconwork
           echo "Alternate icons registered into $(basename "$IPA")"
 
-      - name: Rebrand IPA Filename (3.0.4 -> 3.0.5)
-        run: |
-          set -euo pipefail
-          cd main/packages
-          OLD="${{ steps.strip_ipa.outputs.final_ipa }}"
-          NEW="${OLD//3.0.4/3.0.5}"
-          if [ "$OLD" != "$NEW" ] && [ -f "$OLD" ]; then
-            mv "$OLD" "$NEW"
-            echo "Renamed: $OLD -> $NEW"
-          else
-            echo "No 3.0.4 in filename or file missing: $OLD"
-          fi
-          echo "RENAMED_IPA=$NEW" >> "$GITHUB_ENV"
-
       - name: Upload Artifact
         if: ${{ inputs.upload_artifact }}
         uses: actions/upload-artifact@v7
@@ -369,7 +383,7 @@ jobs:
           YOUTUBE_VERSION: ${{ steps.prepare_youtube.outputs.youtube_version }}
         with:
           name: uYouEnhanced_${{ env.YOUTUBE_VERSION }}_${{ env.UYOU_VERSION }}
-          path: ${{ github.workspace }}/main/packages/${{ env.RENAMED_IPA || steps.strip_ipa.outputs.final_ipa }}
+          path: ${{ github.workspace }}/main/packages/${{ steps.strip_ipa.outputs.final_ipa }}
           if-no-files-found: error
 
       - name: Create Release

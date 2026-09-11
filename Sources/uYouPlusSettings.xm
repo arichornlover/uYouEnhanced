@@ -508,7 +508,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
 
     SWITCH(LOC(@"HIDE_SUPER_THANKS"), LOC(@"HIDE_SUPER_THANKS_DESC"), kHideBuySuperThanks);
     SWITCH(LOC(@"HIDE_SUBCRIPTIONS"), LOC(@"HIDE_SUBCRIPTIONS_DESC"), kHideSubscriptions);
-    // SWITCH(LOC(@"DISABLE_RESUME_TO_SHORTS"), LOC(@"DISABLE_RESUME_TO_SHORTS_DESC"), kDisableResumeToShorts);
+    SWITCH(LOC(@"DISABLE_RESUME_TO_SHORTS"), LOC(@"DISABLE_RESUME_TO_SHORTS_DESC"), kDisableResumeToShorts);
     SWITCH2(LOC(@"SHORTS_QUALITY_PICKER"), LOC(@"SHORTS_QUALITY_PICKER_DESC"), kShortsQualityPicker);
     SWITCH(LOC(@"HIDE_SHORTS_CLIP_BUTTON"), LOC(@"HIDE_SHORTS_CLIP_BUTTON_DESC"), kHideShortsClipButton);
     SWITCH(LOC(@"HIDE_SHORTS_DOWNLOAD_BUTTON"), LOC(@"HIDE_SHORTS_DOWNLOAD_BUTTON_DESC"), kHideShortsDownloadButton);
@@ -871,6 +871,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     SECTION_HEADER(LOC(@"MISCELLANEOUS"));
 
     SWITCH2(LOC(@"YouTube Sign-In Patch"), LOC(@"When turned on, you can sign in to the YouTube App when Sideloaded.\nHowever, most material ui icons might disappear, and notifications could stop working.\nThis fix will automatically turn off after two app restarts."), kGoogleSignInPatch);
+    SWITCH2(LOC(@"ENABLE_DYNAMIC_ISLAND_FIX"), LOC(@"ENABLE_DYNAMIC_ISLAND_FIX_DESC"), kEnableDynamicIslandFix);
     SWITCH2(LOC(@"ADBLOCK_WORKAROUND_LITE"), LOC(@"ADBLOCK_WORKAROUND_LITE_DESC"), kAdBlockWorkaroundLite);
     SWITCH2(LOC(@"ADBLOCK_WORKAROUND"), LOC(@"ADBLOCK_WORKAROUND_DESC"), kAdBlockWorkaround);
     SWITCH2(LOC(@"FIX_PLAYBACK_ISSUES"), LOC(@"FIX_PLAYBACK_ISSUES_DESC"), kFixPlaybackIssues);
@@ -972,8 +973,8 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     SWITCH2(LOC(@"FIX_CASTING"), LOC(@"FIX_CASTING_DESC"), kFixCasting);
     SWITCH2(LOC(@"NEW_SETTINGS_UI"), LOC(@"NEW_SETTINGS_UI_DESC"), kNewSettingsUI);
     YTSettingsSectionItem *youModGitHub = [%c(YTSettingsSectionItem)
-        itemWithTitle:@"YouMod on GitHub"
-        titleDescription:@"Lightweight alternative — visit the YouMod repo first to prepare!"
+        itemWithTitle:LOC(@"YOU_MOD_GITHUB")
+        titleDescription:LOC(@"YOU_MOD_GITHUB_DESC")
         accessibilityIdentifier:nil
         detailTextBlock:nil
         selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
@@ -982,8 +983,8 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     ];
     [sectionItems addObject:youModGitHub];
     YTSettingsSectionItem *migrateToYouMod = [%c(YTSettingsSectionItem)
-        itemWithTitle:@"⭐ Migrate to YouMod (Recommended)"
-        titleDescription:@"Copies your compatible uYouEnhanced settings over to YouMod. Your uYouEnhanced settings are kept. A HUD message confirms how many keys migrated."
+        itemWithTitle:LOC(@"MIGRATE_TO_YOU_MOD")
+        titleDescription:LOC(@"MIGRATE_TO_YOU_MOD_DESC")
         accessibilityIdentifier:nil
         detailTextBlock:nil
         selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
@@ -993,8 +994,8 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
     ];
     [sectionItems addObject:migrateToYouMod];
     YTSettingsSectionItem *migrateAndReset = [%c(YTSettingsSectionItem)
-        itemWithTitle:@"⚠️ Migrate to YouMod + Reset uYouEnhanced (Advanced)"
-        titleDescription:@"Copies your settings to YouMod, then REMOVES all toggled uYouEnhanced settings. Only use this if you fully intend to switch to YouMod."
+        itemWithTitle:LOC(@"MIGRATE_TO_YOU_MOD_RESET")
+        titleDescription:LOC(@"MIGRATE_TO_YOU_MOD_RESET_DESC")
         accessibilityIdentifier:nil
         detailTextBlock:nil
         selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {

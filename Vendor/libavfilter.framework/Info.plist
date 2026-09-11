@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>org.ffmpegkit.libavfilter</string>
+	<key>CFBundleName</key>
+	<string>libavfilter</string>
+	<key>CFBundleExecutable</key>
+	<string>libavfilter</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>9.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>9.0.0</string>
+	<key>MinimumOSVersion</key>
+	<string>12.1</string>
+</dict>
+</plist>

@@ -18,8 +18,7 @@
 
 ### YouMod — Cons
 
-- **No uYou integration** — lacks uYou's feaatures such as download manager, native PiP, and media playback engine, though I believe YouMod carries alternative features.
-- **No SponsorBlock** (iSponsorBlock) — does not include automatic sponsor-segment skipping. (This may change in the future)
+- **No uYou integration** — lacks uYou's feaatures such as download manager, native PiP, and media playback engine, though I believe YouMod carries alternative features that are superior than this.
 - **No version spoofing** — cannot spoof the YouTube app version to bypass update prompts and as a need to "fix" some features that break.
 - **No exclusive features** — lacks LowContrastMode, NotificationsTab, YTAppVersionSpoofer, and other uYouEnhanced extras.
 - **Some reported UI bugs** — open issues include problems with fullscreen action hiding, Shorts feed visibility, and time slider positioning on certain YouTube versions.

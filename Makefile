@@ -2,7 +2,7 @@ ifndef SDK_VERSION
 SDK_VERSION = 18.6
 endif
 
-export TARGET = iphone:clang:$(SDK_VERSION):16.0
+export TARGET = iphone:clang:$(SDK_VERSION):15.0
 export SDK_PATH = $(THEOS)/sdks/iPhoneOS$(SDK_VERSION).sdk/
 export SYSROOT = $(SDK_PATH)
 export ARCHS = arm64
@@ -12,17 +12,18 @@ DISPLAY_NAME ?= YouTube
 BUNDLE_ID ?= com.google.ios.youtube
 
 ifndef YOUTUBE_VERSION
-YOUTUBE_VERSION = 21.14.4
+YOUTUBE_VERSION = 21.20.4
 endif
 ifndef UYOU_VERSION
-UYOU_VERSION = 3.0.4
+UYOU_VERSION = 3.0.4.1
 endif
 PACKAGE_NAME = $(TWEAK_NAME)
 PACKAGE_VERSION = $(YOUTUBE_VERSION)-$(UYOU_VERSION)
 
-$(TWEAK_NAME)_FILES := $(wildcard Sources/*.xm) $(wildcard Sources/*.x) $(wildcard Sources/*.m)
+$(TWEAK_NAME)_FILES := $(wildcard Sources/*.xm) $(wildcard Sources/*.x) $(wildcard Sources/*.m) Sources/MediaKit/UYTMediaKit.m
+$(info [UYT] compile list: $($(TWEAK_NAME)_FILES))
 $(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation AVFoundation AVKit Photos Accelerate CoreMotion GameController VideoToolbox Security MediaPlayer
-$(TWEAK_NAME)_LIBRARIES = bz2 c++ iconv z
+$(TWEAK_NAME)_LIBRARIES = bz2 c++ iconv z sqlite3
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-but-set-variable -DTWEAK_VERSION=\"$(PACKAGE_VERSION)\"
 
 export libcolorpicker_ARCHS = arm64
@@ -78,6 +79,26 @@ UYOU_PATH = Tweaks/uYou
 UYOU_DEB = $(UYOU_PATH)/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb
 UYOU_DYLIB = $(UYOU_PATH)/Library/MobileSubstrate/DynamicLibraries/uYou.dylib
 UYOU_BUNDLE = $(UYOU_PATH)/Library/Application\ Support/uYouBundle.bundle
+UYOU_URL = https://www.dropbox.com/scl/fi/b7gibc3itf41ydnkhfqhn/com.miro.uyou_3.0.4.1_iphoneos-arm.deb?rlkey=6m0sus20j87setsukhvpyeiuk&st=cpua440m&dl=1
+
+YTUHD_VENDOR_DIR = Tweaks/YTUHD/vendor
+YTUHD_DAV1D_SRC = $(YTUHD_VENDOR_DIR)/dav1d
+YTUHD_LIBVPX_SRC = $(YTUHD_VENDOR_DIR)/libvpx
+
+ifeq ($(YTUHD_ENABLED),1)
+$(shell test -f $(YTUHD_DAV1D_SRC)/meson.build || (echo "Initializing YTUHD vendor submodules..." && cd Tweaks/YTUHD && git submodule update --init --recursive))
+endif
+
+.PHONY: ytuhd-vendor-init
+ytuhd-vendor-init:
+	@echo "Initializing YTUHD vendor submodules..."
+	@cd Tweaks/YTUHD && git submodule update --init --recursive
+
+# Target to manually build YTUHD vendor libraries
+.PHONY: ytuhd-vendor-build
+ytuhd-vendor-build:
+	@echo "Building YTUHD vendor libraries..."
+	@cd Tweaks/YTUHD && make libvpx dav1d
 
 include $(THEOS)/makefiles/common.mk
 
@@ -101,22 +122,26 @@ internal-clean::
 ifneq ($(JAILBROKEN),1)
 before-all::
 	@if [[ ! -f $(UYOU_DEB) ]]; then \
-		rm -rf $(UYOU_PATH)/*; \
-		$(PRINT_FORMAT_BLUE) "Downloading uYou"; \
+		if [[ "$(UYOU_VERSION)" == "3.0.4.1" ]]; then \
+			$(PRINT_FORMAT_BLUE) "Downloading uYou $(UYOU_VERSION)"; \
+		else \
+			$(PRINT_FORMAT_BLUE) "Using custom uYou $(UYOU_VERSION) — expecting $(UYOU_DEB)"; \
+		fi; \
 	fi
 before-all::
 	@if [[ ! -f $(UYOU_DEB) ]]; then \
- 		curl -s -L "https://www.dropbox.com/scl/fi/01vvu5lm8nkkicrznku9v/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb?rlkey=efgz7po8kqqvha8doplk1s3ky&dl=1" -o $(UYOU_DEB); \
- 	fi; \
+		if [[ "$(UYOU_VERSION)" == "3.0.4.1" ]]; then \
+			curl -s -L "$(UYOU_URL)" -o $(UYOU_DEB); \
+		else \
+			$(PRINT_FORMAT_ERROR) "Missing $(UYOU_DEB) — place your custom deb (e.g. 3.0.4.1 from uYou-3.0.4-src-main) at that path"; exit 1; \
+		fi; \
+	fi; \
 	if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
-		tar -xf Tweaks/uYou/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb -C Tweaks/uYou; tar -xf Tweaks/uYou/data.tar* -C Tweaks/uYou; \
+		tar -xf $(UYOU_DEB) -C Tweaks/uYou; tar -xf Tweaks/uYou/data.tar* -C Tweaks/uYou; \
 		if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
 			$(PRINT_FORMAT_ERROR) "Failed to extract uYou"; exit 1; \
 		fi; \
-	fi; \
-	perl -pi -e 's/3\.0\.4/3.0.5/g' $(UYOU_DYLIB); \
-	python3 Scripts/rebrand_uyou.py $(UYOU_DYLIB); \
-	$(PRINT_FORMAT_BLUE) "uYou rebranded to 3.0.5 (Unofficial Build)";
+	fi;
 
 else
 before-package::
