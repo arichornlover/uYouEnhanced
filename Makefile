@@ -79,8 +79,7 @@ UYOU_PATH = Tweaks/uYou
 UYOU_DEB = $(UYOU_PATH)/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb
 UYOU_DYLIB = $(UYOU_PATH)/Library/MobileSubstrate/DynamicLibraries/uYou.dylib
 UYOU_BUNDLE = $(UYOU_PATH)/Library/Application\ Support/uYouBundle.bundle
-# Dropbox URL only hosts the original 3.0.4 deb — custom versions (e.g. 3.0.4.1 from uYou-3.0.4-src-main) must be placed manually
-UYOU_URL = https://www.dropbox.com/scl/fi/2tc63jckug0ygwe2a183a/com.miro.uyou_3.0.4_iphoneos-arm.deb?rlkey=0jdi5a5mi0480fsd2wiv3dqh9&st=jev9wwp3&dl=1
+UYOU_URL = https://www.dropbox.com/scl/fi/b7gibc3itf41ydnkhfqhn/com.miro.uyou_3.0.4.1_iphoneos-arm.deb?rlkey=6m0sus20j87setsukhvpyeiuk&st=cpua440m&dl=1
 
 YTUHD_VENDOR_DIR = Tweaks/YTUHD/vendor
 YTUHD_DAV1D_SRC = $(YTUHD_VENDOR_DIR)/dav1d
@@ -123,7 +122,7 @@ internal-clean::
 ifneq ($(JAILBROKEN),1)
 before-all::
 	@if [[ ! -f $(UYOU_DEB) ]]; then \
-		if [[ "$(UYOU_VERSION)" == "3.0.4" ]]; then \
+		if [[ "$(UYOU_VERSION)" == "3.0.4.1" ]]; then \
 			$(PRINT_FORMAT_BLUE) "Downloading uYou $(UYOU_VERSION)"; \
 		else \
 			$(PRINT_FORMAT_BLUE) "Using custom uYou $(UYOU_VERSION) — expecting $(UYOU_DEB)"; \
@@ -131,7 +130,7 @@ before-all::
 	fi
 before-all::
 	@if [[ ! -f $(UYOU_DEB) ]]; then \
-		if [[ "$(UYOU_VERSION)" == "3.0.4" ]]; then \
+		if [[ "$(UYOU_VERSION)" == "3.0.4.1" ]]; then \
 			curl -s -L "$(UYOU_URL)" -o $(UYOU_DEB); \
 		else \
 			$(PRINT_FORMAT_ERROR) "Missing $(UYOU_DEB) — place your custom deb (e.g. 3.0.4.1 from uYou-3.0.4-src-main) at that path"; exit 1; \
