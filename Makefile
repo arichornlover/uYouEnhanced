@@ -79,6 +79,8 @@ UYOU_PATH = Tweaks/uYou
 UYOU_DEB = $(UYOU_PATH)/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb
 UYOU_DYLIB = $(UYOU_PATH)/Library/MobileSubstrate/DynamicLibraries/uYou.dylib
 UYOU_BUNDLE = $(UYOU_PATH)/Library/Application\ Support/uYouBundle.bundle
+# Dropbox URL only hosts the original 3.0.4 deb — custom versions (e.g. 3.0.4.1 from uYou-3.0.4-src-main) must be placed manually
+UYOU_URL = https://www.dropbox.com/scl/fi/b7gibc3itf41ydnkhfqhn/com.miro.uyou_3.0.4_iphoneos-arm.deb?rlkey=6m0sus20j87setsukhvpyeiuk&st=vlyfz8dt&dl=1
 
 YTUHD_VENDOR_DIR = Tweaks/YTUHD/vendor
 YTUHD_DAV1D_SRC = $(YTUHD_VENDOR_DIR)/dav1d
@@ -121,22 +123,26 @@ internal-clean::
 ifneq ($(JAILBROKEN),1)
 before-all::
 	@if [[ ! -f $(UYOU_DEB) ]]; then \
-		rm -rf $(UYOU_PATH)/*; \
-		$(PRINT_FORMAT_BLUE) "Downloading uYou"; \
+		if [[ "$(UYOU_VERSION)" == "3.0.4" ]]; then \
+			$(PRINT_FORMAT_BLUE) "Downloading uYou $(UYOU_VERSION)"; \
+		else \
+			$(PRINT_FORMAT_BLUE) "Using custom uYou $(UYOU_VERSION) — expecting $(UYOU_DEB)"; \
+		fi; \
 	fi
 before-all::
 	@if [[ ! -f $(UYOU_DEB) ]]; then \
- 		curl -s -L "https://www.dropbox.com/scl/fi/b7gibc3itf41ydnkhfqhn/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb?rlkey=6m0sus20j87setsukhvpyeiuk&st=vlyfz8dt&dl=1" -o $(UYOU_DEB); \
- 	fi; \
+		if [[ "$(UYOU_VERSION)" == "3.0.4" ]]; then \
+			curl -s -L "$(UYOU_URL)" -o $(UYOU_DEB); \
+		else \
+			$(PRINT_FORMAT_ERROR) "Missing $(UYOU_DEB) — place your custom deb (e.g. 3.0.4.1 from uYou-3.0.4-src-main) at that path"; exit 1; \
+		fi; \
+	fi; \
 	if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
-		tar -xf Tweaks/uYou/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb -C Tweaks/uYou; tar -xf Tweaks/uYou/data.tar* -C Tweaks/uYou; \
+		tar -xf $(UYOU_DEB) -C Tweaks/uYou; tar -xf Tweaks/uYou/data.tar* -C Tweaks/uYou; \
 		if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
 			$(PRINT_FORMAT_ERROR) "Failed to extract uYou"; exit 1; \
 		fi; \
-	fi; \
-	perl -pi -e 's/3\.0\.4/3.0.5/g' $(UYOU_DYLIB); \
-	python3 Scripts/build/rebrand_uyou.py $(UYOU_DYLIB); \
-	$(PRINT_FORMAT_BLUE) "uYou rebranded to 3.0.5 (Unofficial Build)";
+	fi;
 
 else
 before-package::
