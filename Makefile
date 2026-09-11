@@ -144,19 +144,29 @@ before-all::
 	if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
 		echo "[DEBUG] Extracting $(UYOU_DEB)..."; \
 		mkdir -p Tweaks/uYou; \
-		tar -xvf $(UYOU_DEB) -C Tweaks/uYou 2>&1 | head -20; \
-		if [[ -f "Tweaks/uYou/data.tar.gz" ]]; then \
-			tar -xzf Tweaks/uYou/data.tar.gz -C Tweaks/uYou; \
-		elif [[ -f "Tweaks/uYou/data.tar.xz" ]]; then \
-			tar -xJf Tweaks/uYou/data.tar.xz -C Tweaks/uYou; \
+		if command -v python3 >/dev/null 2>&1; then \
+			python3 -c "import lzma,tarfile,io,gzip; deb='$(UYOU_DEB)'; d=open(deb,'rb').read(); pos=8; m={}; \
+			\
+			while pos < len(d): \
+				hdr=d[pos:pos+60]; name=hdr[0:16].decode().strip().rstrip('/'); size=int(hdr[48:58].decode().strip()); body=d[pos+60:pos+60+size]; m[name]=body; pos+=60+size+(size%2); \
+			data_name=next((k for k in m if k.startswith('data.tar')), None); \
+			raw=m[data_name]; \
+			\
+			try: raw=lzma.decompress(raw); \
+			except: raw=gzip.decompress(raw); \
+			tf=tarfile.open(fileobj=io.BytesIO(raw)); tf.extractall('Tweaks/uYou'); print(f'Extracted {len(tf.getmembers())} members from {data_name}');"; \
 		else \
-			find Tweaks/uYou -name "data.tar*" -exec tar -xf {} -C Tweaks/uYou \; 2>/dev/null || true; \
+			tar -xvf $(UYOU_DEB) -C Tweaks/uYou 2>&1 | head -20; \
+			if [[ -f "Tweaks/uYou/data.tar.gz" ]]; then tar -xzf Tweaks/uYou/data.tar.gz -C Tweaks/uYou; \
+			elif [[ -f "Tweaks/uYou/data.tar.xz" ]]; then tar -xJf Tweaks/uYou/data.tar.xz -C Tweaks/uYou; \
+			elif [[ -f "Tweaks/uYou/data.tar.lzma" ]]; then tar --lzma -xf Tweaks/uYou/data.tar.lzma -C Tweaks/uYou 2>/dev/null || python3 -c "import lzma,tarfile,io; tf=tarfile.open(fileobj=io.BytesIO(lzma.decompress(open('Tweaks/uYou/data.tar.lzma','rb').read()))); tf.extractall('Tweaks/uYou')"; \
+			else find Tweaks/uYou -name "data.tar*" -exec tar -xf {} -C Tweaks/uYou \; 2>/dev/null || true; fi; \
 		fi; \
 		if [[ ! -f $(UYOU_DYLIB) ]]; then \
-			$(PRINT_FORMAT_ERROR) "Missing dylib at $(UYOU_DYLIB)"; find Tweaks/uYou -name "*.dylib" -o -type d -name "MobileSubstrate"; exit 1; \
+			$(PRINT_FORMAT_ERROR) "Missing dylib at $(UYOU_DYLIB)"; find Tweaks/uYou -type f -name "*.dylib" 2>/dev/null; ls -R Tweaks/uYou 2>/dev/null | head -30; exit 1; \
 		fi; \
 		if [[ ! -d $(UYOU_BUNDLE) ]]; then \
-			$(PRINT_FORMAT_ERROR) "Missing bundle at $(UYOU_BUNDLE)"; find Tweaks/uYou -name "*.bundle"; exit 1; \
+			$(PRINT_FORMAT_ERROR) "Missing bundle at $(UYOU_BUNDLE)"; find Tweaks/uYou -type d -name "*.bundle" 2>/dev/null; ls -R Tweaks/uYou 2>/dev/null | head -30; exit 1; \
 		fi; \
 	fi;
 
