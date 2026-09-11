@@ -131,15 +131,32 @@ before-all::
 before-all::
 	@if [[ ! -f $(UYOU_DEB) ]]; then \
 		if [[ "$(UYOU_VERSION)" == "3.0.4.1" ]]; then \
-			curl -s -L "$(UYOU_URL)" -o $(UYOU_DEB); \
+			$(PRINT_FORMAT_BLUE) "Downloading uYou $(UYOU_VERSION)"; \
+			mkdir -p Tweaks/uYou; \
+			curl -s -L -f --retry 3 --retry-delay 5 "$(UYOU_URL)" -o $(UYOU_DEB) || { $(PRINT_FORMAT_ERROR) "Failed to download uYou deb"; exit 1; }; \
 		else \
-			$(PRINT_FORMAT_ERROR) "Missing $(UYOU_DEB) — place your custom deb (e.g. 3.0.4.1 from uYou-3.0.4-src-main) at that path"; exit 1; \
+			$(PRINT_FORMAT_BLUE) "Using custom uYou $(UYOU_VERSION) — expecting $(UYOU_DEB)"; \
 		fi; \
 	fi; \
+	if [[ ! -f $(UYOU_DEB) ]]; then \
+		$(PRINT_FORMAT_ERROR) "Missing $(UYOU_DEB) — place your custom deb at that path"; exit 1; \
+	fi; \
 	if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
-		tar -xf $(UYOU_DEB) -C Tweaks/uYou; tar -xf Tweaks/uYou/data.tar* -C Tweaks/uYou; \
-		if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
-			$(PRINT_FORMAT_ERROR) "Failed to extract uYou"; exit 1; \
+		echo "[DEBUG] Extracting $(UYOU_DEB)..."; \
+		mkdir -p Tweaks/uYou; \
+		tar -xvf $(UYOU_DEB) -C Tweaks/uYou 2>&1 | head -20; \
+		if [[ -f "Tweaks/uYou/data.tar.gz" ]]; then \
+			tar -xzf Tweaks/uYou/data.tar.gz -C Tweaks/uYou; \
+		elif [[ -f "Tweaks/uYou/data.tar.xz" ]]; then \
+			tar -xJf Tweaks/uYou/data.tar.xz -C Tweaks/uYou; \
+		else \
+			find Tweaks/uYou -name "data.tar*" -exec tar -xf {} -C Tweaks/uYou \; 2>/dev/null || true; \
+		fi; \
+		if [[ ! -f $(UYOU_DYLIB) ]]; then \
+			$(PRINT_FORMAT_ERROR) "Missing dylib at $(UYOU_DYLIB)"; find Tweaks/uYou -name "*.dylib" -o -type d -name "MobileSubstrate"; exit 1; \
+		fi; \
+		if [[ ! -d $(UYOU_BUNDLE) ]]; then \
+			$(PRINT_FORMAT_ERROR) "Missing bundle at $(UYOU_BUNDLE)"; find Tweaks/uYou -name "*.bundle"; exit 1; \
 		fi; \
 	fi;
 
