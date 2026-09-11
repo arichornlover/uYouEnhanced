@@ -13,7 +13,7 @@ on:
         type: string
       uyou_version:
         description: "uYou Version"
-        default: "3.0.4"
+        default: "3.0.4.1"
         required: true
         type: string
       decrypted_youtube_url:
@@ -284,16 +284,7 @@ jobs:
           for f in main/packages/*.deb; do
             [ -f "$f" ] && tweaks="$tweaks $f"
           done
-          # -x injects the multicast entitlement into the main binary. This is
-          # required for casting/AirPlay on YouTube versions > 20.10.4, which
-          # now gate the cast button behind com.apple.developer.networking.multicast.
-          # See https://github.com/arichornlover/uYouEnhanced/issues/736
-          #     https://github.com/arichornlover/uYouEnhanced/issues/966
-          #     https://github.com/arichornlover/uYouEnhanced/issues/734
-          # NOTE: The entitlement only takes effect when the app is signed with a
-          # certificate that has multicast approved (paid Apple Developer account).
-          # It is harmless on free-account signing (ignored by the OS).
-          cyan -i "$IPA_IN" -o "$OUTNAME" -uwef $tweaks -n "${{ inputs.app_name }}" -b ${{ inputs.bundle_id }} -x multicast.entitlements
+          cyan -i "$IPA_IN" -o "$OUTNAME" -uwef $tweaks -n "${{ inputs.app_name }}" -b ${{ inputs.bundle_id }}
 
       - name: Embed FFmpegKit Frameworks (if present)
         run: |
