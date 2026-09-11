@@ -12,7 +12,7 @@ DISPLAY_NAME ?= YouTube
 BUNDLE_ID ?= com.google.ios.youtube
 
 ifndef YOUTUBE_VERSION
-YOUTUBE_VERSION = 21.14.4
+YOUTUBE_VERSION = 21.20.4
 endif
 ifndef UYOU_VERSION
 UYOU_VERSION = 3.0.4.1
@@ -80,7 +80,7 @@ UYOU_DEB = $(UYOU_PATH)/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb
 UYOU_DYLIB = $(UYOU_PATH)/Library/MobileSubstrate/DynamicLibraries/uYou.dylib
 UYOU_BUNDLE = $(UYOU_PATH)/Library/Application\ Support/uYouBundle.bundle
 # Dropbox URL only hosts the original 3.0.4 deb — custom versions (e.g. 3.0.4.1 from uYou-3.0.4-src-main) must be placed manually
-UYOU_URL = https://www.dropbox.com/scl/fi/b7gibc3itf41ydnkhfqhn/com.miro.uyou_3.0.4_iphoneos-arm.deb?rlkey=6m0sus20j87setsukhvpyeiuk&st=vlyfz8dt&dl=1
+UYOU_URL = https://www.dropbox.com/scl/fi/2tc63jckug0ygwe2a183a/com.miro.uyou_3.0.4_iphoneos-arm.deb?rlkey=0jdi5a5mi0480fsd2wiv3dqh9&st=jev9wwp3&dl=1
 
 YTUHD_VENDOR_DIR = Tweaks/YTUHD/vendor
 YTUHD_DAV1D_SRC = $(YTUHD_VENDOR_DIR)/dav1d
