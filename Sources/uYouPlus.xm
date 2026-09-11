@@ -301,12 +301,12 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
 %end // gAlwaysOn
 
-// Disable Resume to Shorts - force Home tab on startup
+// Disable Resume to Shorts
 %group gDisableResumeToShorts
 %hook YTAppViewControllerImpl
 - (void)setSelectedIndex:(NSUInteger)index {
-    if (IS_ENABLED(kDisableResumeToShorts) && index == 1) { // 1 is typically Shorts tab
-        %orig(0); // Force Home tab (index 0)
+    if (IS_ENABLED(kDisableResumeToShorts) && index == 1) {
+        %orig(0);
         return;
     }
     %orig(index);
@@ -320,6 +320,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     }
     %orig(index);
 }
+%end
 %end
 
 #pragma mark - [3] Feature Groups
