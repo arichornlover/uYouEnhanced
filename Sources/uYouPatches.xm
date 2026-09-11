@@ -2,6 +2,7 @@
 #import "uYouPatches.h"
 #import "MediaKit/UYTMediaKit.h"
 #import "DownloadPipeline.h"
+#import <YouTubeHeader/YTUIUtils.h>
 #import <sqlite3.h>
 #include <string.h>
 
@@ -515,7 +516,7 @@ static void UYTPresentActionSheet(id controller) {
     @try {
         id topVC = nil;
         if ([%c(YTUIUtils) respondsToSelector:@selector(topViewControllerForPresenting)]) {
-            topVC = [%c(YTUIUtils) topViewControllerForPresenting];
+            topVC = [%c(YTUIUtils) performSelector:@selector(topViewControllerForPresenting)];
         }
         if (!topVC) {
             // Fallback: walk the key window's root VC.
