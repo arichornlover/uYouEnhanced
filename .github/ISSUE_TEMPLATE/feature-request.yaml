@@ -20,7 +20,7 @@ body:
 - type: input
   attributes:
     label: uYouEnhanced version
-    placeholder: "21.xx.x-3.0.4"
+    placeholder: "21.xx.x-3.0.6"
   validations:
     required: true
 
