@@ -35,7 +35,7 @@ I wanted to give you an update on the status of uYouEnhanced. I'm not leaving th
 
 I do my best to address problems when they come up, and I often suggest workarounds, but they don't always work perfectly — especially as YouTube keeps changing with each update.
 
-I'd recommend using uYouEnhanced with **YouTube v21.14.4 or higher** for the best compatibility.
+I'd recommend using uYouEnhanced with **YouTube v21.20.4 or lower** for the best compatibility.
 
 Thanks for understanding!
 
