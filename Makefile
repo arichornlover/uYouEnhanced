@@ -79,7 +79,6 @@ UYOU_PATH = Tweaks/uYou
 UYOU_DEB = $(UYOU_PATH)/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb
 UYOU_DYLIB = $(UYOU_PATH)/Library/MobileSubstrate/DynamicLibraries/uYou.dylib
 UYOU_BUNDLE = $(UYOU_PATH)/Library/Application\ Support/uYouBundle.bundle
-UYOU_URL = https://www.dropbox.com/scl/fi/b7gibc3itf41ydnkhfqhn/com.miro.uyou_3.0.4_iphoneos-arm.deb?rlkey=6m0sus20j87setsukhvpyeiuk&st=cpua440m&dl=1
 
 YTUHD_VENDOR_DIR = Tweaks/YTUHD/vendor
 YTUHD_DAV1D_SRC = $(YTUHD_VENDOR_DIR)/dav1d
@@ -122,46 +121,22 @@ internal-clean::
 ifneq ($(JAILBROKEN),1)
 before-all::
 	@if [[ ! -f $(UYOU_DEB) ]]; then \
-		if [[ "$(UYOU_VERSION)" == "3.0.4" ]]; then \
-			$(PRINT_FORMAT_BLUE) "Downloading uYou $(UYOU_VERSION)"; \
-		else \
-			$(PRINT_FORMAT_BLUE) "Using custom uYou $(UYOU_VERSION) — expecting $(UYOU_DEB)"; \
-		fi; \
+		rm -rf $(UYOU_PATH)/*; \
+		$(PRINT_FORMAT_BLUE) "Downloading uYou"; \
 	fi
 before-all::
 	@if [[ ! -f $(UYOU_DEB) ]]; then \
-		if [[ "$(UYOU_VERSION)" == "3.0.4" ]]; then \
-			$(PRINT_FORMAT_BLUE) "Downloading uYou $(UYOU_VERSION)"; \
-			mkdir -p Tweaks/uYou; \
-			curl -s -L -f --retry 3 --retry-delay 5 "$(UYOU_URL)" -o $(UYOU_DEB) || { $(PRINT_FORMAT_ERROR) "Failed to download uYou deb"; exit 1; }; \
-		else \
-			$(PRINT_FORMAT_BLUE) "Using custom uYou $(UYOU_VERSION) — expecting $(UYOU_DEB)"; \
-		fi; \
-	fi; \
-	if [[ ! -f $(UYOU_DEB) ]]; then \
-		$(PRINT_FORMAT_ERROR) "Missing $(UYOU_DEB) — place your custom deb at that path"; exit 1; \
-	fi; \
+ 		curl -s -L "https://www.dropbox.com/scl/fi/01vvu5lm8nkkicrznku9v/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb?rlkey=efgz7po8kqqvha8doplk1s3ky&dl=1" -o $(UYOU_DEB); \
+ 	fi; \
 	if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
-		echo "[DEBUG] Extracting $(UYOU_DEB)..."; \
-		mkdir -p Tweaks/uYou; \
-		if [[ -f Scripts/extract_deb.py ]]; then \
-			python3 Scripts/extract_deb.py "$(UYOU_DEB)" "Tweaks/uYou"; \
-		elif command -v python3 >/dev/null 2>&1; then \
-			python3 Scripts/extract_deb.py "$(UYOU_DEB)" "Tweaks/uYou" 2>/dev/null || tar -xvf "$(UYOU_DEB)" -C Tweaks/uYou 2>&1 | head -20; \
-		else \
-			tar -xvf $(UYOU_DEB) -C Tweaks/uYou 2>&1 | head -20; \
-			if [[ -f "Tweaks/uYou/data.tar.gz" ]]; then tar -xzf Tweaks/uYou/data.tar.gz -C Tweaks/uYou; \
-			elif [[ -f "Tweaks/uYou/data.tar.xz" ]]; then tar -xJf Tweaks/uYou/data.tar.xz -C Tweaks/uYou; \
-			elif [[ -f "Tweaks/uYou/data.tar.lzma" ]]; then tar --lzma -xf Tweaks/uYou/data.tar.lzma -C Tweaks/uYou 2>/dev/null || python3 -c "import lzma,tarfile,io; tf=tarfile.open(fileobj=io.BytesIO(lzma.decompress(open('Tweaks/uYou/data.tar.lzma','rb').read()))); tf.extractall('Tweaks/uYou')"; \
-			else find Tweaks/uYou -name "data.tar*" -exec tar -xf {} -C Tweaks/uYou \; 2>/dev/null || true; fi; \
+		tar -xf Tweaks/uYou/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb -C Tweaks/uYou; tar -xf Tweaks/uYou/data.tar* -C Tweaks/uYou; \
+		if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
+			$(PRINT_FORMAT_ERROR) "Failed to extract uYou"; exit 1; \
 		fi; \
-		if [[ ! -f $(UYOU_DYLIB) ]]; then \
-			$(PRINT_FORMAT_ERROR) "Missing dylib at $(UYOU_DYLIB)"; find Tweaks/uYou -type f -name "*.dylib" 2>/dev/null; ls -R Tweaks/uYou 2>/dev/null | head -30; exit 1; \
-		fi; \
-		if [[ ! -d $(UYOU_BUNDLE) ]]; then \
-			$(PRINT_FORMAT_ERROR) "Missing bundle at $(UYOU_BUNDLE)"; find Tweaks/uYou -type d -name "*.bundle" 2>/dev/null; ls -R Tweaks/uYou 2>/dev/null | head -30; exit 1; \
-		fi; \
-	fi;
+	fi; \
+	perl -pi -e 's/3\.0\.4/3.0.5/g' $(UYOU_DYLIB); \
+	python3 Scripts/rebrand_uyou.py $(UYOU_DYLIB); \
+	$(PRINT_FORMAT_BLUE) "uYou rebranded to 3.0.5 (Unofficial Build)";
 
 else
 before-package::
