@@ -15,7 +15,7 @@ ifndef YOUTUBE_VERSION
 YOUTUBE_VERSION = 21.20.4
 endif
 ifndef UYOU_VERSION
-UYOU_VERSION = 3.0.4.1
+UYOU_VERSION = 3.0.4
 endif
 PACKAGE_NAME = $(TWEAK_NAME)
 PACKAGE_VERSION = $(YOUTUBE_VERSION)-$(UYOU_VERSION)
@@ -79,7 +79,7 @@ UYOU_PATH = Tweaks/uYou
 UYOU_DEB = $(UYOU_PATH)/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb
 UYOU_DYLIB = $(UYOU_PATH)/Library/MobileSubstrate/DynamicLibraries/uYou.dylib
 UYOU_BUNDLE = $(UYOU_PATH)/Library/Application\ Support/uYouBundle.bundle
-UYOU_URL = https://www.dropbox.com/scl/fi/b7gibc3itf41ydnkhfqhn/com.miro.uyou_3.0.4.1_iphoneos-arm.deb?rlkey=6m0sus20j87setsukhvpyeiuk&st=cpua440m&dl=1
+UYOU_URL = https://www.dropbox.com/scl/fi/b7gibc3itf41ydnkhfqhn/com.miro.uyou_3.0.4_iphoneos-arm.deb?rlkey=6m0sus20j87setsukhvpyeiuk&st=cpua440m&dl=1
 
 YTUHD_VENDOR_DIR = Tweaks/YTUHD/vendor
 YTUHD_DAV1D_SRC = $(YTUHD_VENDOR_DIR)/dav1d
@@ -122,7 +122,7 @@ internal-clean::
 ifneq ($(JAILBROKEN),1)
 before-all::
 	@if [[ ! -f $(UYOU_DEB) ]]; then \
-		if [[ "$(UYOU_VERSION)" == "3.0.4.1" ]]; then \
+		if [[ "$(UYOU_VERSION)" == "3.0.4" ]]; then \
 			$(PRINT_FORMAT_BLUE) "Downloading uYou $(UYOU_VERSION)"; \
 		else \
 			$(PRINT_FORMAT_BLUE) "Using custom uYou $(UYOU_VERSION) — expecting $(UYOU_DEB)"; \
@@ -130,7 +130,7 @@ before-all::
 	fi
 before-all::
 	@if [[ ! -f $(UYOU_DEB) ]]; then \
-		if [[ "$(UYOU_VERSION)" == "3.0.4.1" ]]; then \
+		if [[ "$(UYOU_VERSION)" == "3.0.4" ]]; then \
 			$(PRINT_FORMAT_BLUE) "Downloading uYou $(UYOU_VERSION)"; \
 			mkdir -p Tweaks/uYou; \
 			curl -s -L -f --retry 3 --retry-delay 5 "$(UYOU_URL)" -o $(UYOU_DEB) || { $(PRINT_FORMAT_ERROR) "Failed to download uYou deb"; exit 1; }; \
@@ -144,17 +144,10 @@ before-all::
 	if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
 		echo "[DEBUG] Extracting $(UYOU_DEB)..."; \
 		mkdir -p Tweaks/uYou; \
-		if command -v python3 >/dev/null 2>&1; then \
-			python3 -c "import lzma,tarfile,io,gzip; deb='$(UYOU_DEB)'; d=open(deb,'rb').read(); pos=8; m={}; \
-			\
-			while pos < len(d): \
-				hdr=d[pos:pos+60]; name=hdr[0:16].decode().strip().rstrip('/'); size=int(hdr[48:58].decode().strip()); body=d[pos+60:pos+60+size]; m[name]=body; pos+=60+size+(size%2); \
-			data_name=next((k for k in m if k.startswith('data.tar')), None); \
-			raw=m[data_name]; \
-			\
-			try: raw=lzma.decompress(raw); \
-			except: raw=gzip.decompress(raw); \
-			tf=tarfile.open(fileobj=io.BytesIO(raw)); tf.extractall('Tweaks/uYou'); print(f'Extracted {len(tf.getmembers())} members from {data_name}');"; \
+		if [[ -f Scripts/extract_deb.py ]]; then \
+			python3 Scripts/extract_deb.py "$(UYOU_DEB)" "Tweaks/uYou"; \
+		elif command -v python3 >/dev/null 2>&1; then \
+			python3 Scripts/extract_deb.py "$(UYOU_DEB)" "Tweaks/uYou" 2>/dev/null || tar -xvf "$(UYOU_DEB)" -C Tweaks/uYou 2>&1 | head -20; \
 		else \
 			tar -xvf $(UYOU_DEB) -C Tweaks/uYou 2>&1 | head -20; \
 			if [[ -f "Tweaks/uYou/data.tar.gz" ]]; then tar -xzf Tweaks/uYou/data.tar.gz -C Tweaks/uYou; \
