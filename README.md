@@ -27,20 +27,6 @@
 
 </details>
 
-## About the Future of uYouEnhanced (Updated June 13, 2025)
-
-Hey everyone,
-
-I wanted to give you an update on the status of uYouEnhanced. I'm not leaving the project entirely, but I won't be maintaining it as actively as before. I'll still push commits from time to time to improve things — but realistically, there's no way I can work through all 300+ open issues in this repository.
-
-I do my best to address problems when they come up, and I often suggest workarounds, but they don't always work perfectly — especially as YouTube keeps changing with each update.
-
-I'd recommend using uYouEnhanced with **YouTube v21.20.4 or lower** for the best compatibility.
-
-Thanks for understanding!
-
-And a huge thank you to **qnblackcat**, **PoomSmart**, and all the other developers whose work made this fork possible!
-
 <p align="center">
   <a href="https://user-images.githubusercontent.com/78001398/271790092-006e81cc-715a-4fbc-aff6-15832e2da8c4.png">
     <img src="https://user-images.githubusercontent.com/78001398/271790092-006e81cc-715a-4fbc-aff6-15832e2da8c4.png" alt="UYOUPLUS_LOGO" width="200" height="200">
@@ -436,3 +422,6 @@ See [Installation - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/Installati
 # Wiki
 
 See [arichornlover - Wiki](https://github.com/arichornlover/uYouEnhanced/wiki/) or [qnblackcat - Wiki](https://github.com/qnblackcat/uYouPlus/wiki/)
+
+Scrolled all the way to the bottom?
+Then it is a huge thank you to **qnblackcat**, **PoomSmart**, and all the other developers whose work that made this whole uYouEnhanced fork possible!
