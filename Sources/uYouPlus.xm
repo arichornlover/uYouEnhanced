@@ -1,11 +1,5 @@
-//
-//  uYouPlus.xm — uYouEnhanced main tweak
-//  NOTE: every %group below needs a matching %init() in %ctor to load.
-//
 #import "uYouPlus.h"
 #import "uYouPlusPatches.h"
-
-#pragma mark - Localization Bundle
 
 // Tweak's bundle for Localizations support - @PoomSmart - https://github.com/PoomSmart/YouPiP/commit/aea2473f64c75d73cab713e1e2d5d0a77675024f
 NSBundle *uYouPlusBundle() {
@@ -23,150 +17,282 @@ NSBundle *uYouPlusBundle() {
 NSBundle *tweakBundle = uYouPlusBundle();
 //
 
-#pragma mark - Save To Playlist Reroute
-
-// Make the overlay's save button trigger the real save chip.
-@protocol UYTSlimTapDelegate <NSObject>
-- (void)didTapButton:(id)button fromRect:(CGRect)rect inView:(id)view;
-@end
-
-static BOOL UYTIsSaveChipView(UIView *view) {
-    if (!view) return NO;
-    NSString *ident = view.accessibilityIdentifier ?: @"";
-    return [ident isEqualToString:@"id.video.save_to.playlist.button"] ||
-           [ident containsString:@"save_to_playlist"] ||
-           [ident containsString:@"save.to.playlist"];
+// Notifications Tab appearance
+UIImage *resizeImage(UIImage *image, CGSize newSize) {
+    UIGraphicsBeginImageContextWithOptions(newSize, NO, 0.0);
+    [image drawInRect:CGRectMake(0, 0, newSize.width, newSize.height)];
+    UIImage *resizedImage = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return resizedImage;
 }
 
-static UIView *UYTFindSaveChip(UIView *root, NSInteger depth) {
-    if (!root || depth > 20) return nil;
-    if (UYTIsSaveChipView(root)) return root;
-    for (UIView *sub in root.subviews) {
-        UIView *found = UYTFindSaveChip(sub, depth + 1);
-        if (found) return found;
-    }
-    return nil;
+static int getNotificationIconStyle() {
+    return [[NSUserDefaults standardUserDefaults] integerForKey:@"notificationIconStyle"];
 }
 
-// Candidate windows, foreground scenes first.
-static NSArray<UIWindow *> *UYTCandidateWindows(void) {
-    NSMutableArray<UIWindow *> *windows = [NSMutableArray array];
-    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-        if (![scene isKindOfClass:[UIWindowScene class]]) continue;
-        if (scene.activationState != UISceneActivationStateForegroundActive &&
-            scene.activationState != UISceneActivationStateForegroundInactive) continue;
-        for (UIWindow *w in ((UIWindowScene *)scene).windows) [windows addObject:w];
+// Notifications Tab - @arichornlover & @dayanch96
+%group gShowNotificationsTab
+%hook YTAppPivotBarItemStyle
+- (UIImage *)pivotBarItemIconImageWithIconType:(int)type color:(UIColor *)color useNewIcons:(BOOL)isNew selected:(BOOL)isSelected {
+    NSString *imageName;
+    UIColor *iconColor;
+    switch (getNotificationIconStyle()) {
+        case 1:  // Bold outline style (2024+)
+            imageName = isSelected ? @"notifications_selected" : @"notifications_unselected";
+            iconColor = [%c(YTColor) white1];
+            break;
+        case 2:  // Thin outline style (2020+)
+            imageName = isSelected ? @"notifications_selected" : @"notifications_24pt";
+            iconColor = [%c(YTColor) white1];
+            break;
+        case 3:  // Filled style (2018+)
+            imageName = @"notifications_selected";
+            iconColor = isSelected ? [%c(YTColor) white1] : [UIColor grayColor];
+            break;
+        case 4:  // Inbox style (2014+)
+            imageName = @"inbox_selected";
+            iconColor = isSelected ? [%c(YTColor) white1] : [UIColor grayColor];
+            break;
+        default:  // Default style (2025+)
+            imageName = isSelected ? @"notifications_selected_2025" : @"notifications_unselected_2025";
+            iconColor = [%c(YTColor) white1];
+            break;
     }
-    UIWindow *key = UIApplication.sharedApplication.keyWindow;
-    if (key && ![windows containsObject:key]) [windows insertObject:key atIndex:0];
-    return windows;
+    NSString *imagePath = [tweakBundle pathForResource:imageName ofType:@"png" inDirectory:@"UI"];
+    UIImage *image = [UIImage imageWithContentsOfFile:imagePath];
+    CGSize newSize = CGSizeMake(24, 24);
+    image = resizeImage(image, newSize);
+    image = [%c(QTMIcon) tintImage:image color:iconColor];
+    return type == YT_NOTIFICATIONS ? image : %orig;
 }
-
-// Fire a gesture recognizer's targets directly.
-static BOOL UYTFireGestureTargets(UIView *view) {
-    for (UIGestureRecognizer *gesture in view.gestureRecognizers) {
-        @try {
-            NSArray *targets = [gesture valueForKey:@"_targets"];
-            for (id targetEntry in targets) {
-                id target = [targetEntry valueForKey:@"_target"];
-                NSString *actionName = [targetEntry valueForKey:@"_action"];
-                if (!target || !actionName.length) continue;
-                SEL action = NSSelectorFromString(actionName);
-                if (![target respondsToSelector:action]) continue;
-                NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:
-                    [(id)target methodSignatureForSelector:action]];
-                [invocation setTarget:target];
-                [invocation setSelector:action];
-                if ([invocation.methodSignature numberOfArguments] > 2) {
-                    __strong id arg = gesture;
-                    [invocation setArgument:&arg atIndex:2];
-                }
-                [invocation invoke];
-                NSLog(@"[uYouPlus] Save reroute: fired gesture target %@", actionName);
-                return YES;
-            }
-        } @catch (NSException *e) {}
-    }
-    return NO;
-}
-
-static BOOL UYTActivateRealSaveChip(void) {
-    UIView *chip = nil;
-    for (UIWindow *window in UYTCandidateWindows()) {
-        chip = UYTFindSaveChip(window, 0);
-        if (chip) break;
-    }
-    if (!chip) {
-        NSLog(@"[uYouPlus] Save reroute: real save chip not visible on screen");
-        return NO;
-    }
-
-    // Activate it however we can.
-    if ([chip isKindOfClass:[UIControl class]]) {
-        UIControl *control = (UIControl *)chip;
-        [control sendActionsForControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
-        NSLog(@"[uYouPlus] Save reroute: sent control actions to %@", NSStringFromClass([chip class]));
-        return YES;
-    }
-    if ([chip respondsToSelector:@selector(accessibilityActivate)]) {
-        @try {
-            BOOL ok = [(id)chip accessibilityActivate];
-            if (ok) {
-                NSLog(@"[uYouPlus] Save reroute: activated via accessibilityActivate");
-                return YES;
-            }
-        } @catch (NSException *e) {}
-    }
-    Class slimActionClass = %c(YTSlimVideoDetailsActionView);
-    if (slimActionClass && [chip isKindOfClass:slimActionClass]) {
-        id delegate = [chip respondsToSelector:@selector(delegate)] ? [chip performSelector:@selector(delegate)] : nil;
-        SEL tap = @selector(didTapButton:fromRect:inView:);
-        if (delegate && [delegate respondsToSelector:tap]) {
-            [(id<UYTSlimTapDelegate>)delegate didTapButton:chip fromRect:chip.bounds inView:chip];
-            NSLog(@"[uYouPlus] Save reroute: invoked slim action delegate");
-            return YES;
-        }
-    }
-    if (UYTFireGestureTargets(chip)) return YES;
-
-    NSLog(@"[uYouPlus] Save reroute: chip found (%@) but no activation path matched", NSStringFromClass([chip class]));
-    return NO;
-}
-
-@interface UYTSaveRerouteRouter : NSObject
-+ (instancetype)sharedRouter;
-- (void)rerouteTapped:(UIButton *)sender;
-@end
-@implementation UYTSaveRerouteRouter
-+ (instancetype)sharedRouter {
-    static UYTSaveRerouteRouter *shared;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{ shared = [[self alloc] init]; });
-    return shared;
-}
-- (void)rerouteTapped:(UIButton *)sender {
+%end
+%hook YTPivotBarView
+- (void)setRenderer:(YTIPivotBarRenderer *)renderer {
     @try {
-        if (!UYTActivateRealSaveChip()) {
-            // The real chip may not be materialized yet right after playback
-            // starts — retry once shortly.
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)),
-                           dispatch_get_main_queue(), ^{
-                if (!UYTActivateRealSaveChip()) {
-                    NSLog(@"[uYouPlus] Save reroute: real save chip unavailable");
-                }
-            });
+	YTIBrowseEndpoint *endPoint = [[%c(YTIBrowseEndpoint) alloc] init];
+	[endPoint setBrowseId:@"FEnotifications_inbox"];
+	YTICommand *command = [[%c(YTICommand) alloc] init];
+	[command setBrowseEndpoint:endPoint];
+
+	YTIPivotBarItemRenderer *itemBar = [[%c(YTIPivotBarItemRenderer) alloc] init];
+	[itemBar setPivotIdentifier:@"FEnotifications_inbox"];
+	YTIIcon *icon = [itemBar icon];
+	[icon setIconType:YT_NOTIFICATIONS];
+	[itemBar setNavigationEndpoint:command];
+
+	YTIFormattedString *formatString;
+	if (getNotificationIconStyle() == 3) {
+		formatString = [%c(YTIFormattedString) formattedStringWithString:@"Inbox"];
+	} else {
+		formatString = [%c(YTIFormattedString) formattedStringWithString:@"Notifications"];
+	}
+	[itemBar setTitle:formatString];
+
+	YTIPivotBarSupportedRenderers *barSupport = [[%c(YTIPivotBarSupportedRenderers) alloc] init];
+	[barSupport setPivotBarItemRenderer:itemBar];
+
+        [renderer.itemsArray addObject:barSupport];
+    } @catch (NSException *exception) {
+        NSLog(@"Error setting renderer: %@", exception.reason);
+    }
+    %orig(renderer);
+}
+%end
+%hook YTBrowseViewController
+- (void)viewDidLoad {
+    %orig;
+    @try {
+        YTICommand *navEndpoint = [self valueForKey:@"_navEndpoint"];
+        if ([navEndpoint.browseEndpoint.browseId isEqualToString:@"FEnotifications_inbox"]) {
+            UIViewController *notificationsViewController = [[UIViewController alloc] init];
+            [self addChildViewController:notificationsViewController];
+            // FIXME: View issues
+            [notificationsViewController.view setFrame:CGRectMake(0.0f, 0.0f, self.view.frame.size.width, self.view.frame.size.height)];
+            [self.view addSubview:notificationsViewController.view];
+            [self.view endEditing:YES];
+            [notificationsViewController didMoveToParentViewController:self];
         }
-    } @catch (NSException *e) {
-        NSLog(@"[uYouPlus] Save reroute exception: %@", e);
+    } @catch (NSException *exception) {
+        NSLog(@"Cannot show notifications view controller: %@", exception.reason);
     }
 }
-@end
+%end
+%end
 
-#pragma mark - [2] Always-On Hooks
-
-%group gAlwaysOn
-
-// Hide Player Buttons - moved to Sources/HidePlayerButtons.xm
+// YTHidePlayerButtons 1.0.1 - v20.02.3+ - made by @aricloverEXTRA
+static NSDictionary<NSString *, NSString *> *HideToggleMap(void) {
+    static NSDictionary<NSString *, NSString *> *map = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        map = @{
+            // identifiers
+            @"id.video.share.button": @"hideShareButton_enabled",
+            @"id.ui.add_to.offline.button": @"hideDownloadButton_enabled",
+            @"id.video.remix.button": @"hideRemixButton_enabled",
+            @"clip_button.eml": @"hideClipButton_enabled",
+            @"id.ui.carousel_header": @"hideCommentSection_enabled",
+            // fallbacks
+            @"Like": @"hideLikeButton_enabled", // unidentified identifier
+            @"Dislike": @"hideDislikeButton_enabled", // unidentified identifier
+            @"Share": @"hideShareButton_enabled", // Share Button
+            @"Ask": @"hideAskButton_enabled", // unidentified identifier
+            @"Download": @"hideDownloadButton_enabled", // Download Button
+            @"Hype": @"hideHypeButton_enabled", // unidentified identifier
+            @"Thanks": @"hideThanksButton_enabled", // unidentified identifier
+            @"Remix": @"hideRemixButton_enabled", // Remix Button
+            @"Clip": @"hideClipButton_enabled", // Clip Button
+            @"Save to playlist": @"hideSaveToPlaylistButton_enabled", // unidentified identifier
+            @"Report": @"hideReportButton_enabled", // unidentified identifier
+            @"connect account": @"hideConnectButton_enabled" // unidentified identifier
+        };
+    });
+    return map;
+}
+static BOOL shouldHideForKey(NSString *key) {
+    if (!key) return NO;
+    NSString *pref = HideToggleMap()[key];
+    if (!pref) return NO;
+    return IS_ENABLED(pref);
+}
+static void safeHideView(id view) {
+    if (!view) return;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        @try {
+            if ([view respondsToSelector:@selector(setHidden:)]) {
+                [view setHidden:YES];
+                return;
+            }
+            if ([view isKindOfClass:[UIView class]]) {
+                ((UIView *)view).hidden = YES;
+                return;
+            }
+        } @catch (NSException *ex) {
+            NSLog(@"[HidePlayerButtons] safeHideView exception: %@", ex);
+        }
+    });
+}
+static BOOL inspectAndHideIfMatch(id view) {
+    if (!view) return NO;
+    @try {
+        NSString *accId = nil;
+        if ([view respondsToSelector:@selector(accessibilityIdentifier)]) {
+            @try { accId = [view accessibilityIdentifier]; } @catch (NSException *e) { accId = nil; }
+            if (accId && shouldHideForKey(accId)) {
+                safeHideView(view);
+                return YES;
+            }
+        }
+        NSString *accLabel = nil;
+        if ([view respondsToSelector:@selector(accessibilityLabel)]) {
+            @try { accLabel = [view accessibilityLabel]; } @catch (NSException *e) { accLabel = nil; }
+            if (accLabel && shouldHideForKey(accLabel)) {
+                safeHideView(view);
+                return YES;
+            }
+        }
+        NSString *desc = nil;
+        @try { desc = [[view description] copy]; } @catch (NSException *e) { desc = nil; }
+        if (desc) {
+            for (NSString *key in HideToggleMap().allKeys) {
+                if ([desc containsString:key] && shouldHideForKey(key)) {
+                    safeHideView(view);
+                    return YES;
+                }
+            }
+        }
+    } @catch (NSException *ex) {
+        NSLog(@"[HidePlayerButtons] inspectAndHideIfMatch exception: %@", ex);
+    }
+    return NO;
+}
+static void traverseAndHideViews(UIView *root) {
+    if (!root) return;
+    @try {
+        inspectAndHideIfMatch(root);
+        NSArray<UIView *> *subs = nil;
+        @try { subs = root.subviews; } @catch (NSException *e) { subs = nil; }
+        if (subs && subs.count) {
+            for (UIView *sv in subs) {
+                if ([sv isKindOfClass:[UIView class]]) {
+                    traverseAndHideViews(sv);
+                }
+            }
+        }
+    } @catch (NSException *ex) {
+        NSLog(@"[HidePlayerButtons] traverseAndHideViews exception: %@", ex);
+    }
+}
+static void hideButtonsInActionBarIfNeeded(id collectionView) {
+    if (!collectionView) return;
+    @try {
+        // Ensure the collectionView has accessibilityIdentifier and we only operate on the action bar
+        NSString *accId = nil;
+        if ([collectionView respondsToSelector:@selector(accessibilityIdentifier)]) {
+            @try { accId = [collectionView accessibilityIdentifier]; } @catch (NSException *e) { accId = nil; }
+        }
+        if (!accId) return;
+        if (![accId isEqualToString:@"id.video.scrollable_action_bar"]) return;
+        NSArray *cells = nil;
+        if ([collectionView respondsToSelector:@selector(visibleCells)]) {
+            @try { cells = [collectionView visibleCells]; } @catch (NSException *e) { cells = nil; }
+        }
+        if (!cells || cells.count == 0) {
+            @try { cells = [collectionView subviews]; } @catch (NSException *e) { cells = nil; }
+        }
+        if (!cells || cells.count == 0) return;
+        for (id cell in cells) {
+            if ([cell isKindOfClass:[UIView class]]) {
+                traverseAndHideViews((UIView *)cell);
+            } else {
+                @try {
+                    if ([cell respondsToSelector:@selector(view)]) {
+                        id view = [cell performSelector:@selector(view)];
+                        if ([view isKindOfClass:[UIView class]]) {
+                            traverseAndHideViews((UIView *)view);
+                        }
+                    } else if ([cell respondsToSelector:@selector(node)]) {
+                        NSString *desc = nil;
+                        @try { desc = [cell description]; } @catch (NSException *e) { desc = nil; }
+                        if (desc) {
+                            // Not ideal to act on description, but we keep this non-destructive: only log for debugging
+                            // Uncomment logging for debug builds if needed.
+                            // NSLog(@"[HidePlayerButtons] Non-UIView cell description: %@", desc);
+                        }
+                    }
+                } @catch (NSException *ex) {
+                    NSLog(@"[HidePlayerButtons] Exception handling non-UIView cell: %@", ex);
+                }
+            }
+        }
+    } @catch (NSException *exception) {
+        NSLog(@"[HidePlayerButtons] hideButtonsInActionBarIfNeeded exception: %@", exception);
+    }
+}
+%hook ASCollectionView
+- (id)nodeForItemAtIndexPath:(NSIndexPath *)indexPath {
+    id node = %orig;
+    id weakSelf = (id)self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        @try {
+            hideButtonsInActionBarIfNeeded(weakSelf);
+        } @catch (NSException *e) {
+            NSLog(@"[HidePlayerButtons] async hide exception: %@", e);
+        }
+    });
+    return node;
+}
+- (void)nodesDidRelayout:(NSArray *)nodes {
+    %orig;
+    id weakSelf = (id)self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        @try {
+            hideButtonsInActionBarIfNeeded(weakSelf);
+        } @catch (NSException *e) {
+            NSLog(@"[HidePlayerButtons] relayout hide exception: %@", e);
+        }
+    });
+}
+%end
 
 // Replace YouTube's download with uYou's - 19.30.2+
 YTMainAppControlsOverlayView *controlsOverlayView;
@@ -181,60 +307,36 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     if (IS_ENABLED(kReplaceYTDownloadWithuYou) && [arg2 isKindOfClass:%c(ELMPBShowActionSheetCommand)]) {
         ELMPBShowActionSheetCommand *showCommand = (ELMPBShowActionSheetCommand *)arg2;
         NSArray *listOptions = [showCommand listOptionArray];
-        BOOL overlayAvailable = controlsOverlayView && [controlsOverlayView respondsToSelector:@selector(uYou)];
 
-        NSString *sheetId = showCommand.sheetId;
-        BOOL isOfflineUpsell = (sheetId.length > 0 && [sheetId containsString:@"offline_upsell"]);
-        if (isOfflineUpsell) {
-            HBLogInfo(@"[uYouPlus] offline upsell detected via sheetId: %@", sheetId);
-        }
-
-        for (ELMPBElement *element in isOfflineUpsell ? @[] : listOptions) {
+        for (ELMPBElement *element in listOptions) {
             ELMPBProperties *properties = [element properties];
             if (!properties) continue;
 
-            NSMutableArray<NSString *> *idHints = [NSMutableArray array];
+            NSString *identifier = nil;
 
             if ([properties respondsToSelector:@selector(firstSubmessage)]) {
                 id sub = [properties firstSubmessage];
-                if ([sub respondsToSelector:@selector(identifier)] && [sub identifier]) {
-                    [idHints addObject:[sub identifier]];
+                if ([sub respondsToSelector:@selector(identifier)]) {
+                    identifier = [sub identifier];
                 }
-            }
-            if ([properties respondsToSelector:@selector(submessageAtIndex:)]) {
+            } else if ([properties respondsToSelector:@selector(submessageAtIndex:)]) {
                 id sub = [properties submessageAtIndex:0];
-                if ([sub respondsToSelector:@selector(identifier)] && [sub identifier]) {
-                    [idHints addObject:[sub identifier]];
+                if ([sub respondsToSelector:@selector(identifier)]) {
+                    identifier = [sub identifier];
+                }
+            } else if ([properties respondsToSelector:@selector(description)]) {
+                NSString *desc = [properties description];
+                if ([desc containsString:@"offline_upsell_dialog"]) {
+                    identifier = @"offline_upsell_dialog";
                 }
             }
-            NSString *desc = [properties description] ?: @"";
 
-            BOOL isOfflineUpsell = NO;
-            for (NSString *hint in idHints) {
-                if ([hint containsString:@"offline_upsell"]) {
-                    isOfflineUpsell = YES;
-                    break;
-                }
-            }
-            if (!isOfflineUpsell && [desc containsString:@"offline_upsell_dialog"]) {
-                isOfflineUpsell = YES;
-            }
-
-            if (isOfflineUpsell) {
-                if (overlayAvailable) {
-                    HBLogInfo(@"[uYouPlus] intercepted offline upsell sheet — launching uYou download");
+            if (identifier && [identifier containsString:@"offline_upsell_dialog"]) {
+                if (controlsOverlayView && [controlsOverlayView respondsToSelector:@selector(uYou)]) {
                     [controlsOverlayView uYou];
-                    return;
                 }
-                HBLogWarn(@"[uYouPlus] offline upsell detected but YTMainAppControlsOverlayView was never "
-                          "captured (iPad layout?) — showing original sheet");
-                break;
+                return;
             }
-        }
-
-        if (!overlayAvailable) {
-            HBLogInfo(@"[uYouEnhanced] action sheet with %lu option(s); overlay view not captured",
-                      (unsigned long)listOptions.count);
         }
     }
     %orig;
@@ -253,10 +355,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
         [[%c(FLEXManager) performSelector:@selector(sharedManager)] performSelector:@selector(showExplorer)];
     }
 
-    // Disable resume to Shorts
-    if (IS_ENABLED(kDisableResumeToShorts)) {
-    }
-
     return didFinishLaunching;
 }
 - (void)appWillResignActive:(id)arg1 {
@@ -267,7 +365,32 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 %end
 
-// YTPlayerOverlayManager + NSFileManager fix - moved to Sources/uYouPlusPatches.xm
+// Fixes uYou crash when trying to play video (#1422)
+%hook YTPlayerOverlayManager
+%property (nonatomic, assign) float currentPlaybackRate;
+
+%new
+- (void)setCurrentPlaybackRate:(float)rate {
+    [self varispeedSwitchController:self.varispeedController didSelectRate:rate];
+}
+
+%new
+- (void)setPlaybackRate:(float)rate {
+    [self varispeedSwitchController:self.varispeedController didSelectRate:rate];
+}
+%end
+
+// Fix App Group Directory by move it to document directory
+%hook NSFileManager
+- (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
+    if (groupIdentifier != nil) {
+        NSArray *paths = [[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask];
+        NSURL *documentsURL = [paths lastObject];
+        return [documentsURL URLByAppendingPathComponent:@"AppGroup"];
+    }
+    return %orig(groupIdentifier);
+}
+%end
 
 // Remove App Rating Prompt in YouTube (for Sideloaded - iOS 14+) - @arichornlover
 %hook SKStoreReviewController
@@ -279,55 +402,271 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 - (BOOL)supportsAlternateIcons {
     return YES;
 }
-- (NSString *)alternateIconName {
-    NSString *savedIcon = [[NSUserDefaults standardUserDefaults] stringForKey:@"customAppIcon_name"];
-    BOOL enabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"appIconCustomization_enabled"];
-    if (enabled && savedIcon.length > 0) {
-        return savedIcon;
-    }
-    return %orig;
+%end
+
+// uYou AdBlock Workaround LITE (This Version will only remove ads from only Videos/Shorts!) - @PoomSmart
+%group uYouAdBlockingWorkaroundLite
+%hook YTHotConfig
+- (BOOL)disableAfmaIdfaCollection { return NO; }
+%end
+%hook YTIPlayerResponse
+%new(@@:)
+- (NSMutableArray *)playerAdsArray {
+    return [NSMutableArray array];
 }
-- (void)setAlternateIconName:(NSString *)alternateIconName completionHandler:(void (^)(NSError *_Nullable))completionHandler {
-    if (alternateIconName.length > 0) {
-        [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"appIconCustomization_enabled"];
-        [[NSUserDefaults standardUserDefaults] setObject:alternateIconName forKey:@"customAppIcon_name"];
-    } else {
-        [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"appIconCustomization_enabled"];
-        [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"customAppIcon_name"];
-    }
+%new(@@:)
+- (NSMutableArray *)adSlotsArray {
+    return [NSMutableArray array];
+}
+%end
+
+%hook YTIClientMdxGlobalConfig
+%new(B@:)
+- (BOOL)enableSkippableAd { return YES; }
+%end
+
+%hook YTHotConfig
+- (BOOL)clientInfraClientConfigIosEnableFillingEncodedHacksInnertubeContext { return NO; }
+%end
+
+%hook YTAdShieldUtils
++ (id)spamSignalsDictionary { return @{}; }
++ (id)spamSignalsDictionaryWithoutIDFA { return @{}; }
+%end
+
+%hook YTDataUtils
++ (id)spamSignalsDictionary { return @{ @"ms": @"" }; }
++ (id)spamSignalsDictionaryWithoutIDFA { return @{}; }
+%end
+
+%hook YTAdsInnerTubeContextDecorator
+- (void)decorateContext:(id)context {
+    %orig(nil);
+}
+%end
+
+%hook YTAccountScopedAdsInnerTubeContextDecorator
+- (void)decorateContext:(id)context {
+    %orig(nil);
+}
+%end
+
+%hook YTLocalPlaybackController
+- (id)createAdsPlaybackCoordinator { return nil; }
+%end
+
+%hook MDXSession
+- (void)adPlaying:(id)ad {}
+%end
+
+%hook YTReelInfinitePlaybackDataSource
+- (YTReelModel *)makeContentModelForEntry:(id)entry {
+    YTReelModel *model = %orig;
+    if ([model respondsToSelector:@selector(videoType)] && model.videoType == 3)
+        return nil;
+    return model;
+}
+%end
+%end
+
+// uYou AdBlock Workaround (Note: disables uYou's "Remove YouTube Ads" YouTube-X Option) - @PoomSmart, @arichornlover & @Dodieboy
+%group uYouAdBlockingWorkaround
+// Workaround: uYou 3.0.3 Adblock fix
+%hook YTHotConfig
+- (BOOL)disableAfmaIdfaCollection { return NO; }
+%end
+%hook YTIPlayerResponse
+%new(@@:)
+- (NSMutableArray *)playerAdsArray {
+    return [NSMutableArray array];
+}
+%new(@@:)
+- (NSMutableArray *)adSlotsArray {
+    return [NSMutableArray array];
+}
+%end
+%hook YTIClientMdxGlobalConfig
+%new(B@:)
+- (BOOL)enableSkippableAd { return YES; }
+%end
+%hook YTHotConfig
+- (BOOL)clientInfraClientConfigIosEnableFillingEncodedHacksInnertubeContext { return NO; }
+%end
+%hook YTAdShieldUtils
++ (id)spamSignalsDictionary { return @{}; }
++ (id)spamSignalsDictionaryWithoutIDFA { return @{}; }
+%end
+%hook YTDataUtils
++ (id)spamSignalsDictionary { return @{ @"ms": @"" }; }
++ (id)spamSignalsDictionaryWithoutIDFA { return @{}; }
+%end
+%hook YTLocalPlaybackController
+- (id)createAdsPlaybackCoordinator { return nil; }
+%end
+%hook MDXSession
+- (void)adPlaying:(id)ad {}
+%end
+%hook MDXSessionImpl
+- (void)adPlaying:(id)ad {}
+%end
+%hook YTReelDataSource
+- (YTReelModel *)makeContentModelForEntry:(id)entry {
+    YTReelModel *model = %orig;
+    if ([model respondsToSelector:@selector(videoType)] && model.videoType == 3)
+        return nil;
+    return model;
+}
+%end
+%hook YTReelInfinitePlaybackDataSource
+- (YTReelModel *)makeContentModelForEntry:(id)entry {
+    YTReelModel *model = %orig;
+    if ([model respondsToSelector:@selector(videoType)] && model.videoType == 3)
+        return nil;
+    return model;
+}
+- (void)setReels:(NSMutableOrderedSet <YTReelModel *> *)reels {
+    [reels removeObjectsAtIndexes:[reels indexesOfObjectsPassingTest:^BOOL(YTReelModel *obj, NSUInteger idx, BOOL *stop) {
+        return [obj respondsToSelector:@selector(videoType)] ? obj.videoType == 3 : NO;
+    }]];
     %orig;
 }
 %end
-
-%end // gAlwaysOn
-
-// Disable Resume to Shorts
-%group gDisableResumeToShorts
-%hook YTAppViewControllerImpl
-- (void)setSelectedIndex:(NSUInteger)index {
-    if (IS_ENABLED(kDisableResumeToShorts) && index == 1) {
-        %orig(0);
-        return;
+static BOOL isProductList(YTICommand *command) {
+    if ([command respondsToSelector:@selector(yt_showEngagementPanelEndpoint)]) {
+        YTIShowEngagementPanelEndpoint *endpoint = [command yt_showEngagementPanelEndpoint];
+        return [endpoint.identifier.tag isEqualToString:@"PAproduct_list"];
     }
-    %orig(index);
+    return NO;
+}
+%hook YTWatchNextResponseViewController
+- (void)loadWithModel:(YTIWatchNextResponse *)model {
+    YTICommand *onUiReady = model.onUiReady;
+    if ([onUiReady respondsToSelector:@selector(yt_commandExecutorCommand)]) {
+        YTICommandExecutorCommand *commandExecutorCommand = [onUiReady yt_commandExecutorCommand];
+        NSMutableArray <YTICommand *> *commandsArray = commandExecutorCommand.commandsArray;
+        [commandsArray removeObjectsAtIndexes:[commandsArray indexesOfObjectsPassingTest:^BOOL(YTICommand *command, NSUInteger idx, BOOL *stop) {
+            return isProductList(command);
+        }]];
+    }
+    if (isProductList(onUiReady))
+        model.onUiReady = nil;
+    %orig;
 }
 %end
-%hook YTTabBarController
-- (void)setSelectedIndex:(NSUInteger)index {
-    if (IS_ENABLED(kDisableResumeToShorts) && index == 1) {
-        %orig(0);
-        return;
+%hook YTMainAppVideoPlayerOverlayViewController
+- (void)playerOverlayProvider:(YTPlayerOverlayProvider *)provider didInsertPlayerOverlay:(YTPlayerOverlay *)overlay {
+    if ([[overlay overlayIdentifier] isEqualToString:@"player_overlay_product_in_video"]) return;
+    %orig;
+}
+%end
+NSString *getAdString(NSString *description) {
+    for (NSString *str in @[
+        @"brand_promo",
+        @"brand_video_shelf",
+        @"carousel_footered_layout",
+        @"carousel_headered_layout",
+        @"eml.expandable_metadata",
+        @"feed_ad_metadata",
+        @"full_width_portrait_image_layout",
+        @"full_width_square_image_layout",
+        @"grid_ads_image_layout",
+        @"landscape_image_wide_button_layout",
+        @"post_shelf",
+        @"product_carousel",
+        @"product_engagement_panel",
+        @"product_item",
+        @"shopping_carousel",
+        @"shopping_item_card_list",
+        @"statement_banner",
+        @"square_image_layout",
+        @"text_image_button_layout",
+        @"text_search_ad",
+        @"video_display_full_layout",
+        @"video_display_full_buttoned_layout"
+    ])
+        if ([description containsString:str]) return str;
+    return nil;
+}
+static BOOL isAdRenderer(YTIElementRenderer *elementRenderer, int kind) {
+    if ([elementRenderer respondsToSelector:@selector(hasCompatibilityOptions)] && elementRenderer.hasCompatibilityOptions && elementRenderer.compatibilityOptions.hasAdLoggingData) {
+        HBLogDebug(@"YTX adLogging %d %@", kind, elementRenderer);
+        return YES;
     }
-    %orig(index);
+    NSString *description = [elementRenderer description];
+    NSString *adString = getAdString(description);
+    if (adString) {
+        HBLogDebug(@"YTX getAdString %d %@ %@", kind, adString, elementRenderer);
+        return YES;
+    }
+    return NO;
+}
+static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItemSectionRenderer *> *array) {
+    NSMutableArray <YTIItemSectionRenderer *> *newArray = [array mutableCopy];
+    NSIndexSet *removeIndexes = [newArray indexesOfObjectsPassingTest:^BOOL(YTIItemSectionRenderer *sectionRenderer, NSUInteger idx, BOOL *stop) {
+        if ([sectionRenderer isKindOfClass:%c(YTIShelfRenderer)]) {
+            YTIShelfSupportedRenderers *content = ((YTIShelfRenderer *)sectionRenderer).content;
+            YTIHorizontalListRenderer *horizontalListRenderer = content.horizontalListRenderer;
+            NSMutableArray <YTIHorizontalListSupportedRenderers *> *itemsArray = horizontalListRenderer.itemsArray;
+            NSIndexSet *removeItemsArrayIndexes = [itemsArray indexesOfObjectsPassingTest:^BOOL(YTIHorizontalListSupportedRenderers *horizontalListSupportedRenderers, NSUInteger idx2, BOOL *stop2) {
+                YTIElementRenderer *elementRenderer = horizontalListSupportedRenderers.elementRenderer;
+                return isAdRenderer(elementRenderer, 4);
+            }];
+            [itemsArray removeObjectsAtIndexes:removeItemsArrayIndexes];
+        }
+        if (![sectionRenderer isKindOfClass:%c(YTIItemSectionRenderer)])
+            return NO;
+        NSMutableArray <YTIItemSectionSupportedRenderers *> *contentsArray = sectionRenderer.contentsArray;
+        if (contentsArray.count > 1) {
+            NSIndexSet *removeContentsArrayIndexes = [contentsArray indexesOfObjectsPassingTest:^BOOL(YTIItemSectionSupportedRenderers *sectionSupportedRenderers, NSUInteger idx2, BOOL *stop2) {
+                YTIElementRenderer *elementRenderer = sectionSupportedRenderers.elementRenderer;
+                return isAdRenderer(elementRenderer, 3);
+            }];
+            [contentsArray removeObjectsAtIndexes:removeContentsArrayIndexes];
+        }
+        YTIItemSectionSupportedRenderers *firstObject = [contentsArray firstObject];
+        YTIElementRenderer *elementRenderer = firstObject.elementRenderer;
+        return isAdRenderer(elementRenderer, 2);
+    }];
+    [newArray removeObjectsAtIndexes:removeIndexes];
+    return newArray;
+}
+%hook _ASDisplayView
+- (void)didMoveToWindow {
+    %orig;
+    if (([self.accessibilityIdentifier isEqualToString:@"eml.expandable_metadata.vpp"]))
+        [self removeFromSuperview];
+}
+%end
+%hook YTInnerTubeCollectionViewController
+- (void)displaySectionsWithReloadingSectionControllerByRenderer:(id)renderer {
+    NSMutableArray *sectionRenderers = [self valueForKey:@"_sectionRenderers"];
+    [self setValue:filteredArray(sectionRenderers) forKey:@"_sectionRenderers"];
+    %orig;
+}
+- (void)addSectionsFromArray:(NSArray <YTIItemSectionRenderer *> *)array {
+    %orig(filteredArray(array));
 }
 %end
 %end
 
-#pragma mark - [3] Feature Groups
-// Everything below is opt-in/opt-out via settings keys; each %group MUST have
-// a matching %init(...) in %ctor at the bottom of this file.
-
-// Ad Blocking - moved to Sources/AdBlocking.xm
+// Settings Menu with Blur Style - @arichornlover
+// %group gSettingsStyle
+// %hook YTWrapperSplitView
+// - (void)viewDidLoad {
+//     [super viewDidLoad];
+//     UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
+//     UIVisualEffectView *blurView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
+//     blurView.frame = self.view.bounds;
+//     blurView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+//     [self.view addSubview:blurView];
+//     [self.view sendSubviewToBack:blurView];
+//     // Apply dark theme if pageStyle is set to dark
+//     if ([[NSUserDefaults standardUserDefaults] integerForKey:@"page_style"] == 1) {
+//         self.view.backgroundColor = [UIColor blackColor];
+//     }
+// }
+// %end
+// %end
 
 // Hide YouTube Logo - @dayanch96
 %group gHideYouTubeLogo
@@ -347,38 +686,42 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 
 // Center YouTube Logo - @arichornlover
-// Centers YTNavigationBarTitleView in layoutSubviews.
 %group gCenterYouTubeLogo
 %hook YTNavigationBarTitleView
-- (void)layoutSubviews {
-    %orig;
-    @try {
-        UIView *superview = self.superview;
-        if (!superview || superview.bounds.size.width <= 0) return;
-
-        if (self.hidden || self.frame.size.width <= 0) return;
-
-        CGRect frame = self.frame;
-        CGFloat centeredX = (superview.bounds.size.width - frame.size.width) / 2;
-        if (fabs(centeredX - frame.origin.x) > 0.5) {
-            frame.origin.x = centeredX;
+- (void)alignCustomViewToCenterOfWindow {
+    UIView *superview = self.superview;
+    if (!superview) return;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        @try {
+            CGRect frame = self.frame;
+            CGFloat newX = (superview.bounds.size.width - frame.size.width) / 2;
+            frame.origin.x = newX;
             self.frame = frame;
+            [self setNeedsLayout];
+            [self layoutIfNeeded];
+        } @catch (NSException *ex) {
+            NSLog(@"[alignCustomViewToCenterOfWindow] Exception: %@", ex);
         }
-    } @catch (NSException *ex) {
-        NSLog(@"[CenterYouTubeLogo] Exception: %@", ex);
-    }
+    });
 }
 %end
 %end
 
-%group gMisc1
-
 // YTMiniPlayerEnabler: https://github.com/level3tjg/YTMiniplayerEnabler/
+// NOTE The mini player state update logic has moved to YTWatchMiniBarVisibilityController.
+// This hook is kept for backwards compat (v20.xx.x - v21.xx.x); Logos safely no-ops on missing classes.
 %hook YTWatchMiniBarViewController
 - (void)updateMiniBarPlayerStateFromRenderer {
-    if (!IS_ENABLED(kYTMiniPlayer)) {
-        %orig;
-    }
+    if (IS_ENABLED(kYTMiniPlayer)) {}
+    else { return %orig; }
+}
+%end
+
+// Modernized YTMiniPlayerEnabler for v21.xx.x+
+%hook YTWatchMiniBarVisibilityController
+- (void)updateMiniBarPlayerStateFromRenderer {
+    if (IS_ENABLED(kYTMiniPlayer)) {}
+    else { return %orig; }
 }
 %end
 
@@ -388,7 +731,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     if (IS_ENABLED(kHideHoverCards))
         hidden = YES;
     %orig;
-}
 %end
 
 // YTClassicVideoQuality: https://github.com/PoomSmart/YTClassicVideoQuality
@@ -416,11 +758,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 - (BOOL)enableIosFloatingMiniplayerRepositioning { return IS_ENABLED(@"floatingMiniplayer2_enabled"); } // Floating Miniplayer (Repositioning Support, Removes Swiping Up Gesture) - deprecated fla[...]
 %end
 
-%end // gMisc1
-
 // Fix Casting: https://github.com/arichornlover/uYouEnhanced/issues/606#issuecomment-2098289942
-// NOTE: These A/B flags aren't working in YouTube 19.24.2+ and no longer
-// affect casting on newer versions.
 %group gFixCasting
 %hook YTColdConfig
 - (BOOL)cxClientEnableIosLocalNetworkPermissionReliabilityFixes { return YES; }
@@ -431,8 +769,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 - (BOOL)isPromptForLocalNetworkPermissionsEnabled { return YES; } // deprecated flag ⚠️
 %end
 %end
-
-%group gMisc2
 
 // NOYTPremium - https://github.com/PoomSmart/NoYTPremium/
 %hook YTCommerceEventGroupHandler
@@ -489,8 +825,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 // }
 // %end
 
-%end // gMisc2
-
 // Hide "Get Youtube Premium" in "You" tab - @bhackel
 %group gHidePremiumPromos
 %hook YTAppCollectionViewController
@@ -530,8 +864,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %end
 
-%group gMisc3
-
 // YouTube Premium logo - @bhackel & @Tonwalter888
 %hook YTHeaderLogoController
 - (void)setTopbarLogoRenderer:(YTITopbarLogoRenderer *)renderer {
@@ -554,12 +886,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
         %orig;
     }
 }
-- (BOOL)isPremiumLogo {
-    if (IS_ENABLED(kYTPremiumLogo)) {
-        return YES;
-    }
-    return %orig;
-}
+- (BOOL)isPremiumLogo { return IS_ENABLED(kYTPremiumLogo) ? YES : %orig; }
 %end
 
 %hook YTHeaderLogoControllerImpl
@@ -583,12 +910,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
         %orig;
     }
 }
-- (BOOL)isPremiumLogo {
-    if (IS_ENABLED(kYTPremiumLogo)) {
-        return YES;
-    }
-    return %orig;
-}
+- (BOOL)isPremiumLogo { return IS_ENABLED(kYTPremiumLogo) ? YES : %orig; }
 %end
 
 // Disable animated YouTube Logo - @bhackel
@@ -604,9 +926,8 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 // YTNoPaidPromo: https://github.com/PoomSmart/YTNoPaidPromo
 %hook YTMainAppVideoPlayerOverlayViewController
 - (void)setPaidContentWithPlayerData:(id)data {
-    if (!IS_ENABLED(kHidePaidPromotionCard)) {
-        %orig;
-    }
+    if (IS_ENABLED(kHidePaidPromotionCard)) {}
+    else { return %orig; }
 }
 - (void)playerOverlayProvider:(YTPlayerOverlayProvider *)provider didInsertPlayerOverlay:(YTPlayerOverlay *)overlay {
     if ([[overlay overlayIdentifier] isEqualToString:@"player_overlay_paid_content"] && IS_ENABLED(kHidePaidPromotionCard)) return;
@@ -616,13 +937,10 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
 %hook YTInlineMutedPlaybackPlayerOverlayViewController
 - (void)setPaidContentWithPlayerData:(id)data {
-    if (!IS_ENABLED(kHidePaidPromotionCard)) {
-        %orig;
-    }
+    if (IS_ENABLED(kHidePaidPromotionCard)) {}
+    else { return %orig; }
 }
 %end
-
-%end // gMisc3
 
 // Classic Video Player (Restores the v16.xx.x Video Player Functionality) - @arichornlover
 // To-do: disabling "Precise Video Scrubbing" https://9to5google.com/2022/06/29/youtube-precise-video-scrubbing/
@@ -663,14 +981,17 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %hook YTInlinePlayerBarContainerView
 - (BOOL)canShowHeatwave { return NO; }
 %end
+%hook YTPlayerBarHeatwaveView
+- (id)initWithFrame:(CGRect)frame heatmap:(id)heat {
+    return NULL;
+}
+%end
 %hook YTPlayerBarController
 - (void)setHeatmap:(id)arg1 {
     %orig(NULL);
 }
 %end
 %end
-
-%group gSection5
 
 // YTNoSuggestedVideo - https://github.com/bhackel/YTNoSuggestedVideo
 %hook YTMainAppVideoPlayerOverlayViewController
@@ -681,8 +1002,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     return %orig;
 }
 %end
-
-%end // gSection5
 
 // YTTapToSeek - https://github.com/bhackel/YTTapToSeek
 %group gYTTapToSeek
@@ -724,11 +1043,10 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     if (IS_ENABLED(@"hideNotificationButton_enabled")) {
         self.notificationButton.hidden = YES;
     }
-    // iSponsorBlock integration temporarily disabled for stability.
-    // if (IS_ENABLED(kHideiSponsorBlockButton) && [self respondsToSelector:@selector(sponsorBlockButton)]) {
-    //     self.sponsorBlockButton.hidden = YES;
-    //     self.sponsorBlockButton.frame = CGRectZero;
-    // }
+    if (IS_ENABLED(kHideiSponsorBlockButton)) { 
+        self.sponsorBlockButton.hidden = YES;
+        self.sponsorBlockButton.frame = CGRectZero;
+    }
 }
 %end
 
@@ -756,16 +1074,11 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 
 # pragma mark - uYouPlus
-
-%group gSection6
-
 // Video Player Options
 // Skips content warning before playing *some videos - @PoomSmart
 %hook YTPlayabilityResolutionUserActionUIController
 - (void)showConfirmAlert { [self confirmAlertDidPressConfirm]; }
 %end
-
-%end // gSection6
 
 // Portrait Fullscreen - @Dayanch96
 %group gPortraitFullscreen
@@ -789,8 +1102,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %end
 
-%group gSection7
-
 // Disable Double tap to skip chapter - @bhackel
 %hook YTDoubleTapToSeekController
 - (void)didTwoFingerDoubleTap:(id)arg1 {
@@ -811,14 +1122,18 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 %end
 
+%hook YTIPlayerBarPlayingState
+- (BOOL)enableSnapToChapter {
+    return IS_ENABLED(kSnapToChapter) ? NO : %orig;
+}
+%end
+
 // Disable Pinch to zoom
 %hook YTColdConfig
 - (BOOL)videoZoomFreeZoomEnabledGlobalConfig {
     return IS_ENABLED(kPinchToZoom) ? NO : %orig;
 }
 %end
-
-%end // gSection7
 
 // Use stock iOS volume HUD
 // Use YTColdConfig's method, see https://x.com/PoomSmart/status/1756904290445332653
@@ -834,8 +1149,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 %end
 %end
-
-%group gSection8
 
 %hook YTColdConfig
 - (BOOL)speedMasterArm2FastForwardWithoutSeekBySliding {
@@ -853,8 +1166,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     }
 }
 %end
-
-%end // gSection8
 
 // Disable pull to enter vertical/portrait fullscreen gesture - @bhackel
 // This was introduced in version 19.XX
@@ -877,58 +1188,9 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %end
 
-@interface YTMainAppControlsOverlayView (uYouEnhanced)
-- (void)uyt_attachSaveRerouteToSubviews:(UIView *)view depth:(NSInteger)depth;
-@end
-
-%group gSection9
-
 // Video Controls Overlay Options
 // Hide CC / Hide Autoplay switch / Hide YTMusic Button / Enable Share Button / Enable Save to Playlist Button
 %hook YTMainAppControlsOverlayView
-// Attach the reroute to any save/add-to control in the overlay.
-%new - (void)uyt_attachSaveRerouteToSubviews:(UIView *)view depth:(NSInteger)depth {
-    if (!view || depth > 8) return;
-    for (UIView *sub in [view.subviews copy]) {
-        if ([sub isKindOfClass:[UIControl class]]) {
-            NSString *ident = sub.accessibilityIdentifier.lowercaseString ?: @"";
-            NSString *lbl = sub.accessibilityLabel.lowercaseString ?: @"";
-            BOOL isSaveButton = [ident containsString:@"save_to"] || [ident containsString:@"add_to"]
-                             || [lbl containsString:@"save"] || [lbl containsString:@"add to"];
-            if (isSaveButton) {
-                id router = [UYTSaveRerouteRouter sharedRouter];
-                SEL reroute = @selector(rerouteTapped:);
-                NSArray *existing = [(UIControl *)sub actionsForTarget:router forControlEvent:UIControlEventTouchUpInside];
-                if (![existing containsObject:NSStringFromSelector(reroute)]) {
-                    [(UIControl *)sub addTarget:router action:reroute
-                                 forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
-                    NSLog(@"[uYouPlus] Save reroute attached via overlay scan (%@ / %@)", ident, lbl);
-                }
-            }
-        }
-        [self uyt_attachSaveRerouteToSubviews:sub depth:depth + 1];
-    }
-}
-- (YTQTMButton *)buttonWithImage:(UIImage *)image accessibilityLabel:(NSString *)accessibilityLabel verticalContentPadding:(CGFloat)verticalContentPadding {
-    YTQTMButton *button = %orig;
-    if (IS_ENABLED(kEnableSaveToButton) && button) {
-        NSString *ident = button.accessibilityIdentifier.lowercaseString ?: @"";
-        NSString *lbl = accessibilityLabel.lowercaseString ?: @"";
-        BOOL isSaveButton = [ident containsString:@"save_to"] || [ident containsString:@"add_to"]
-                         || [lbl containsString:@"save"];
-        if (isSaveButton) {
-            id router = [UYTSaveRerouteRouter sharedRouter];
-            SEL reroute = @selector(rerouteTapped:);
-            NSArray *existing = [button actionsForTarget:router forControlEvent:UIControlEventTouchUpInside];
-            if (![existing containsObject:NSStringFromSelector(reroute)]) {
-                [button addTarget:router action:reroute
-                           forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
-                NSLog(@"[uYouPlus] Save reroute attached to overlay button (%@)", accessibilityLabel);
-            }
-        }
-    }
-    return button;
-}
 - (void)setClosedCaptionsOrSubtitlesButtonAvailable:(BOOL)arg1 { // hide CC button
     if (IS_ENABLED(kHideCC)) {
         %orig(NO);
@@ -937,9 +1199,8 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     }
 }
 - (void)setAutoplaySwitchButtonRenderer:(id)arg1 { // hide Autoplay
-    if (!IS_ENABLED(kHideAutoplaySwitch)) {
-        %orig;
-    }
+    if (IS_ENABLED(kHideAutoplaySwitch)) {}
+    else { return %orig; }
 }
 - (void)setYoutubeMusicButton:(id)arg1 {
     if (IS_ENABLED(kHideYTMusicButton)) {
@@ -957,7 +1218,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 - (void)setAddToButtonAvailable:(BOOL)arg1 {
     if (IS_ENABLED(kEnableSaveToButton)) {
         %orig(YES);
-        [self uyt_attachSaveRerouteToSubviews:self depth:0];
     } else {
         %orig(NO);
     }
@@ -989,8 +1249,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 %end
 
-%end // gSection9
-
 // Hide Fullscreen Button - @arichornlover
 %group gHideFullscreenButton
 %hook YTInlinePlayerBarContainerView
@@ -1010,14 +1268,23 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %end
 
-%group gSection10
+// Hide HUD Messages
+%hook YTHUDMessageView
+- (id)initWithMessage:(id)arg1 dismissHandler:(id)arg2 {
+    return IS_ENABLED(kHideHUD) ? nil : %orig;
+}
+%end
 
 // Hide Channel Watermark
-// (YTHUDMessageView / YTAnnotationsViewController removed — classes no longer
-// exist in YouTube 21.x per PoomSmart/YouTubeHeader)
 %hook YTColdConfig
 - (BOOL)iosEnableFeaturedChannelWatermarkOverlayFix {
     return IS_ENABLED(kHideChannelWatermark) ? NO : %orig;
+}
+%end
+%hook YTAnnotationsViewController
+- (void)loadFeaturedChannelWatermark {
+    if (IS_ENABLED(kHideChannelWatermark)) {}
+    else { return %orig; }
 }
 %end
 
@@ -1053,8 +1320,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 %end
 
-%end // gSection10
-
 // Hide previous and next buttons in all videos - @bhackel
 %group gHidePreviousAndNextButton
 %hook YTColdConfig
@@ -1067,16 +1332,12 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %end
 
-%group gSection11
-
 // Hide Video Title when in Fullscreen - @arichornlover
 %hook YTMainAppControlsOverlayView
 - (BOOL)titleViewHidden {
     return IS_ENABLED(@"hideVideoTitle_enabled") ? YES : %orig;
 }
 %end
-
-%end // gSection11
 
 // Hide Dark Overlay Background - @Dayanch96
 %group gHideOverlayDarkBackground
@@ -1111,9 +1372,17 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
 // Bring back the Red Progress Bar and Gray Buffer Progress
 %group gRedProgressBar
+%hook YTPlayerBarSegmentView
+- (void)setBufferedProgressBarColor:(id)arg1 {
+     [UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50];
+}
+%end
+
+// Backwards compat: YTSegmentableInlinePlayerBarView
+// Kept for older YouTube versions (v20.xx.x - v21.xx.x).
 %hook YTSegmentableInlinePlayerBarView
 - (void)setBufferedProgressBarColor:(id)arg1 {
-    %orig([UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50]);
+     [UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50];
 }
 %end
 
@@ -1137,16 +1406,12 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %end
 
-%group gSection12
-
 // Disable the right panel in fullscreen mode
 %hook YTColdConfig
 - (BOOL)isLandscapeEngagementPanelEnabled {
     return IS_ENABLED(kHideRightPanel) ? NO : %orig;
 }
 %end
-
-%end // gSection12
 
 // Shorts Quality Picker - @arichornlover
 %group gShortsQualityPicker
@@ -1159,8 +1424,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 - (BOOL)iosEnableSimplerTitleInShortsVideoQualityPicker { return YES; }
 %end
 %end
-
-%group gSection13
 
 // YTShortsProgress - https://github.com/PoomSmart/YTShortsProgress/
 %hook YTShortsPlayerViewController
@@ -1213,30 +1476,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
         self.hidden = YES; 
     }
 
-// Hide Shorts Buttons when Paused - Clip, Download, Remix, Stats for Nerds
-    if (IS_ENABLED(kHideShortsClipButton) && ([self.accessibilityIdentifier isEqualToString:@"clip_button.eml"])) {
-        self.hidden = YES;
-    }
-    if (IS_ENABLED(kHideShortsDownloadButton) && ([self.accessibilityIdentifier isEqualToString:@"id.ui.add_to.offline.button"])) {
-        self.hidden = YES;
-    }
-    if (IS_ENABLED(kHideShortsRemixButton) && ([self.accessibilityIdentifier isEqualToString:@"id.video.remix.button"])) {
-        self.hidden = YES;
-    }
-    if (IS_ENABLED(kHideShortsStatsButton) && ([self.accessibilityIdentifier isEqualToString:@"id.video.stats_for_nerds.button"])) {
-        self.hidden = YES;
-    }
-    // Fallback: hide by description for Shorts pause-state buttons
-    if (IS_ENABLED(kHideShortsClipButton) || IS_ENABLED(kHideShortsDownloadButton) || IS_ENABLED(kHideShortsRemixButton) || IS_ENABLED(kHideShortsStatsButton)) {
-        NSString *desc = self.accessibilityLabel;
-        if (desc) {
-            if (IS_ENABLED(kHideShortsClipButton) && [desc isEqualToString:@"Clip"]) self.hidden = YES;
-            if (IS_ENABLED(kHideShortsDownloadButton) && [desc isEqualToString:@"Download"]) self.hidden = YES;
-            if (IS_ENABLED(kHideShortsRemixButton) && [desc isEqualToString:@"Remix"]) self.hidden = YES;
-            if (IS_ENABLED(kHideShortsStatsButton) && [desc isEqualToString:@"Stats for nerds"]) self.hidden = YES;
-        }
-    }
-
 // Hide Header Links under Channel Profile - @arichornlover
     if ((IS_ENABLED(kHideChannelHeaderLinks)) && ([self.accessibilityIdentifier isEqualToString:@"eml.channel_header_links"])) {
         self.hidden = YES;
@@ -1281,9 +1520,8 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
 %hook YTReelWatchRootViewController
 - (void)setPausedStateCarouselView {
-    if (!IS_ENABLED(kHideSubscriptions)) {
-        %orig;
-    }
+    if (IS_ENABLED(kHideSubscriptions)) {}
+    else { return %orig; }
 }
 %end
 
@@ -1351,8 +1589,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     }
 }
 %end
-
-%end // gSection13
 
 // App Settings Overlay Options
 %group gDisableAccountSection
@@ -1451,16 +1687,12 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %end
 
-%group gSection14
-
 // YT startup animation
 %hook YTColdConfig
 - (BOOL)mainAppCoreClientIosEnableStartupAnimation {
     return IS_ENABLED(kYTStartupAnimation) ? YES : NO;
 }
 %end
-
-%end // gSection14
 
 // Disable hints
 %group gDisableHints
@@ -1514,8 +1746,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 // %end
 %end
 
-%group gSection15
-
 // Hide "Play next in queue" - qnblackcat/uYouPlus#1138
 %hook YTMenuItemVisibilityHandler
 - (BOOL)shouldShowServiceItemRenderer:(YTIMenuConditionalServiceItemRenderer *)renderer {
@@ -1534,8 +1764,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     return %orig;
 }
 %end
-
-%end // gSection15
 
 // Hide the Videos under the Video Player - @Dayanch96 & @arichornlover
 %group gNoRelatedWatchNexts
@@ -1627,29 +1855,12 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %end
 
-#pragma mark - [4] Constructor
-// Group initialization. Groups whose feature is opt-in are initialized inside
-// an IS_ENABLED(...) check; everything unconditional is initialized up top.
+# pragma mark - ctor
 %ctor {
     // Load uYou first so its functions are available for hooks.
     // dlopen([[NSString stringWithFormat:@"%@/Frameworks/uYou.dylib", [[NSBundle mainBundle] bundlePath]] UTF8String], RTLD_LAZY);
 
     %init;
-    %init(gAlwaysOn);
-    %init(gMisc1);
-    %init(gMisc2);
-    %init(gMisc3);
-    %init(gSection5);
-    %init(gSection6);
-    %init(gSection7);
-    %init(gSection8);
-    %init(gSection9);
-    %init(gSection10);
-    %init(gSection11);
-    %init(gSection12);
-    %init(gSection13);
-    %init(gSection14);
-    %init(gSection15);
 //  if (IS_ENABLED(kSettingsStyle_enabled)) {
 //      %init(gSettingsStyle);
 //  }
@@ -1684,7 +1895,9 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     if (IS_ENABLED(kHideChipBar)) {
         %init(gHideChipBar);
     }
-    // gShowNotificationsTab - initialized in Sources/NotificationsTab.xm
+    if (IS_ENABLED(kShowNotificationsTab)) {
+        %init(gShowNotificationsTab);
+    }
     if (IS_ENABLED(kPortraitFullscreen)) {
         %init(gPortraitFullscreen);
     }
@@ -1754,7 +1967,12 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     if (IS_ENABLED(kDisablePullToFull)) {
         %init(gDisablePullToFull);
     }
-    // uYouAdBlockingWorkaroundLite + uYouAdBlockingWorkaround - initialized in Sources/AdBlocking.xm
+    if (IS_ENABLED(kAdBlockWorkaroundLite)) {
+        %init(uYouAdBlockingWorkaroundLite);
+    }
+    if (IS_ENABLED(kAdBlockWorkaround)) {
+        %init(uYouAdBlockingWorkaround);
+    }
     if (IS_ENABLED(kHideHomeTab)) {
         %init(gHideHomeTab);
     }
@@ -1763,9 +1981,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     }
     if (IS_ENABLED(kShortsQualityPicker)) {
         %init(gShortsQualityPicker);
-    }
-    if (IS_ENABLED(kDisableResumeToShorts)) {
-        %init(gDisableResumeToShorts);
     }
     if (IS_ENABLED(kFixCasting)) {
         %init(gFixCasting);

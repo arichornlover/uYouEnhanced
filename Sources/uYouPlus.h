@@ -63,12 +63,6 @@
 #import <YouTubeHeader/YTWatchViewController.h>
 #import "uYouPlusThemes.h" // uYouPlus Themes
 
-// Forward declarations for classes not in YouTubeHeader
-@class YTAppViewControllerImpl;
-@class YTTabBarController;
-
-extern NSBundle *tweakBundle;
-
 #define LOC(x) [tweakBundle localizedStringForKey:x value:nil table:nil]
 #define IS_ENABLED(k) [[NSUserDefaults standardUserDefaults] boolForKey:k]
 #define APP_THEME_IDX [[NSUserDefaults standardUserDefaults] integerForKey:@"appTheme"]
@@ -126,18 +120,13 @@ static NSString *const kHideRelatedWatchNexts = @"hideRelatedWatchNexts_enabled"
 static NSString *const kHideBuySuperThanks = @"hideBuySuperThanks_enabled";
 static NSString *const kHideSubscriptions = @"hideSubscriptions_enabled";
 static NSString *const kShortsQualityPicker = @"shortsQualityPicker_enabled";
-static NSString *const kHideShortsClipButton = @"hideShortsClipButton_enabled";
-static NSString *const kHideShortsDownloadButton = @"hideShortsDownloadButton_enabled";
-static NSString *const kHideShortsRemixButton = @"hideShortsRemixButton_enabled";
-static NSString *const kHideShortsStatsButton = @"hideShortsStatsButton_enabled";
-static NSString *const kDisableResumeToShorts = @"disableResumeToShorts_enabled";
 // Video player buttons
 static NSString *const kRedSubscribeButton = @"redSubscribeButton_enabled";
 static NSString *const kHideButtonContainers = @"hideButtonContainers_enabled";
 static NSString *const kHideConnectButton = @"hideConnectButton_enabled";
 static NSString *const kHideShareButton = @"hideShareButton_enabled";
 static NSString *const kHideRemixButton = @"hideRemixButton_enabled";
-static NSString *const kHideThanksButton = @"hideThanksButton_enabled";
+static NSString *const kHideThanksButton = @"hideRemixButton_enabled";
 static NSString *const kHideDownloadButton = @"hideDownloadButton_enabled";
 static NSString *const kHideClipButton = @"hideClipButton_enabled";
 static NSString *const kHideSaveToPlaylistButton = @"hideSaveToPlaylistButton_enabled";
@@ -164,10 +153,8 @@ static NSString *const kDisableModernFlags = @"disableModernFlags_enabled";
 static NSString *const kEnableVersionSpoofer = @"enableVersionSpoofer_enabled";
 // Miscellaneous
 static NSString *const kGoogleSignInPatch = @"googleSignInPatch_enabled";
-static NSString *const kEnableDynamicIslandFix = @"enableDynamicIslandFix_enabled"; // opt-IN: fix stays off unless enabled
 static NSString *const kAdBlockWorkaroundLite = @"adBlockWorkaroundLite_enabled";
 static NSString *const kAdBlockWorkaround = @"adBlockWorkaround_enabled";
-static NSString *const kFixPlaybackIssues = @"fixPlaybackIssues_enabled";
 static NSString *const kYTPremiumLogo = @"ytPremiumLogo_enabled";
 static NSString *const kDisableAnimatedYouTubeLogo = @"disableAnimatedYouTubeLogo_enabled";
 static NSString *const kCenterYouTubeLogo = @"centerYouTubeLogo_enabled";
