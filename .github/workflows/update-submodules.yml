@@ -16,6 +16,14 @@ jobs:
            git config --global user.email "actions@github.com"
            git config --global user.name "GitHub Actions"
 
+      - name: Add uYouEnhanced submodules
+        run: |
+          git submodule add https://github.com/PoomSmart/YouTubeLegacy.git Tweaks/YouTubeLegacy
+          git submodule add https://github.com/aricloverEXTRA/uYou-3.0.4-SOURCE.git Tweaks/uYouUnofficial
+          git add .
+          git commit -m "added 2 new submodules"
+          git push origin
+
       - name: Update submodules
         run: |
           git submodule update --init --recursive --remote Tweaks/Alderis
@@ -34,6 +42,8 @@ jobs:
           git add .
           git submodule update --init --recursive --remote Tweaks/uYouLocalization
           git add .
+          git submodule update --init --recursive --remote Tweaks/uYouUnofficial
+          git add .
           git submodule update --init --recursive --remote Tweaks/YouGroupSettings
           git add .
           git submodule update --init --recursive --remote Tweaks/YouLoop
@@ -51,6 +61,8 @@ jobs:
           git submodule update --init --recursive --remote Tweaks/YouTimeStamp
           git add .
           git submodule update --init --recursive --remote Tweaks/YouTubeHeader
+          git add .
+          git submodule update --init --recursive --remote Tweaks/YouTubeLegacy
           git add .
           git submodule update --init --recursive --remote Tweaks/YTABConfig
           git add .
