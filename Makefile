@@ -39,7 +39,6 @@ MODULES = jailed
 endif
 
 $(TWEAK_NAME)_INJECT_DYLIBS = \
-	Tweaks/uYou/Library/MobileSubstrate/DynamicLibraries/uYou.dylib \
 	$(THEOS_OBJ_DIR)/libFLEX.dylib \
 	$(THEOS_OBJ_DIR)/YTABConfig.dylib \
 	$(THEOS_OBJ_DIR)/YTIcons.dylib \
@@ -55,7 +54,9 @@ $(TWEAK_NAME)_INJECT_DYLIBS = \
 	$(THEOS_OBJ_DIR)/DontEatMyContent.dylib \
 	$(THEOS_OBJ_DIR)/YTHoldForSpeed.dylib \
 	$(THEOS_OBJ_DIR)/YTVideoOverlay.dylib \
-	$(THEOS_OBJ_DIR)/YTweaks.dylib
+	$(THEOS_OBJ_DIR)/YTweaks.dylib \
+	$(THEOS_OBJ_DIR)/YouTubeLegacy.dylib \
+	$(THEOS_OBJ_DIR)/uYouUnofficial.dylib
 
 ifeq ($(SPONSORBLOCK_ENABLED),1)
 $(TWEAK_NAME)_INJECT_DYLIBS += $(THEOS_OBJ_DIR)/iSponsorBlock.dylib
@@ -74,11 +75,6 @@ INSTALL_TARGET_PROCESSES = YouTube
 REMOVE_EXTENSIONS = 1
 CODESIGN_IPA = 0
 FINALPACKAGE = 1
-
-UYOU_PATH = Tweaks/uYou
-UYOU_DEB = $(UYOU_PATH)/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb
-UYOU_DYLIB = $(UYOU_PATH)/Library/MobileSubstrate/DynamicLibraries/uYou.dylib
-UYOU_BUNDLE = $(UYOU_PATH)/Library/Application\ Support/uYouBundle.bundle
 
 YTUHD_VENDOR_DIR = Tweaks/YTUHD/vendor
 YTUHD_DAV1D_SRC = $(YTUHD_VENDOR_DIR)/dav1d
@@ -119,25 +115,6 @@ internal-clean::
 	@rm -rf $(UYOU_PATH)/*
 
 ifneq ($(JAILBROKEN),1)
-before-all::
-	@if [[ ! -f $(UYOU_DEB) ]]; then \
-		rm -rf $(UYOU_PATH)/*; \
-		$(PRINT_FORMAT_BLUE) "Downloading uYou"; \
-	fi
-before-all::
-	@if [[ ! -f $(UYOU_DEB) ]]; then \
- 		curl -s -L "https://www.dropbox.com/scl/fi/gz3gpee3vx1ygf1860w1b/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb?rlkey=4k8s42w0b2m7tylw3dakh0rb5&st=7n3bh0jo&dl=1" -o $(UYOU_DEB); \
- 	fi; \
-	if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
-		tar -xf Tweaks/uYou/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb -C Tweaks/uYou; tar -xf Tweaks/uYou/data.tar* -C Tweaks/uYou; \
-		if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
-			$(PRINT_FORMAT_ERROR) "Failed to extract uYou"; exit 1; \
-		fi; \
-	fi; \
-	perl -pi -e 's/3\.0\.4/3.0.5/g' $(UYOU_DYLIB); \
-	python3 Scripts/rebrand_uyou.py $(UYOU_DYLIB); \
-	$(PRINT_FORMAT_BLUE) "uYou rebranded to 3.0.5 (Unofficial Build)";
-
 else
 before-package::
 	@mkdir -p $(THEOS_STAGING_DIR)/Library/Application\ Support; cp -r Localizations/uYouPlus.bundle $(THEOS_STAGING_DIR)/Library/Application\ Support/
