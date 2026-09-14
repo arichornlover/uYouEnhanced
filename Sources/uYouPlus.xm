@@ -374,6 +374,20 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %group gMisc1
 
 // YTMiniPlayerEnabler: https://github.com/level3tjg/YTMiniplayerEnabler/
+%hook YTWatchMiniBarVisibilityController
+- (void)updateMiniBarPlayerStateFromRenderer {
+    if (IS_ENABLED(kYTMiniPlayer)) {}
+    else { return %orig; }
+}
+- (void)setMiniBarHidden:(BOOL)hidden animated:(BOOL)animated {
+    if (IS_ENABLED(kYTMiniPlayer)) {
+        %orig(NO, animated);
+    } else {
+        %orig;
+    }
+}
+%end
+// Legacy Code below of YTMiniPlayerEnabler kept for backwards compatibility
 %hook YTWatchMiniBarViewController
 - (void)updateMiniBarPlayerStateFromRenderer {
     if (!IS_ENABLED(kYTMiniPlayer)) {
@@ -382,32 +396,20 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 %end
 
-// Snap to Chapter
+// Disable snap to chapter
 %hook YTIPlayerBarPlayingState
 - (BOOL)enableSnapToChapter {
     return IS_ENABLED(kSnapToChapter) ? NO : %orig;
 }
 %end
 
+// Disable snap to chapter (legacy code)
 %hook YTSegmentableInlinePlayerBarView
 - (void)didMoveToWindow {
     %orig;
     if (IS_ENABLED(kSnapToChapter)) {
         self.enableSnapToChapter = NO;
     }
-}
-%end
-
-// Red Progress Bar
-%hook YTPlayerBarSegmentView
-- (void)setBufferedProgressBarColor:(id)arg1 {
-    %orig([UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50]);
-}
-%end
-
-%hook YTSegmentableInlinePlayerBarView
-- (void)setBufferedProgressBarColor:(id)arg1 {
-    %orig([UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50]);
 }
 %end
 
@@ -830,16 +832,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 %end
 
-// Disable snap to chapter
-%hook YTSegmentableInlinePlayerBarView
-- (void)didMoveToWindow {
-    %orig;
-    if (IS_ENABLED(kSnapToChapter)) {
-        self.enableSnapToChapter = NO;
-    }
-}
-%end
-
 // Disable Pinch to zoom
 %hook YTColdConfig
 - (BOOL)videoZoomFreeZoomEnabledGlobalConfig {
@@ -1140,19 +1132,20 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
 // Bring back the Red Progress Bar and Gray Buffer Progress
 %group gRedProgressBar
-%hook YTSegmentableInlinePlayerBarView
+
+%hook YTPlayerBarSegmentView // Gray Buffer Progress - New (Compatible for v21.15.4+)
 - (void)setBufferedProgressBarColor:(id)arg1 {
     %orig([UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50]);
 }
 %end
 
-%hook YTInlinePlayerBarContainerView // Red Progress Bar - Old (Compatible for v17.33.2-v19.10.7) - Planned for removal ⚠️
-- (id)quietProgressBarColor {
-    return [UIColor redColor];
+%hook YTSegmentableInlinePlayerBarView // Gray Buffer Progress - Old (Compatible for v20.02.3-21.14.4)
+- (void)setBufferedProgressBarColor:(id)arg1 {
+    %orig([UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50]);
 }
 %end
 
-%hook YTPlayerBarRectangleDecorationView // Red Progress Bar - New (Compatible for v19.10.7-latest)
+%hook YTPlayerBarRectangleDecorationView // Red Progress Bar - New (Compatible for v19.10.7-20.44.2)
 - (void)drawRectangleDecorationWithSideMasks:(CGRect)rect {
     if (IS_ENABLED(kRedProgressBar)) {
         YTIPlayerBarDecorationModel *model = [self valueForKey:@"_model"];
@@ -1162,6 +1155,12 @@ YTMainAppControlsOverlayView *controlsOverlayView;
         model.playingState.overlayMode = overlayMode;
     } else
         %orig;
+}
+%end
+
+%hook YTInlinePlayerBarContainerView // Red Progress Bar - Older (Compatible for v17.33.2-v19.10.7) - Planned for removal ⚠️
+- (id)quietProgressBarColor {
+    return [UIColor redColor];
 }
 %end
 %end
