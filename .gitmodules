@@ -97,3 +97,9 @@
 [submodule "Tweaks/YTweaks"]
 	path = Tweaks/YTweaks
 	url = https://github.com/fosterbarnes/YTweaks.git
+[submodule "Tweaks/YouTubeLegacy"]
+	path = Tweaks/YouTubeLegacy
+	url = https://github.com/PoomSmart/YouTubeLegacy.git
+[submodule "Tweaks/uYouUnofficial"]
+	path = Tweaks/uYouUnofficial
+	url = https://github.com/aricloverEXTRA/uYou-3.0.4-SOURCE.git
