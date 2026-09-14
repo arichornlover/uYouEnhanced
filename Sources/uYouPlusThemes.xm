@@ -602,7 +602,7 @@ UIColor *customHexColor;
 
 // Open link with...
 // v21.xx.x+: ASWAppSwitchingSheetHeaderView/FooterView/CollectionViewCell removed (Apple's system UI restructured)
-// Kept for v16.xx.x-v21.xx.x compat; Logos safely no-ops on missing classes.
+// Kept for v20.xx.x-v21.xx.x compatibility
 %hook ASWAppSwitchingSheetHeaderView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {

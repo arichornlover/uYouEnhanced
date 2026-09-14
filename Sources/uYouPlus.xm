@@ -373,6 +373,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
 %group gMisc1
 
+// YTMiniPlayerEnabler: https://github.com/level3tjg/YTMiniplayerEnabler/
 %hook YTWatchMiniBarViewController
 - (void)updateMiniBarPlayerStateFromRenderer {
     if (!IS_ENABLED(kYTMiniPlayer)) {
@@ -381,13 +382,30 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 %end
 
+// Snap to Chapter
 %hook YTIPlayerBarPlayingState
 - (BOOL)enableSnapToChapter {
     return IS_ENABLED(kSnapToChapter) ? NO : %orig;
 }
 %end
 
+%hook YTSegmentableInlinePlayerBarView
+- (void)didMoveToWindow {
+    %orig;
+    if (IS_ENABLED(kSnapToChapter)) {
+        self.enableSnapToChapter = NO;
+    }
+}
+%end
+
+// Red Progress Bar
 %hook YTPlayerBarSegmentView
+- (void)setBufferedProgressBarColor:(id)arg1 {
+    %orig([UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50]);
+}
+%end
+
+%hook YTSegmentableInlinePlayerBarView
 - (void)setBufferedProgressBarColor:(id)arg1 {
     %orig([UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50]);
 }
