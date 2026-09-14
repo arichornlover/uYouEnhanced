@@ -5,45 +5,57 @@
 #define IS_OLED_DARK_THEME_SELECTED (APP_THEME_IDX == 2)
 #define IS_CUSTOM_DARK_THEME_SELECTED (APP_THEME_IDX == 3)
 
+static inline BOOL themePageStyleIsDark(id palette) {
+    if (palette && [palette respondsToSelector:@selector(pageStyle)]) {
+        SEL sel = @selector(pageStyle);
+        Method pageStyleMethod = class_getInstanceMethod(object_getClass(palette), sel);
+        if (pageStyleMethod) {
+            NSInteger (*pageStyleIMP)(id, SEL) = (NSInteger (*)(id, SEL))method_getImplementation(pageStyleMethod);
+            return pageStyleIMP(palette, sel) == 1;
+        }
+    }
+    return UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+}
+
 # pragma mark - Old dark theme (lighter grey)
 
 %group gOldDarkTheme
 %hook YTCommonColorPalette
 - (UIColor *)background1 {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)background2 {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)background3 {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)baseBackground {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)brandBackgroundSolid {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)brandBackgroundPrimary {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)brandBackgroundSecondary {
-    return self.pageStyle == 1 ? [[UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] colorWithAlphaComponent:0.9] : %orig;
+    return themePageStyleIsDark(self) ? [[UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] colorWithAlphaComponent:0.9] : %orig;
 }
 - (UIColor *)raisedBackground {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)staticBrandBlack {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)generalBackgroundA {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)generalBackgroundB {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)menuBackground {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 %end
 
@@ -88,43 +100,49 @@
 UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:1.0];
 
 %group gOLED
+%hook YTColor
++ (UIColor *)black0 {
+    return [UIColor blackColor];
+}
++ (UIColor *)black1 {
+    return [UIColor blackColor];
+}
++ (UIColor *)black2 {
+    return [UIColor blackColor];
+}
++ (UIColor *)black3 {
+    return [UIColor blackColor];
+}
++ (UIColor *)black4 {
+    return [UIColor blackColor];
+}
+%end
+
 %hook YTCommonColorPalette
 - (UIColor *)baseBackground {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
 - (UIColor *)brandBackgroundSolid {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
 - (UIColor *)brandBackgroundPrimary {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
 - (UIColor *)brandBackgroundSecondary {
-    return self.pageStyle == 1 ? [[UIColor blackColor] colorWithAlphaComponent:0.9] : %orig;
+    return themePageStyleIsDark(self) ? [[UIColor blackColor] colorWithAlphaComponent:0.9] : %orig;
 }
 - (UIColor *)raisedBackground {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
 - (UIColor *)staticBrandBlack {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
 - (UIColor *)generalBackgroundA {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
 %end
 
 // uYou settings
-%hook UITableViewCell
-- (void)_layoutSystemBackgroundView {
-    %orig;
-    UIView *systemBackgroundView = [self valueForKey:@"_systemBackgroundView"];
-    NSString *backgroundViewKey = class_getInstanceVariable(systemBackgroundView.class, "_colorView") ? @"_colorView" : @"_backgroundView";
-    ((UIView *)[systemBackgroundView valueForKey:backgroundViewKey]).backgroundColor = [UIColor blackColor];
-}
-- (void)_layoutSystemBackgroundView:(BOOL)arg1 {
-    %orig;
-    ((UIView *)[[self valueForKey:@"_systemBackgroundView"] valueForKey:@"_colorView"]).backgroundColor = [UIColor blackColor];
-}
-%end
 
 %hook settingsReorderTable
 - (void)viewDidLayoutSubviews {
@@ -268,6 +286,8 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 %end
 
 // Open link with...
+// v21.xx.x+: ASWAppSwitchingSheetHeaderView/FooterView/CollectionViewCell removed (Apple's system UI restructured)
+// Kept for v20.xx.x-v21.xx.x compatibility
 %hook ASWAppSwitchingSheetHeaderView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
@@ -311,39 +331,25 @@ UIColor *customHexColor;
 %group gCustomTheme
 %hook YTCommonColorPalette
 - (UIColor *)baseBackground {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)brandBackgroundSolid {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)brandBackgroundPrimary {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)brandBackgroundSecondary {
-    return self.pageStyle == 1 ? [customHexColor colorWithAlphaComponent:0.9] : %orig;
+    return themePageStyleIsDark(self) ? [customHexColor colorWithAlphaComponent:0.9] : %orig;
 }
 - (UIColor *)raisedBackground {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)staticBrandBlack {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)generalBackgroundA {
-    return self.pageStyle == 1 ? customHexColor : %orig;
-}
-%end
-
-// uYou settings
-%hook UITableViewCell
-- (void)_layoutSystemBackgroundView {
-    %orig;
-    UIView *systemBackgroundView = [self valueForKey:@"_systemBackgroundView"];
-    NSString *backgroundViewKey = class_getInstanceVariable(systemBackgroundView.class, "_colorView") ? @"_colorView" : @"_backgroundView";
-    ((UIView *)[systemBackgroundView valueForKey:backgroundViewKey]).backgroundColor = customHexColor;
-}
-- (void)_layoutSystemBackgroundView:(BOOL)arg1 {
-    %orig;
-    ((UIView *)[[self valueForKey:@"_systemBackgroundView"] valueForKey:@"_colorView"]).backgroundColor = customHexColor;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 %end
 
@@ -595,6 +601,8 @@ UIColor *customHexColor;
 %end
 
 // Open link with...
+// v21.xx.x+: ASWAppSwitchingSheetHeaderView/FooterView/CollectionViewCell removed (Apple's system UI restructured)
+// Kept for v16.xx.x-v21.xx.x compat; Logos safely no-ops on missing classes.
 %hook ASWAppSwitchingSheetHeaderView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
@@ -633,68 +641,143 @@ UIColor *customHexColor;
 %end
 
 
-# pragma mark - OLED keyboard by @ichitaso <3 - http://gist.github.com/ichitaso/935100fd53a26f18a9060f7195a1be0e
+# pragma mark - OLED keyboard
+
+@interface UIKeyboard : UIView
++ (UIKeyboard *)activeKeyboard;
+@end
+
+@interface UIKBVisualEffectView : UIView
+@property (nonatomic, copy) NSArray *backgroundEffects;
+@end
+
+static inline BOOL oledKBDarkMode(UIView *view) {
+    UIResponder *responder = view;
+    while (responder != nil) {
+        if ([responder isKindOfClass:[UIViewController class]]) {
+            return ((UIViewController *)responder).traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+        }
+        responder = [responder nextResponder];
+    }
+    if (view.window != nil) {
+        return view.window.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+    }
+    return UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+}
 
 %group gOLEDKB
-%hook TUIEmojiSearchView
-- (void)didMoveToWindow {
+%hook UIKeyboard
+- (void)displayLayer:(id)arg1 {
     %orig;
-    self.backgroundColor = [UIColor blackColor];
-}
-%end
-%hook UIPredictionViewController
-- (void)loadView {
-    %orig;
-    [self.view setBackgroundColor:[UIColor blackColor]];
+    self.backgroundColor = oledKBDarkMode(self) ? [UIColor blackColor] : [UIColor clearColor];
 }
 %end
 
-%hook UICandidateViewController
-- (void)loadView {
-    %orig;
-    [self.view setBackgroundColor:[UIColor blackColor]];
+%hook UIPredictionViewController
+- (id)_currentTextSuggestions {
+    UIKeyboard *keyboard = [%c(UIKeyboard) activeKeyboard];
+    if (oledKBDarkMode(keyboard)) {
+        [self.view setBackgroundColor:[UIColor blackColor]];
+        keyboard.backgroundColor = [UIColor blackColor];
+    } else {
+        [self.view setBackgroundColor:[UIColor clearColor]];
+        keyboard.backgroundColor = [UIColor clearColor];
+    }
+    return %orig;
 }
 %end
 
 %hook UIKeyboardDockView
-- (void)didMoveToWindow {
+- (void)layoutSubviews {
     %orig;
-    self.backgroundColor = [UIColor blackColor];
+    self.backgroundColor = oledKBDarkMode(self) ? [UIColor blackColor] : [UIColor clearColor];
 }
 %end
 
-%hook UIKeyboardLayoutStar 
-- (void)didMoveToWindow {
+// Since we can't hook a private framework class from UIKit, we check the class name through the nearest available from UIKit class
+%hook UIInputView
+- (void)layoutSubviews {
     %orig;
-    self.backgroundColor = [UIColor blackColor];
+    if ([self isKindOfClass:NSClassFromString(@"TUIEmojiSearchInputView")] // Emoji searching panel
+     || [self isKindOfClass:NSClassFromString(@"_SFAutoFillInputView")]) { // Autofill password
+        self.backgroundColor = oledKBDarkMode(self) ? [UIColor blackColor] : [UIColor clearColor];
+    }
 }
 %end
 
-%hook UIKBRenderConfig // Prediction text color
-- (void)setLightKeyboard:(BOOL)arg1 {
-    %orig(NO);
+%hook UIKBVisualEffectView
+- (void)layoutSubviews {
+    %orig;
+    if (oledKBDarkMode(self)) {
+        self.backgroundEffects = nil;
+        self.backgroundColor = [UIColor blackColor];
+    }
+}
+%end
+%end
+
+%group gOLEDCellTint
+%hook UITableViewCell
+- (void)_layoutSystemBackgroundView {
+    %orig;
+    UIView *systemBackgroundView = [self valueForKey:@"_systemBackgroundView"];
+    NSString *backgroundViewKey = class_getInstanceVariable(systemBackgroundView.class, "_colorView") ? @"_colorView" : @"_backgroundView";
+    ((UIView *)[systemBackgroundView valueForKey:backgroundViewKey]).backgroundColor = [UIColor blackColor];
+}
+- (void)_layoutSystemBackgroundView:(BOOL)arg1 {
+    %orig;
+    ((UIView *)[[self valueForKey:@"_systemBackgroundView"] valueForKey:@"_colorView"]).backgroundColor = [UIColor blackColor];
+}
+%end
+%end
+
+%group gCustomCellTint
+%hook UITableViewCell
+- (void)_layoutSystemBackgroundView {
+    %orig;
+    UIView *systemBackgroundView = [self valueForKey:@"_systemBackgroundView"];
+    NSString *backgroundViewKey = class_getInstanceVariable(systemBackgroundView.class, "_colorView") ? @"_colorView" : @"_backgroundView";
+    ((UIView *)[systemBackgroundView valueForKey:backgroundViewKey]).backgroundColor = customHexColor;
+}
+- (void)_layoutSystemBackgroundView:(BOOL)arg1 {
+    %orig;
+    ((UIView *)[[self valueForKey:@"_systemBackgroundView"] valueForKey:@"_colorView"]).backgroundColor = customHexColor;
 }
 %end
 %end
 
 %ctor {
-    if (IS_OLED_DARK_THEME_SELECTED) {
+    Class paletteClass = %c(YTCommonColorPalette);
+    BOOL pageStyleAvailable = paletteClass && [paletteClass instancesRespondToSelector:@selector(pageStyle)];
+
+    Class cellClass = %c(UITableViewCell);
+    BOOL cellLayoutAPIPresent = cellClass && ([cellClass instancesRespondToSelector:@selector(_layoutSystemBackgroundView)]
+                                           || [cellClass instancesRespondToSelector:@selector(_layoutSystemBackgroundView:)]);
+
+    if (IS_OLED_DARK_THEME_SELECTED && pageStyleAvailable) {
         %init(gOLED);
+        if (cellLayoutAPIPresent) {
+            %init(gOLEDCellTint);
+        }
     }
-    if (IS_OLD_DARK_THEME_SELECTED) {
+    if (IS_OLD_DARK_THEME_SELECTED && pageStyleAvailable) {
         %init(gOldDarkTheme)
     }
+    if (IS_CUSTOM_DARK_THEME_SELECTED && pageStyleAvailable) {
+        NSData *colorData = [[NSUserDefaults standardUserDefaults] objectForKey:@"kCustomThemeColor"];
+        NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:colorData error:nil];
+        [unarchiver setRequiresSecureCoding:NO];
+        NSString *hexString = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
+        if (hexString != nil) {
+            customHexColor = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
+            %init(gCustomTheme);
+            if (cellLayoutAPIPresent) {
+                %init(gCustomCellTint);
+            }
+        }
+    }
+
     if (IS_ENABLED(@"oledKeyBoard_enabled")) {
         %init(gOLEDKB);
-    }
-    if (IS_CUSTOM_DARK_THEME_SELECTED) {
-    NSData *colorData = [[NSUserDefaults standardUserDefaults] objectForKey:@"kCustomThemeColor"];
-    NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:colorData error:nil];
-    [unarchiver setRequiresSecureCoding:NO];
-    NSString *hexString = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
-    if (hexString != nil) {
-        customHexColor = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
-        %init(gCustomTheme);
-        }
     }
 }

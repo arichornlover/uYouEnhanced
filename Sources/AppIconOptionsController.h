@@ -1,6 +1,6 @@
 #import <UIKit/UIKit.h>
 
-@interface AppIconOptionsController : UIViewController <UITableViewDataSource, UITableViewDelegate>
+@interface AppIconOptionsController : UIViewController <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout>
 
 @property (strong, nonatomic) UIButton *backButton;
 
