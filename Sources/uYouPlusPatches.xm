@@ -349,17 +349,17 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 // Keychain access group — redirect all keychain operations to the sideloaded
 // app's actual access group so sign-in tokens persist across restarts.
 %hook SSOKeychainHelper
-+ (id)accessGroup { return uYouAccessGroupID(); }
-+ (id)sharedAccessGroup { return uYouAccessGroupID(); }
++ (id)accessGroup { return accessGroupID(); }
++ (id)sharedAccessGroup { return accessGroupID(); }
 %end
 
 %hook SSOFolsomKeychainUtils
-- (id)sharedAccessGroup { return uYouAccessGroupID(); }
+- (id)sharedAccessGroup { return accessGroupID(); }
 %end
 
 %hook GULKeychainStorage
 - (void)getObjectForKey:(id)key objectClass:(Class)objectClass accessGroup:(id)accessGroup completionHandler:(id)handler {
-    accessGroup = uYouAccessGroupID();
+    accessGroup = accessGroupID();
     %orig(
         key,
         objectClass,
@@ -368,7 +368,7 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
     );
 }
 - (void)setObject:(id)object forKey:(id)key accessGroup:(id)accessGroup completionHandler:(id)handler {
-    accessGroup = uYouAccessGroupID();
+    accessGroup = accessGroupID();
     %orig(
         object,
         key,
@@ -377,7 +377,7 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
     );
 }
 - (void)removeObjectForKey:(id)key accessGroup:(id)accessGroup completionHandler:(id)handler {
-    accessGroup = uYouAccessGroupID();
+    accessGroup = accessGroupID();
     %orig(
         key,
         accessGroup,
@@ -385,7 +385,7 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
     );
 }
 - (void)getObjectFromKeychainForKey:(id)key objectClass:(Class)objectClass accessGroup:(id)accessGroup completionHandler:(id)handler {
-    accessGroup = uYouAccessGroupID();
+    accessGroup = accessGroupID();
     %orig(
         key,
         objectClass,
@@ -394,7 +394,7 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
     );
 }
 - (id)keychainQueryWithKey:(id)key accessGroup:(id)accessGroup {
-    accessGroup = uYouAccessGroupID();
+    accessGroup = accessGroupID();
     return %orig(
         key,
         accessGroup
@@ -404,33 +404,33 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 
 %hook GNPEncryptionConfiguration
 - (id)initWithKeychainAccessGroup:(id)arg {
-    arg = uYouAccessGroupID();
+    arg = accessGroupID();
     return %orig(
         arg
     );
 }
-- (id)keychainAccessGroup { return uYouAccessGroupID(); }
+- (id)keychainAccessGroup { return accessGroupID(); }
 %end
 
 %hook FIRInstallationsStore
 - (id)initWithSecureStorage:(id)arg1 accessGroup:(id)arg2 {
-    arg2 = uYouAccessGroupID();
+    arg2 = accessGroupID();
     return %orig(
         arg1,
         arg2
     );
 }
-- (id)accessGroup { return uYouAccessGroupID(); }
+- (id)accessGroup { return accessGroupID(); }
 %end
 
 %hook CHMConfiguration
 - (void)setKeychainAccessGroup:(id)arg {
-    arg = uYouAccessGroupID();
+    arg = accessGroupID();
     %orig(
         arg
     );
 }
-- (id)keychainAccessGroup { return uYouAccessGroupID(); }
+- (id)keychainAccessGroup { return accessGroupID(); }
 %end
 
 %end // gSideloadingPatches
