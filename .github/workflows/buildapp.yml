@@ -143,6 +143,33 @@ jobs:
           wget --quiet "https://github.com/inoahdev/tbd/releases/download/2.2/tbd-mac" -O /usr/local/bin/tbd
           chmod +x /usr/local/bin/tbd
 
+      - name: YTUHD Libraries (only if enabled)
+        if: ${{ inputs.ytuhd }}
+        run: |
+          echo "Installing YTUHD + dav1d + libvpx"
+          # Ensure nested YTUHD vendor submodules are present (checkout --recursive may miss them on some runners)
+          if [ -d "main/Tweaks/YTUHD" ]; then
+            cd main/Tweaks/YTUHD && git submodule update --init --recursive || true; cd - >/dev/null
+          fi
+          # Fallback: clone to $THEOS/vendor for Makefile fallback includes
+          mkdir -p $THEOS/vendor
+          if [ ! -d "$THEOS/vendor/dav1d/.git" ]; then
+            git clone --quiet --depth=1 https://code.videolan.org/videolan/dav1d.git $THEOS/vendor/dav1d || \
+            git clone --quiet --depth=1 https://github.com/videolan/dav1d.git $THEOS/vendor/dav1d || true
+          fi
+          if [ ! -d "$THEOS/vendor/libvpx/.git" ]; then
+            git clone --quiet --depth=1 https://chromium.googlesource.com/webm/libvpx $THEOS/vendor/libvpx || \
+            git clone --quiet --depth=1 https://github.com/webmproject/libvpx.git $THEOS/vendor/libvpx || true
+          fi
+          # Also ensure local vendor copies exist for THEOS_PROJECT_DIR/vendor/... build rules
+          mkdir -p main/Tweaks/YTUHD/vendor
+          if [ ! -d "main/Tweaks/YTUHD/vendor/dav1d/.git" ] && [ -d "$THEOS/vendor/dav1d/.git" ]; then
+            cp -a $THEOS/vendor/dav1d main/Tweaks/YTUHD/vendor/dav1d || true
+          fi
+          if [ ! -d "main/Tweaks/YTUHD/vendor/libvpx/.git" ] && [ -d "$THEOS/vendor/libvpx/.git" ]; then
+            cp -a $THEOS/vendor/libvpx main/Tweaks/YTUHD/vendor/libvpx || true
+          fi
+
       - name: Hash YT ipa url
         run: |
           URL_YT="$(jq -r '.inputs.decrypted_youtube_url' $GITHUB_EVENT_PATH)"
