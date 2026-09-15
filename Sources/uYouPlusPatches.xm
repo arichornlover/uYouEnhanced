@@ -5,6 +5,26 @@
 #define YT_BUNDLE_ID @"com.google.ios.youtube"
 #define YT_NAME @"YouTube"
 
+// AccessGroupID
+static NSString *accessGroupID() {
+    NSDictionary *query = [NSDictionary dictionaryWithObjectsAndKeys:
+                           (__bridge NSString *)kSecClassGenericPassword, (__bridge NSString *)kSecClass,
+                           @"bundleSeedID", kSecAttrAccount,
+                           @"", kSecAttrService,
+                           (id)kCFBooleanTrue, kSecReturnAttributes,
+                           nil];
+    CFDictionaryRef result = nil;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
+    if (status == errSecItemNotFound) {
+        status = SecItemAdd((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
+        if (status != errSecSuccess) {
+            return nil;
+        }
+    }
+    NSString *accessGroup = [(__bridge NSDictionary *)result objectForKey:(__bridge NSString *)kSecAttrAccessGroup];
+    return accessGroup;
+}
+
 // Declared for the Dynamic Island fix (gDynamicIslandFix below) — logos only
 // emits a forward @class for hooked classes, which isn't enough to message
 // defaultCenter]/setNowPlayingInfo: from the didBecomeActive observer.
@@ -17,13 +37,10 @@
 
 %group gPatches
 
-// Fix Google Sign in Patch - handles AltStore and SideStore bundle IDs (always-on)
+// Fix Google Sign in Patch - handles AltStore bundle IDs (always-on)
 %hook NSBundle
 + (NSBundle *)bundleWithIdentifier:(NSString *)identifier {
     if ([identifier isEqualToString:YT_BUNDLE_ID])
-        return NSBundle.mainBundle;
-    // SideStore: also handle alternative bundle ID formats
-    if (uYouIsSideStore() && [identifier hasSuffix:@".google.ios.youtube"])
         return NSBundle.mainBundle;
     return %orig(
         identifier
@@ -222,17 +239,13 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 
 %end // gPatches
 
-// Sideloading - Fix App Group Directory (handles both AltStore and SideStore)
+// Sideloading - Fix App Group Directory
 %group gSideloadingPatches
 %hook NSFileManager
 - (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
     if (groupIdentifier != nil) {
         NSArray *paths = [[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask];
         NSURL *documentsURL = [paths lastObject];
-        // SideStore: use a separate AppGroup directory to avoid conflicts
-        if (uYouIsSideStore()) {
-            return [documentsURL URLByAppendingPathComponent:@"SideStoreAppGroup"];
-        }
         return [documentsURL URLByAppendingPathComponent:@"AppGroup"];
     }
     return %orig(

@@ -384,11 +384,8 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 // YTMiniPlayerEnabler: https://github.com/level3tjg/YTMiniplayerEnabler/
 %hook YTWatchMiniBarVisibilityController
 - (void)updateMiniBarPlayerStateFromRenderer {
-    if (IS_ENABLED(kYTMiniPlayer)) {}
-    else { return %orig; }
+    if (!IS_ENABLED(kYTMiniPlayer)) { return %orig; }
 }
-%end
-%hook YTWatchMiniBarVisibilityController
 - (void)setMiniBarHidden:(BOOL)hidden animated:(BOOL)animated {
     if (IS_ENABLED(kYTMiniPlayer)) {
         %orig(
