@@ -5,7 +5,7 @@ ARCHS = arm64
 MODULES = jailed
 FINALPACKAGE = 1
 CODESIGN_IPA = 0
-PACKAGE_VERSION = 16.42.3-2.1-F21
+PACKAGE_VERSION = 16.42.3-2.1-F22
 
 TWEAK_NAME = uYouPlus
 DISPLAY_NAME = YouTube
@@ -13,7 +13,7 @@ BUNDLE_ID = com.google.ios.youtube
 
 EXTRA_CFLAGS := $(addprefix -I,$(shell find Tweaks/FLEX -name '*.h' -exec dirname {} \;))
 
-uYouPlus_INJECT_DYLIBS = Tweaks/uYou/Library/MobileSubstrate/DynamicLibraries/uYou.dylib .theos/obj/libcolorpicker.dylib .theos/obj/iSponsorBlock.dylib .theos/obj/YTUHD.dylib .theos/obj/YouPiP.dylib .theos/obj/YouTubeDislikesReturn.dylib .theos/obj/YTABConfig.dylib .theos/obj/YTVideoOverlay.dylib .theos/obj/YouMute.dylib .theos/obj/YouQuality.dylib
+uYouPlus_INJECT_DYLIBS = Tweaks/uYou/Library/MobileSubstrate/DynamicLibraries/uYou.dylib .theos/obj/libcolorpicker.dylib .theos/obj/YouTubeLegacy.dylib .theos/obj/iSponsorBlock.dylib .theos/obj/YTUHD.dylib .theos/obj/YouPiP.dylib .theos/obj/YouTubeDislikesReturn.dylib .theos/obj/YTABConfig.dylib .theos/obj/YTVideoOverlay.dylib .theos/obj/YouMute.dylib .theos/obj/YouQuality.dylib
 uYouPlus_FILES = uYouPlus.xm Settings.xm $(shell find Source -name '*.xm' -o -name '*.x' -o -name '*.m') $(shell find Tweaks/FLEX -type f \( -iname \*.c -o -iname \*.m -o -iname \*.mm \))
 uYouPlus_IPA = tmp/Payload/YouTube.app
 uYouPlus_FRAMEWORKS = UIKit Security
@@ -21,12 +21,13 @@ uYouPlus_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unsupported-avail
 
 include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/tweak.mk
-SUBPROJECTS += Tweaks/Alderis Tweaks/iSponsorBlock Tweaks/YTUHD Tweaks/YouPiP Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YTVideoOverlay Tweaks/YouMute Tweaks/YouQuality
+SUBPROJECTS += Tweaks/Alderis Tweaks/YouTubeLegacy Tweaks/iSponsorBlock Tweaks/YTUHD Tweaks/YouPiP Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YTVideoOverlay Tweaks/YouMute Tweaks/YouQuality
 include $(THEOS_MAKE_PATH)/aggregate.mk
 
 before-package::
 	@echo -e "==> \033[1mMoving tweak's bundle to Resources/...\033[0m"
 	@mkdir -p Resources/Frameworks/Alderis.framework && find .theos/obj/install/Library/Frameworks/Alderis.framework -maxdepth 1 -type f -exec cp {} Resources/Frameworks/Alderis.framework/ \;
+	@cp -R Tweaks/YouTubeLegacy/layout/Library/Application\ Support/YouTubeLegacy.bundle Resources/
 	@cp -R Tweaks/YouPiP/layout/Library/Application\ Support/YouPiP.bundle Resources/
 	@cp -R Tweaks/YTUHD/layout/Library/Application\ Support/YTUHD.bundle Resources/
 	@cp -R Tweaks/Return-YouTube-Dislikes/layout/Library/Application\ Support/RYD.bundle Resources/
