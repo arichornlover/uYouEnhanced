@@ -13,7 +13,7 @@ on:
         type: string
       uyou_version:
         description: "uYou Version"
-        default: "3.0.4.1"
+        default: "3.0.6"
         required: true
         type: string
       decrypted_youtube_url:
