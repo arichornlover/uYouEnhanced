@@ -556,7 +556,7 @@ UIColor *customHexColor;
 %end
 
 //
-// %hook YTBackstageCreateRepostDetailView
+%hook YTBackstageCreateRepostDetailView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
         %orig(
