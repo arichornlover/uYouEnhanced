@@ -1,5 +1,4 @@
 #import "uYouPlusPatches.h"
-#import "uYouPatches.h"
 #import <fcntl.h>
 #import <unistd.h>
 
@@ -16,8 +15,9 @@
 
 # pragma mark - YouTube patches
 
-// Fix Google Sign in Patch - handles AltStore and SideStore bundle IDs
-%group gGoogleSignInPatch
+%group gPatches
+
+// Fix Google Sign in Patch - handles AltStore and SideStore bundle IDs (always-on)
 %hook NSBundle
 + (NSBundle *)bundleWithIdentifier:(NSString *)identifier {
     if ([identifier isEqualToString:YT_BUNDLE_ID])
@@ -53,9 +53,6 @@
     return %orig;
 }
 %end
-%end
-
-%group gPatches
 
 // Workaround for MiRO92/uYou-for-YouTube#12, qnblackcat/uYouPlus#263
 %hook YTDataUtils
@@ -448,10 +445,6 @@ static BOOL UYTIsJailbroken(void) {
                 [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;
             } @catch (NSException *e) {}
         }];
-    }
-
-    if (IS_ENABLED(kGoogleSignInPatch)) {
-        %init(gGoogleSignInPatch);
     }
 
     // Disable broken options
