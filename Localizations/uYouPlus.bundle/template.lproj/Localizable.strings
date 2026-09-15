@@ -103,7 +103,7 @@ https://github.com/PoomSmart/Return-YouTube-Dislikes/tree/main/layout/Library/Ap
 "REPLACE_PREVIOUS_NEXT_BUTTON_DESC" = "Replaces previous and next buttons with fast forward and rewind";
 
 "RED_PROGRESS_BAR" = "Red progress bar";
-"RED_PROGRESS_BAR_DESC" = "";
+"RED_PROGRESS_BAR_DESC" = "Restores the red progress bar. Requires app restart. Note: Disabled automatically if YouSlider tweak is enabled to avoid conflicts.";
 
 "HIDE_HOVER_CARD" = "YTNoHoverCards";
 "HIDE_HOVER_CARD_DESC" = "Hides videos' end screens";
