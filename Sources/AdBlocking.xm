@@ -37,13 +37,17 @@
 
 %hook YTAdsInnerTubeContextDecorator
 - (void)decorateContext:(id)context {
-    %orig(nil);
+    %orig(
+        nil
+    );
 }
 %end
 
 %hook YTAccountScopedAdsInnerTubeContextDecorator
 - (void)decorateContext:(id)context {
-    %orig(nil);
+    %orig(
+        nil
+    );
 }
 %end
 
@@ -247,7 +251,9 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     %orig;
 }
 - (void)addSectionsFromArray:(NSArray <YTIItemSectionRenderer *> *)array {
-    %orig(filteredArray(array));
+    %orig(
+        filteredArray(array)
+    );
 }
 %end
 %end

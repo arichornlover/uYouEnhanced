@@ -306,19 +306,27 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %hook YTAppViewControllerImpl
 - (void)setSelectedIndex:(NSUInteger)index {
     if (IS_ENABLED(kDisableResumeToShorts) && index == 1) {
-        %orig(0);
+        %orig(
+            0
+        );
         return;
     }
-    %orig(index);
+    %orig(
+        index
+    );
 }
 %end
 %hook YTTabBarController
 - (void)setSelectedIndex:(NSUInteger)index {
     if (IS_ENABLED(kDisableResumeToShorts) && index == 1) {
-        %orig(0);
+        %orig(
+            0
+        );
         return;
     }
-    %orig(index);
+    %orig(
+        index
+    );
 }
 %end
 %end
@@ -383,7 +391,10 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %hook YTWatchMiniBarVisibilityController
 - (void)setMiniBarHidden:(BOOL)hidden animated:(BOOL)animated {
     if (IS_ENABLED(kYTMiniPlayer)) {
-        %orig(NO, animated);
+        %orig(
+            NO,
+            animated
+        );
     } else {
         %orig;
     }
@@ -577,12 +588,16 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     if (icon) {
         icon.iconType = YT_PREMIUM_LOGO;
     }
-    %orig(renderer);
+    %orig(
+        renderer
+    );
 }
 // For when spoofing before 18.34.5
 - (void)setPremiumLogo:(BOOL)arg {
     if (IS_ENABLED(kYTPremiumLogo)) {
-        %orig(YES);
+        %orig(
+            YES
+        );
     } else {
         %orig;
     }
@@ -606,12 +621,16 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     if (icon) {
         icon.iconType = YT_PREMIUM_LOGO;
     }
-    %orig(renderer);
+    %orig(
+        renderer
+    );
 }
 // For when spoofing before 18.34.5
 - (void)setPremiumLogo:(BOOL)arg {
     if (IS_ENABLED(kYTPremiumLogo)) {
-        %orig(YES);
+        %orig(
+            YES
+        );
     } else {
         %orig;
     }
@@ -698,7 +717,9 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %hook YTPlayerBarController
 - (void)setHeatmap:(id)arg1 {
-    %orig(NULL);
+    %orig(
+        NULL
+    );
 }
 %end
 %end
@@ -853,7 +874,10 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 %hook UIApplication 
 - (void)setSystemVolumeHUDEnabled:(BOOL)arg1 forAudioCategory:(id)arg2 {
-        %orig(true, arg2);
+        %orig(
+            true,
+            arg2
+        );
 }
 %end
 %end
@@ -870,7 +894,9 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %hook YTDoubleTapToSeekController
 - (void)enableDoubleTapToSeek:(BOOL)arg1 {
     if (IS_ENABLED(kDoubleTapToSeek)) {
-        %orig(NO);
+        %orig(
+            NO
+        );
     } else {
         %orig;
     }
@@ -954,7 +980,9 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 - (void)setClosedCaptionsOrSubtitlesButtonAvailable:(BOOL)arg1 { // hide CC button
     if (IS_ENABLED(kHideCC)) {
-        %orig(NO);
+        %orig(
+            NO
+        );
     } else {
         %orig;
     }
@@ -967,22 +995,32 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 - (void)setYoutubeMusicButton:(id)arg1 {
     if (IS_ENABLED(kHideYTMusicButton)) {
     } else {
-        %orig(arg1);
+        %orig(
+            arg1
+        );
     }
 }
 - (void)setShareButtonAvailable:(BOOL)arg1 {
     if (IS_ENABLED(kEnableShareButton)) {
-        %orig(YES);
+        %orig(
+            YES
+        );
     } else {
-        %orig(NO);
+        %orig(
+            NO
+        );
     }
 }
 - (void)setAddToButtonAvailable:(BOOL)arg1 {
     if (IS_ENABLED(kEnableSaveToButton)) {
-        %orig(YES);
+        %orig(
+            YES
+        );
         [self uyt_attachSaveRerouteToSubviews:self depth:0];
     } else {
-        %orig(NO);
+        %orig(
+            NO
+        );
     }
 }
 %end
@@ -1007,7 +1045,9 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 - (void)setWatchCollapseButtonAvailable:(BOOL)available {
     if (IS_ENABLED(kDisableCollapseButton)) {
     } else {
-        %orig(available);
+        %orig(
+            available
+        );
     }
 }
 %end
@@ -1066,9 +1106,13 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     if (IS_ENABLED(@"disableRemainingTime_enabled")) {
         // Set true if alwaysShowRemainingTime
         if (IS_ENABLED(@"alwaysShowRemainingTime_enabled")) {
-            %orig(YES);
+            %orig(
+                YES
+            );
         } else {
-            %orig(NO);
+            %orig(
+                NO
+            );
         }
         return;
     }
@@ -1105,7 +1149,10 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %group gHideOverlayDarkBackground
 %hook YTMainAppVideoPlayerOverlayView
 - (void)setBackgroundVisible:(BOOL)arg1 isGradientBackground:(BOOL)arg2 {
-    %orig(NO, arg2);
+    %orig(
+        NO,
+        arg2
+    );
 }
 %end
 %end
@@ -1137,13 +1184,17 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
 %hook YTPlayerBarSegmentView // Gray Buffer Progress - New (Compatible for v21.15.4+)
 - (void)setBufferedProgressBarColor:(id)arg1 {
-    %orig([UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50]);
+    %orig(
+        [UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50]
+    );
 }
 %end
 
 %hook YTSegmentableInlinePlayerBarView // Gray Buffer Progress - Old (Compatible for v20.02.3-21.14.4)
 - (void)setBufferedProgressBarColor:(id)arg1 {
-    %orig([UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50]);
+    %orig(
+        [UIColor colorWithRed:1.00 green:1.00 blue:1.00 alpha:0.50]
+    );
 }
 %end
 
@@ -1268,7 +1319,9 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 
 - (void)addSectionsFromArray:(NSArray <YTIItemSectionRenderer *> *)array {
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"hideShortsCells"] && array) {
-        %orig(filteredShortsArray(array));
+        %orig(
+            filteredShortsArray(array)
+        );
     } else {
         %orig;
     }
@@ -1539,7 +1592,9 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 	return YES;
 }
 - (void)setHintsDisabled:(BOOL)arg1 {
-    %orig(YES);
+    %orig(
+        YES
+    );
 }
 %end
 %hook YTUserDefaults
@@ -1547,7 +1602,9 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 	return YES;
 }
 - (void)setHintsDisabled:(BOOL)arg1 {
-    %orig(YES);
+    %orig(
+        YES
+    );
 }
 %end
 %end
@@ -1571,7 +1628,9 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 
 %hook YTHeaderContentComboView
 - (void)setFeedHeaderScrollMode:(int)arg1 {
-    %orig(0);
+    %orig(
+        0
+    );
 }
 %end
 
@@ -1616,7 +1675,9 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
         return;
     } else {
         arg1 = 1;
-        %orig(arg1);
+        %orig(
+            arg1
+        );
     }
 }
 %end
@@ -1680,13 +1741,17 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 %hook YTPivotBarIndicatorView
 - (void)didMoveToWindow {
     [self setHidden:YES];
-    %orig();
+    %orig;
 }
 - (void)setFillColor:(id)arg1 {
-    %orig([UIColor clearColor]);
+    %orig(
+        [UIColor clearColor]
+    );
 }
 - (void)setBorderColor:(id)arg1 {
-    %orig([UIColor clearColor]);
+    %orig(
+        [UIColor clearColor]
+    );
 }
 %end
 %hook YTCountView

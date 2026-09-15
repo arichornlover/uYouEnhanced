@@ -3,10 +3,11 @@
 %group BigYTMiniPlayer // https://github.com/Galactic-Dev/BigYTMiniPlayer
 
 // v16.xx.x+ backwards compat: YTWatchMiniBarView / YTWatchMiniBarViewController removed in v21.xx.x
-// Logos safely no-ops %hook on missing classes, so these stay inert on newer versions.
 %hook YTWatchMiniBarView
 - (void)setWatchMiniPlayerLayout:(int)arg1 {
-    %orig(1);
+    %orig(
+        1
+    );
 }
 - (int)watchMiniPlayerLayout {
     return 1;
@@ -33,7 +34,10 @@
 %hook YTWatchMiniBarVisibilityController
 - (void)setMiniBarHidden:(BOOL)hidden animated:(BOOL)animated {
     if (IS_ENABLED(kBigYTMiniPlayer)) {
-        %orig(NO, animated);
+        %orig(
+            NO,
+            animated
+        );
     } else {
         %orig;
     }

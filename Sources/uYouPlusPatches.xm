@@ -25,7 +25,9 @@
     // SideStore: also handle alternative bundle ID formats
     if (uYouIsSideStore() && [identifier hasSuffix:@".google.ios.youtube"])
         return NSBundle.mainBundle;
-    return %orig(identifier);
+    return %orig(
+        identifier
+    );
 }
 - (NSString *)bundleIdentifier {
     if ([self isEqual:NSBundle.mainBundle])
@@ -233,7 +235,9 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
         }
         return [documentsURL URLByAppendingPathComponent:@"AppGroup"];
     }
-    return %orig(groupIdentifier);
+    return %orig(
+        groupIdentifier
+    );
 }
 %end
 
@@ -343,30 +347,54 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 %hook GULKeychainStorage
 - (void)getObjectForKey:(id)key objectClass:(Class)objectClass accessGroup:(id)accessGroup completionHandler:(id)handler {
     accessGroup = uYouAccessGroupID();
-    %orig(key, objectClass, accessGroup, handler);
+    %orig(
+        key,
+        objectClass,
+        accessGroup,
+        handler
+    );
 }
 - (void)setObject:(id)object forKey:(id)key accessGroup:(id)accessGroup completionHandler:(id)handler {
     accessGroup = uYouAccessGroupID();
-    %orig(object, key, accessGroup, handler);
+    %orig(
+        object,
+        key,
+        accessGroup,
+        handler
+    );
 }
 - (void)removeObjectForKey:(id)key accessGroup:(id)accessGroup completionHandler:(id)handler {
     accessGroup = uYouAccessGroupID();
-    %orig(key, accessGroup, handler);
+    %orig(
+        key,
+        accessGroup,
+        handler
+    );
 }
 - (void)getObjectFromKeychainForKey:(id)key objectClass:(Class)objectClass accessGroup:(id)accessGroup completionHandler:(id)handler {
     accessGroup = uYouAccessGroupID();
-    %orig(key, objectClass, accessGroup, handler);
+    %orig(
+        key,
+        objectClass,
+        accessGroup,
+        handler
+    );
 }
 - (id)keychainQueryWithKey:(id)key accessGroup:(id)accessGroup {
     accessGroup = uYouAccessGroupID();
-    return %orig(key, accessGroup);
+    return %orig(
+        key,
+        accessGroup
+    );
 }
 %end
 
 %hook GNPEncryptionConfiguration
 - (id)initWithKeychainAccessGroup:(id)arg {
     arg = uYouAccessGroupID();
-    return %orig(arg);
+    return %orig(
+        arg
+    );
 }
 - (id)keychainAccessGroup { return uYouAccessGroupID(); }
 %end
@@ -374,7 +402,10 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 %hook FIRInstallationsStore
 - (id)initWithSecureStorage:(id)arg1 accessGroup:(id)arg2 {
     arg2 = uYouAccessGroupID();
-    return %orig(arg1, arg2);
+    return %orig(
+        arg1,
+        arg2
+    );
 }
 - (id)accessGroup { return uYouAccessGroupID(); }
 %end
@@ -382,7 +413,9 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 %hook CHMConfiguration
 - (void)setKeychainAccessGroup:(id)arg {
     arg = uYouAccessGroupID();
-    %orig(arg);
+    %orig(
+        arg
+    );
 }
 - (id)keychainAccessGroup { return uYouAccessGroupID(); }
 %end
