@@ -1182,6 +1182,10 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 // Bring back the Red Progress Bar and Gray Buffer Progress
 %group gRedProgressBar
 
+static BOOL YouSliderIsEnabled(void) {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"YouSliderEnabled"];
+}
+
 %hook YTPlayerBarSegmentView // Gray Buffer Progress - New (Compatible for v21.15.4+)
 - (void)setBufferedProgressBarColor:(id)arg1 {
     %orig(
@@ -1198,16 +1202,45 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 %end
 
-%hook YTPlayerBarRectangleDecorationView // Red Progress Bar - New (Compatible for v19.10.7-20.44.2)
+%hook YTPlayerBarRectangleDecorationView // Red Progress Bar - @arichornlover & @PoomSmart - New (Compatible for v19.10.7+)
 - (void)drawRectangleDecorationWithSideMasks:(CGRect)rect {
-    if (IS_ENABLED(kRedProgressBar)) {
+    if (IS_ENABLED(kRedProgressBar) && !YouSliderIsEnabled()) {
         YTIPlayerBarDecorationModel *model = [self valueForKey:@"_model"];
-        int overlayMode = model.playingState.overlayMode;
-        model.playingState.overlayMode = 1;
+        YTIPlayerBarPlayingStateOverlayMode overlayMode = model.playingState.overlayMode;
+        model.playingState.overlayMode = PLAYER_BAR_OVERLAY_MODE_DEFAULT;
+        if ([model respondsToSelector:@selector(style)] && [model style]) {
+            model.style.gradientColor = nil;
+        }
         %orig;
         model.playingState.overlayMode = overlayMode;
     } else
         %orig;
+}
+- (void)drawProgressRect:(CGRect)rect withColor:(UIColor *)color {
+    if (IS_ENABLED(kRedProgressBar) && !YouSliderIsEnabled()) {
+        YTIPlayerBarDecorationModel *model = [self valueForKey:@"_model"];
+        BOOL isLive = model.playingState.mode == PLAYER_BAR_MODE_LIVE || model.playingState.mode == PLAYER_BAR_MODE_LIVE_VDR;
+        UIColor *targetColor = isLive ? [UIColor colorWithRed:1.00 green:0.00 blue:0.00 alpha:1.00] : [UIColor redColor];
+        %orig(rect, targetColor);
+    } else {
+        %orig(rect, color);
+    }
+}
+%end
+
+%hook YTPlayerBarProgressDecorationView // Red Progress Bar - @arichornlover & @PoomSmart - Modular Player Bar (v21.15.4+)
+- (BOOL)shouldApplyGradientColor {
+    return (IS_ENABLED(kRedProgressBar) && !YouSliderIsEnabled()) ? NO : %orig;
+}
+- (void)drawProgressRect:(CGRect)rect withColor:(UIColor *)color {
+    if (IS_ENABLED(kRedProgressBar) && !YouSliderIsEnabled()) {
+        YTIPlayerBarDecorationModel *model = [self valueForKey:@"_model"];
+        BOOL isLive = model.playingState.mode == PLAYER_BAR_MODE_LIVE || model.playingState.mode == PLAYER_BAR_MODE_LIVE_VDR;
+        UIColor *targetColor = isLive ? [UIColor colorWithRed:1.00 green:0.00 blue:0.00 alpha:1.00] : [UIColor redColor];
+        %orig(rect, targetColor);
+    } else {
+        %orig(rect, color);
+    }
 }
 %end
 
