@@ -379,6 +379,8 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     if (IS_ENABLED(kYTMiniPlayer)) {}
     else { return %orig; }
 }
+%end
+%hook YTWatchMiniBarVisibilityController
 - (void)setMiniBarHidden:(BOOL)hidden animated:(BOOL)animated {
     if (IS_ENABLED(kYTMiniPlayer)) {
         %orig(NO, animated);
