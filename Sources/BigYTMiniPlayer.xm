@@ -44,7 +44,8 @@
 - (void)layoutSubviews {
     %orig;
     if (IS_ENABLED(kBigYTMiniPlayer)) {
-        self.frame = CGRectMake(([UIScreen mainScreen].bounds.size.width - self.frame.size.width), self.frame.origin.y, self.frame.size.width, self.frame.size.height);
+        UIView *v = (UIView *)self;
+        v.frame = CGRectMake(([UIScreen mainScreen].bounds.size.width - v.frame.size.width), v.frame.origin.y, v.frame.size.width, v.frame.size.height);
     }
 }
 %end
@@ -53,18 +54,19 @@
 - (void)layoutSubviews {
     %orig;
     if (IS_ENABLED(kBigYTMiniPlayer)) {
-        self.frame = CGRectMake(([UIScreen mainScreen].bounds.size.width - self.frame.size.width), self.frame.origin.y, self.frame.size.width, self.frame.size.height);
+        UIView *v = (UIView *)self;
+        v.frame = CGRectMake(([UIScreen mainScreen].bounds.size.width - v.frame.size.width), v.frame.origin.y, v.frame.size.width, v.frame.size.height);
     }
 }
 %end
 
 %hook YTMainAppVideoPlayerOverlayView
 - (BOOL)isUserInteractionEnabled {
-    id ancestor = [self _viewControllerForAncestor];
+    UIViewController *ancestor = (UIViewController *)[self _viewControllerForAncestor];
     if (ancestor) {
-        id parent = ancestor.parentViewController;
+        UIViewController *parent = ancestor.parentViewController;
         if (parent) {
-            id grandparent = parent.parentViewController;
+            UIViewController *grandparent = parent.parentViewController;
             if (grandparent) {
                 if ([grandparent isKindOfClass:%c(YTWatchMiniBarViewController)]) {
                     return NO;

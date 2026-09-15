@@ -1215,21 +1215,61 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 - (BOOL)enablePlayerBarForVerticalVideoWhenControlsHiddenInFullscreen { return YES; }
 %end
 
-// Hide Shorts Cells - LEGACY v1.2.3 - for uYou 3.0.4+ (PoomSmart/YTUnShorts)
-%hook YTIElementRenderer
-- (NSData *)elementData {
-    // Check if hideShortsCells is enabled
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"hideShortsCells"]) {
-        NSString *description = [self description];
-        
-        BOOL hasShorts = ([description containsString:@"shorts_shelf"] || [description containsString:@"shorts_video_cell"] || [description containsString:@"shorts_grid_shelf_footer"] || [description containsString:@"youtube_shorts_24"]);
-        BOOL hasShortsInHistory = [description containsString:@"compact_video.eml"] && [description containsString:@"youtube_shorts_"];
+// Hide Shorts Cells - YTUnShorts v1.3.1 - for uYou 3.0.4+ (PoomSmart)
+static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <YTIItemSectionRenderer *> *array) {
+    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"hideShortsCells"] || !array) {
+        return [array mutableCopy];
+    }
+    NSMutableArray <YTIItemSectionRenderer *> *newArray = [array mutableCopy];
+    NSIndexSet *removeIndexes = [newArray indexesOfObjectsPassingTest:^BOOL(YTIItemSectionRenderer *sectionRenderer, NSUInteger idx, BOOL *stop) {
+        if ([sectionRenderer isKindOfClass:%c(YTIShelfRenderer)]) {
+            YTIShelfSupportedRenderers *content = ((YTIShelfRenderer *)sectionRenderer).content;
+            YTIHorizontalListRenderer *horizontalListRenderer = content.horizontalListRenderer;
+            NSMutableArray <YTIHorizontalListSupportedRenderers *> *itemsArray = horizontalListRenderer.itemsArray;
+            NSIndexSet *removeItemsArrayIndexes = [itemsArray indexesOfObjectsPassingTest:^BOOL(YTIHorizontalListSupportedRenderers *horizontalListSupportedRenderers, NSUInteger idx2, BOOL *stop2) {
+                YTIElementRenderer *elementRenderer = horizontalListSupportedRenderers.elementRenderer;
+                NSString *description = [elementRenderer description];
+                BOOL hasShorts = [description containsString:@"shorts_video_cell"] || [description containsString:@"shorts_shelf"];
+                if (hasShorts) *stop2 = YES;
+                return hasShorts;
+            }];
+            return removeItemsArrayIndexes.count > 0;
+        }
+        if ([sectionRenderer isKindOfClass:%c(YTIItemSectionRenderer)]) {
+            NSString *description = [sectionRenderer description];
+            if ([description containsString:@"shorts_shelf.eml"] || [description containsString:@"shorts_shelf"])
+                return YES;
+            NSMutableArray <YTIItemSectionSupportedRenderers *> *contentsArray = sectionRenderer.contentsArray;
+            for (YTIItemSectionSupportedRenderers *supported in contentsArray) {
+                NSString *elDesc = [supported.elementRenderer description];
+                if ([elDesc containsString:@"shorts_shelf"] || [elDesc containsString:@"shorts_video_cell"]) {
+                    return YES;
+                }
+            }
+        }
+        return NO;
+    }];
+    [newArray removeObjectsAtIndexes:removeIndexes];
+    return newArray;
+}
 
-        if (hasShorts || hasShortsInHistory) {
-            return [NSData data];
+%hook YTInnerTubeCollectionViewController
+- (void)displaySectionsWithReloadingSectionControllerByRenderer:(id)renderer {
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"hideShortsCells"]) {
+        NSMutableArray *sectionRenderers = [self valueForKey:@"_sectionRenderers"];
+        if (sectionRenderers && [sectionRenderers isKindOfClass:[NSArray class]]) {
+            [self setValue:filteredShortsArray(sectionRenderers) forKey:@"_sectionRenderers"];
         }
     }
-    return %orig;
+    %orig;
+}
+
+- (void)addSectionsFromArray:(NSArray <YTIItemSectionRenderer *> *)array {
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"hideShortsCells"] && array) {
+        %orig(filteredShortsArray(array));
+    } else {
+        %orig;
+    }
 }
 %end
 

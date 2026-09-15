@@ -32,6 +32,7 @@
 #import <YouTubeHeader/YTIGuideResponse.h>
 #import <YouTubeHeader/YTIGuideResponseSupportedRenderers.h>
 #import <YouTubeHeader/YTIMenuConditionalServiceItemRenderer.h>
+#import <YouTubeHeader/YTIItemSectionRenderer.h>
 #import <YouTubeHeader/YTInnerTubeCollectionViewController.h>
 #import <YouTubeHeader/YTInlinePlayerBarContainerView.h>
 #import <YouTubeHeader/YTIShelfRenderer.h>
