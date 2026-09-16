@@ -459,20 +459,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
 %end // gMisc1
 
-// Fix Casting: https://github.com/arichornlover/uYouEnhanced/issues/606#issuecomment-2098289942
-// NOTE: These A/B flags aren't working in YouTube 19.24.2+ and no longer
-// affect casting on newer versions.
-%group gFixCasting
-%hook YTColdConfig
-- (BOOL)cxClientEnableIosLocalNetworkPermissionReliabilityFixes { return YES; }
-- (BOOL)cxClientEnableIosLocalNetworkPermissionUsingSockets { return NO; }
-- (BOOL)cxClientEnableIosLocalNetworkPermissionWifiFixes { return YES; }
-%end
-%hook YTHotConfig
-- (BOOL)isPromptForLocalNetworkPermissionsEnabled { return YES; } // deprecated flag ⚠️
-%end
-%end
-
 %group gMisc2
 
 // NOYTPremium - https://github.com/PoomSmart/NoYTPremium/
@@ -1792,6 +1778,31 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 %end
 %end
 
+// Blurry Settings UI - @arichornlover
+// Applies a frosted glass blur effect to the settings view controller
+// when "New Settings UI" is enabled, mimicking the pivot bar's frosted glass effect.
+%group gBlurrySettingsUI
+%hook YTSettingsViewController
+- (void)viewDidLoad {
+    %orig;
+    if (IS_ENABLED(kNewSettingsUI)) {
+        @try {
+            // Apply frosted glass blur effect to the settings view
+            Class frostedGlassClass = %c(YTFrostedGlassView);
+            if (frostedGlassClass) {
+                YTFrostedGlassView *frostedView = [[frostedGlassClass alloc] initWithBlurEffectStyle:1]; // UIBlurEffectStyleLight
+                frostedView.frame = self.view.bounds;
+                frostedView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+                [self.view insertSubview:frostedView atIndex:0];
+            }
+        } @catch (NSException *e) {
+            HBLogWarn(@"[BlurrySettingsUI] Failed to apply frosted glass: %@", e);
+        }
+    }
+}
+%end
+%end
+
 #pragma mark - [4] Constructor
 // Group initialization. Groups whose feature is opt-in are initialized inside
 // an IS_ENABLED(...) check; everything unconditional is initialized up top.
@@ -1848,6 +1859,9 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
     }
     if (IS_ENABLED(kHideChipBar)) {
         %init(gHideChipBar);
+    }
+    if (IS_ENABLED(kNewSettingsUI)) {
+        %init(gBlurrySettingsUI);
     }
     // gShowNotificationsTab - initialized in Sources/NotificationsTab.xm
     if (IS_ENABLED(kPortraitFullscreen)) {
