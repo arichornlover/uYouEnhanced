@@ -8,7 +8,7 @@ on:
     inputs:
       sdk_version:
         description: "iOS SDK Version"
-        default: "18.6"
+        default: "16.5"
         required: true
         type: string
       uyou_version:
@@ -28,7 +28,7 @@ on:
         type: string
       app_name:
         description: "Modify the app name"
-        default: "YouTube"
+        default: "YouTube+"
         required: true
         type: string
       commit_id:
