@@ -1834,9 +1834,6 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
     if (IS_ENABLED(kHideSubscriptionsNotificationBadge)) {
         %init(gHideSubscriptionsNotificationBadge);
     }
-    if (IS_ENABLED(kHidePreviousAndNextButton)) {
-        %init(gHidePreviousAndNextButton);
-    }
     if (IS_ENABLED(kHideOverlayDarkBackground)) {
         %init(gHideOverlayDarkBackground);
     }
