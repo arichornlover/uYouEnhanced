@@ -76,25 +76,6 @@ REMOVE_EXTENSIONS = 1
 CODESIGN_IPA = 0
 FINALPACKAGE = 1
 
-YTUHD_VENDOR_DIR = Tweaks/YTUHD/vendor
-YTUHD_DAV1D_SRC = $(YTUHD_VENDOR_DIR)/dav1d
-YTUHD_LIBVPX_SRC = $(YTUHD_VENDOR_DIR)/libvpx
-
-ifeq ($(YTUHD_ENABLED),1)
-$(shell test -f $(YTUHD_DAV1D_SRC)/meson.build || (echo "Initializing YTUHD vendor submodules..." && cd Tweaks/YTUHD && git submodule update --init --recursive))
-endif
-
-.PHONY: ytuhd-vendor-init
-ytuhd-vendor-init:
-	@echo "Initializing YTUHD vendor submodules..."
-	@cd Tweaks/YTUHD && git submodule update --init --recursive
-
-# Target to manually build YTUHD vendor libraries
-.PHONY: ytuhd-vendor-build
-ytuhd-vendor-build:
-	@echo "Building YTUHD vendor libraries..."
-	@cd Tweaks/YTUHD && make libvpx dav1d
-
 include $(THEOS)/makefiles/common.mk
 
 ifneq ($(JAILBROKEN),1)
