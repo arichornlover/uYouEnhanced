@@ -217,6 +217,9 @@
 "SHORTS_QUALITY_PICKER" = "Shorts Quality Picker";
 "SHORTS_QUALITY_PICKER_DESC" = "Enables the YouTube Shorts Quality Picker";
 
+"SHORTS_PROGRESS_BAR" = "Shorts Progress Bar";
+"SHORTS_PROGRESS_BAR_DESC" = "Enables the progress bar on Shorts videos (YTShortsProgress)";
+
 "HIDE_SHORTS_CLIP_BUTTON" = "Hide Clip Button on Shorts";
 "HIDE_SHORTS_CLIP_BUTTON_DESC" = "Hides the Clip button when a Short is paused.";
 "HIDE_SHORTS_DOWNLOAD_BUTTON" = "Hide Download Button on Shorts";
