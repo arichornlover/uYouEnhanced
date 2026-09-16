@@ -185,7 +185,9 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 %hook GOODialogView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig([UIColor blackColor]);
+        %orig(
+            [UIColor blackColor]
+        );
     } else {
         %orig;
     }
@@ -286,10 +288,14 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 %end
 
 // Open link with...
+// v21.xx.x+: ASWAppSwitchingSheetHeaderView/FooterView/CollectionViewCell removed (Apple's system UI restructured)
+// Kept for v20.xx.x-v21.xx.x compatibility
 %hook ASWAppSwitchingSheetHeaderView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig(raisedColor);
+        %orig(
+            raisedColor
+        );
     } else {
         %orig;
     }
@@ -299,7 +305,9 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 %hook ASWAppSwitchingSheetFooterView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig(raisedColor);
+        %orig(
+            raisedColor
+        );
     } else {
         %orig;
     }
@@ -412,7 +420,9 @@ UIColor *customHexColor;
 %hook YTSearchBarView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig(customHexColor);
+        %orig(
+            customHexColor
+        );
     } else {
         %orig;
     }
@@ -423,7 +433,9 @@ UIColor *customHexColor;
 %hook YTSearchBoxView 
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig(customHexColor);
+        %orig(
+            customHexColor
+        );
     } else {
         %orig;
     }
@@ -434,7 +446,9 @@ UIColor *customHexColor;
 %hook YTCommentView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig(customHexColor);
+        %orig(
+            customHexColor
+        );
     } else {
         %orig;
     }
@@ -444,7 +458,9 @@ UIColor *customHexColor;
 %hook YTCreateCommentAccessoryView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig(customHexColor);
+        %orig(
+            customHexColor
+        );
     } else {
         %orig;
     }
@@ -454,14 +470,18 @@ UIColor *customHexColor;
 %hook YTCreateCommentTextView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig(customHexColor);
+        %orig(
+            customHexColor
+        );
     } else {
         %orig;
     }
 }
 - (void)setTextColor:(UIColor *)color { // fix black text in #Shorts video's comment
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig([UIColor whiteColor]);
+        %orig(
+            [UIColor whiteColor]
+        );
     } else {
         %orig;
     }
@@ -480,7 +500,9 @@ UIColor *customHexColor;
 %hook YTFormattedStringLabel  // YT is werid...
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig([UIColor clearColor]);
+        %orig(
+            [UIColor clearColor]
+        );
     } else {
         %orig;
     }
@@ -491,7 +513,9 @@ UIColor *customHexColor;
 %hook YCHLiveChatActionPanelView 
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig(customHexColor);
+        %orig(
+            customHexColor
+        );
     } else {
         %orig;
     }
@@ -501,7 +525,9 @@ UIColor *customHexColor;
 %hook YTEmojiTextView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig(customHexColor);
+        %orig(
+            customHexColor
+        );
     } else {
         %orig;
     }
@@ -520,7 +546,9 @@ UIColor *customHexColor;
 %hook YTCollectionView 
 - (void)setBackgroundColor:(UIColor *)color { 
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig(customHexColor);
+        %orig(
+            customHexColor
+        );
     } else {
         %orig;
     }
@@ -531,7 +559,9 @@ UIColor *customHexColor;
 %hook YTBackstageCreateRepostDetailView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig(customHexColor);
+        %orig(
+            customHexColor
+        );
     } else {
         %orig;
     }
@@ -599,10 +629,14 @@ UIColor *customHexColor;
 %end
 
 // Open link with...
+// v21.xx.x+: ASWAppSwitchingSheetHeaderView/FooterView/CollectionViewCell removed (Apple's system UI restructured)
+// Kept for v20.xx.x-v21.xx.x compatibility
 %hook ASWAppSwitchingSheetHeaderView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig(raisedColor);
+        %orig(
+            raisedColor
+        );
     } else {
         %orig;
     }
@@ -612,7 +646,9 @@ UIColor *customHexColor;
 %hook ASWAppSwitchingSheetFooterView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
-        %orig(raisedColor);
+        %orig(
+            raisedColor
+        );
     } else {
         %orig;
     }

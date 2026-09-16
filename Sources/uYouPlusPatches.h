@@ -11,7 +11,6 @@
 #import <YouTubeHeader/GPBUnknownField.h>
 #import <YouTubeHeader/GPBUnknownFields.h>
 #import "uYouPlus.h"
-#import "uYouPatches.h"
 
 @interface ELMPBProperties (uYouEnhanced)
 - (id)firstSubmessage;

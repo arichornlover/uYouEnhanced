@@ -2,7 +2,7 @@ ifndef SDK_VERSION
 SDK_VERSION = 18.6
 endif
 
-export TARGET = iphone:clang:$(SDK_VERSION):16.0
+export TARGET = iphone:clang:$(SDK_VERSION):15.0
 export SDK_PATH = $(THEOS)/sdks/iPhoneOS$(SDK_VERSION).sdk/
 export SYSROOT = $(SDK_PATH)
 export ARCHS = arm64
@@ -12,17 +12,18 @@ DISPLAY_NAME ?= YouTube
 BUNDLE_ID ?= com.google.ios.youtube
 
 ifndef YOUTUBE_VERSION
-YOUTUBE_VERSION = 21.14.4
+YOUTUBE_VERSION = 21.20.4
 endif
 ifndef UYOU_VERSION
-UYOU_VERSION = 3.0.4
+UYOU_VERSION = 3.0.6
 endif
 PACKAGE_NAME = $(TWEAK_NAME)
 PACKAGE_VERSION = $(YOUTUBE_VERSION)-$(UYOU_VERSION)
 
 $(TWEAK_NAME)_FILES := $(wildcard Sources/*.xm) $(wildcard Sources/*.x) $(wildcard Sources/*.m)
+$(info [UYT] compile list: $($(TWEAK_NAME)_FILES))
 $(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation AVFoundation AVKit Photos Accelerate CoreMotion GameController VideoToolbox Security MediaPlayer
-$(TWEAK_NAME)_LIBRARIES = bz2 c++ iconv z
+$(TWEAK_NAME)_LIBRARIES = bz2 c++ iconv z sqlite3
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-but-set-variable -DTWEAK_VERSION=\"$(PACKAGE_VERSION)\"
 
 export libcolorpicker_ARCHS = arm64
@@ -38,7 +39,6 @@ MODULES = jailed
 endif
 
 $(TWEAK_NAME)_INJECT_DYLIBS = \
-	Tweaks/uYou/Library/MobileSubstrate/DynamicLibraries/uYou.dylib \
 	$(THEOS_OBJ_DIR)/libFLEX.dylib \
 	$(THEOS_OBJ_DIR)/YTABConfig.dylib \
 	$(THEOS_OBJ_DIR)/YTIcons.dylib \
@@ -54,7 +54,9 @@ $(TWEAK_NAME)_INJECT_DYLIBS = \
 	$(THEOS_OBJ_DIR)/DontEatMyContent.dylib \
 	$(THEOS_OBJ_DIR)/YTHoldForSpeed.dylib \
 	$(THEOS_OBJ_DIR)/YTVideoOverlay.dylib \
-	$(THEOS_OBJ_DIR)/YTweaks.dylib
+	$(THEOS_OBJ_DIR)/YTweaks.dylib \
+	$(THEOS_OBJ_DIR)/YouTubeLegacy.dylib \
+	$(THEOS_OBJ_DIR)/uYouUnofficial.dylib
 
 ifeq ($(SPONSORBLOCK_ENABLED),1)
 $(TWEAK_NAME)_INJECT_DYLIBS += $(THEOS_OBJ_DIR)/iSponsorBlock.dylib
@@ -74,15 +76,10 @@ REMOVE_EXTENSIONS = 1
 CODESIGN_IPA = 0
 FINALPACKAGE = 1
 
-UYOU_PATH = Tweaks/uYou
-UYOU_DEB = $(UYOU_PATH)/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb
-UYOU_DYLIB = $(UYOU_PATH)/Library/MobileSubstrate/DynamicLibraries/uYou.dylib
-UYOU_BUNDLE = $(UYOU_PATH)/Library/Application\ Support/uYouBundle.bundle
-
 include $(THEOS)/makefiles/common.mk
 
 ifneq ($(JAILBROKEN),1)
-SUBPROJECTS += Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing/libflex Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouPiP Tweaks/YouQuality Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTVideoOverlay Tweaks/YTweaks
+SUBPROJECTS += Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing/libflex Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouPiP Tweaks/YouQuality Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTVideoOverlay Tweaks/YTweaks Tweaks/YouTubeLegacy Tweaks/uYouUnofficial
 ifeq ($(SPONSORBLOCK_ENABLED),1)
 SUBPROJECTS += Tweaks/iSponsorBlock
 endif
@@ -99,25 +96,6 @@ internal-clean::
 	@rm -rf $(UYOU_PATH)/*
 
 ifneq ($(JAILBROKEN),1)
-before-all::
-	@if [[ ! -f $(UYOU_DEB) ]]; then \
-		rm -rf $(UYOU_PATH)/*; \
-		$(PRINT_FORMAT_BLUE) "Downloading uYou"; \
-	fi
-before-all::
-	@if [[ ! -f $(UYOU_DEB) ]]; then \
- 		curl -s -L "https://www.dropbox.com/scl/fi/01vvu5lm8nkkicrznku9v/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb?rlkey=efgz7po8kqqvha8doplk1s3ky&dl=1" -o $(UYOU_DEB); \
- 	fi; \
-	if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
-		tar -xf Tweaks/uYou/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb -C Tweaks/uYou; tar -xf Tweaks/uYou/data.tar* -C Tweaks/uYou; \
-		if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
-			$(PRINT_FORMAT_ERROR) "Failed to extract uYou"; exit 1; \
-		fi; \
-	fi; \
-	perl -pi -e 's/3\.0\.4/3.0.5/g' $(UYOU_DYLIB); \
-	python3 Scripts/rebrand_uyou.py $(UYOU_DYLIB); \
-	$(PRINT_FORMAT_BLUE) "uYou rebranded to 3.0.5 (Unofficial Build)";
-
 else
 before-package::
 	@mkdir -p $(THEOS_STAGING_DIR)/Library/Application\ Support; cp -r Localizations/uYouPlus.bundle $(THEOS_STAGING_DIR)/Library/Application\ Support/

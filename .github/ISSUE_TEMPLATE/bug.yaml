@@ -26,14 +26,14 @@ body:
 - type: input
   attributes:
     label: iOS/iPadOS version
-    placeholder: iOS 26.6
+    placeholder: iOS 27.0
   validations:
     required: true
 
 - type: input
   attributes:
     label: Device model (iPad or iPhone, it depends on the issue, don't need both models, just one.)
-    placeholder: iPad Pro (M1) / iPhone 17 Pro Max
+    placeholder: iPad Pro (M5) / iPhone 18 Pro Max
   validations:
     required: true
 
@@ -48,7 +48,7 @@ body:
 - type: input
   attributes:
     label: uYouEnhanced version
-    placeholder: "21.xx.x-3.0.4"
+    placeholder: "21.xx.x-3.0.6"
     description: "**latest or newest is NOT a version number!**"
   validations:
     required: true

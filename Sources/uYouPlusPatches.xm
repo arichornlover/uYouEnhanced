@@ -1,10 +1,29 @@
 #import "uYouPlusPatches.h"
-#import "uYouPatches.h"
 #import <fcntl.h>
 #import <unistd.h>
 
 #define YT_BUNDLE_ID @"com.google.ios.youtube"
 #define YT_NAME @"YouTube"
+
+// AccessGroupID
+static NSString *accessGroupID() {
+    NSDictionary *query = [NSDictionary dictionaryWithObjectsAndKeys:
+                           (__bridge NSString *)kSecClassGenericPassword, (__bridge NSString *)kSecClass,
+                           @"bundleSeedID", kSecAttrAccount,
+                           @"", kSecAttrService,
+                           (id)kCFBooleanTrue, kSecReturnAttributes,
+                           nil];
+    CFDictionaryRef result = nil;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
+    if (status == errSecItemNotFound) {
+        status = SecItemAdd((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
+        if (status != errSecSuccess) {
+            return nil;
+        }
+    }
+    NSString *accessGroup = [(__bridge NSDictionary *)result objectForKey:(__bridge NSString *)kSecAttrAccessGroup];
+    return accessGroup;
+}
 
 // Declared for the Dynamic Island fix (gDynamicIslandFix below) — logos only
 // emits a forward @class for hooked classes, which isn't enough to message
@@ -16,16 +35,16 @@
 
 # pragma mark - YouTube patches
 
-// Fix Google Sign in Patch - handles AltStore and SideStore bundle IDs
-%group gGoogleSignInPatch
+%group gPatches
+
+// Fix Google Sign in Patch - handles AltStore bundle IDs (always-on)
 %hook NSBundle
 + (NSBundle *)bundleWithIdentifier:(NSString *)identifier {
     if ([identifier isEqualToString:YT_BUNDLE_ID])
         return NSBundle.mainBundle;
-    // SideStore: also handle alternative bundle ID formats
-    if (uYouIsSideStore() && [identifier hasSuffix:@".google.ios.youtube"])
-        return NSBundle.mainBundle;
-    return %orig(identifier);
+    return %orig(
+        identifier
+    );
 }
 - (NSString *)bundleIdentifier {
     if ([self isEqual:NSBundle.mainBundle])
@@ -53,17 +72,14 @@
     return %orig;
 }
 %end
-%end
-
-%group gPatches
 
 // Workaround for MiRO92/uYou-for-YouTube#12, qnblackcat/uYouPlus#263
 %hook YTDataUtils
 + (NSMutableDictionary *)spamSignalsDictionary {
-    return nil;
+    return [@{ @"ms": @"" } mutableCopy];
 }
 + (NSMutableDictionary *)spamSignalsDictionaryWithoutIDFA {
-    return nil;
+    return [@{} mutableCopy];
 }
 %end
 
@@ -223,20 +239,18 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 
 %end // gPatches
 
-// Sideloading - Fix App Group Directory (handles both AltStore and SideStore)
+// Sideloading - Fix App Group Directory
 %group gSideloadingPatches
 %hook NSFileManager
 - (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
     if (groupIdentifier != nil) {
         NSArray *paths = [[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask];
         NSURL *documentsURL = [paths lastObject];
-        // SideStore: use a separate AppGroup directory to avoid conflicts
-        if (uYouIsSideStore()) {
-            return [documentsURL URLByAppendingPathComponent:@"SideStoreAppGroup"];
-        }
         return [documentsURL URLByAppendingPathComponent:@"AppGroup"];
     }
-    return %orig(groupIdentifier);
+    return %orig(
+        groupIdentifier
+    );
 }
 %end
 
@@ -276,6 +290,149 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
     }
 }
 %end
+
+// IAmYouTube (https://github.com/PoomSmart/IAmYouTube) — identity spoofing
+%hook YTVersionUtils
++ (NSString *)appName { return YT_NAME; }
++ (NSString *)appID { return YT_BUNDLE_ID; }
+%end
+
+%hook GCKBUtils
++ (NSString *)appIdentifier { return YT_BUNDLE_ID; }
+%end
+
+%hook GPCDeviceInfo
++ (NSString *)bundleId { return YT_BUNDLE_ID; }
+%end
+
+%hook OGLBundle
++ (NSString *)shortAppName { return YT_NAME; }
+%end
+
+%hook GVROverlayView
++ (NSString *)appName { return YT_NAME; }
+%end
+
+%hook OGLPhenotypeFlagServiceImpl
+- (NSString *)bundleId { return YT_BUNDLE_ID; }
+%end
+
+// Spoof App Store presence so analytics / crash reporting don't flag sideloaded builds.
+%hook APMAEU
++ (BOOL)isFAS { return YES; }
+%end
+
+%hook GULAppEnvironmentUtil
++ (BOOL)isFromAppStore { return YES; }
+%end
+
+// SSO / Google sign-in identity
+%hook SSOClientLogin
++ (NSString *)defaultSourceString { return YT_BUNDLE_ID; }
+%end
+
+%hook SSOConfiguration
+- (id)initWithClientID:(id)clientID supportedAccountServices:(id)supportedAccountServices {
+    self = %orig;
+    [self setValue:YT_NAME forKey:@"_shortAppName"];
+    [self setValue:YT_BUNDLE_ID forKey:@"_applicationIdentifier"];
+    return self;
+}
+%end
+
+// Disable encoded hacks in innertube context (prevents certain telemetry from
+// leaking the real bundle ID).
+%hook YTHotConfig
+- (BOOL)clientInfraClientConfigIosEnableFillingEncodedHacksInnertubeContext { return NO; }
+%end
+
+// Keychain access group — redirect all keychain operations to the sideloaded
+// app's actual access group so sign-in tokens persist across restarts.
+%hook SSOKeychainHelper
++ (id)accessGroup { return accessGroupID(); }
++ (id)sharedAccessGroup { return accessGroupID(); }
+%end
+
+%hook SSOFolsomKeychainUtils
+- (id)sharedAccessGroup { return accessGroupID(); }
+%end
+
+%hook GULKeychainStorage
+- (void)getObjectForKey:(id)key objectClass:(Class)objectClass accessGroup:(id)accessGroup completionHandler:(id)handler {
+    accessGroup = accessGroupID();
+    %orig(
+        key,
+        objectClass,
+        accessGroup,
+        handler
+    );
+}
+- (void)setObject:(id)object forKey:(id)key accessGroup:(id)accessGroup completionHandler:(id)handler {
+    accessGroup = accessGroupID();
+    %orig(
+        object,
+        key,
+        accessGroup,
+        handler
+    );
+}
+- (void)removeObjectForKey:(id)key accessGroup:(id)accessGroup completionHandler:(id)handler {
+    accessGroup = accessGroupID();
+    %orig(
+        key,
+        accessGroup,
+        handler
+    );
+}
+- (void)getObjectFromKeychainForKey:(id)key objectClass:(Class)objectClass accessGroup:(id)accessGroup completionHandler:(id)handler {
+    accessGroup = accessGroupID();
+    %orig(
+        key,
+        objectClass,
+        accessGroup,
+        handler
+    );
+}
+- (id)keychainQueryWithKey:(id)key accessGroup:(id)accessGroup {
+    accessGroup = accessGroupID();
+    return %orig(
+        key,
+        accessGroup
+    );
+}
+%end
+
+%hook GNPEncryptionConfiguration
+- (id)initWithKeychainAccessGroup:(id)arg {
+    arg = accessGroupID();
+    return %orig(
+        arg
+    );
+}
+- (id)keychainAccessGroup { return accessGroupID(); }
+%end
+
+%hook FIRInstallationsStore
+- (id)initWithSecureStorage:(id)arg1 accessGroup:(id)arg2 {
+    arg2 = accessGroupID();
+    return %orig(
+        arg1,
+        arg2
+    );
+}
+- (id)accessGroup { return accessGroupID(); }
+%end
+
+%hook CHMConfiguration
+- (void)setKeychainAccessGroup:(id)arg {
+    arg = accessGroupID();
+    %orig(
+        arg
+    );
+}
+- (id)keychainAccessGroup { return accessGroupID(); }
+%end
+
 %end // gSideloadingPatches
 
 // Dynamic Island suppression while in-app (#69, #358, #823)
@@ -291,7 +448,9 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 - (void)setNowPlayingInfo:(NSDictionary *)info {
     // Clearing is always allowed; fresh publications are blocked in-app so
     // the island can't expand while you're inside YouTube.
-    if (info != nil && [[UIApplication sharedApplication] applicationState] == UIApplicationStateActive) {
+    UIApplication *app = [UIApplication sharedApplication];
+    BOOL isActive = (app != nil && app.applicationState == UIApplicationStateActive);
+    if (info != nil && isActive) {
         return;
     }
     %orig;
@@ -314,7 +473,12 @@ static BOOL UYTIsJailbroken(void) {
     %init;
     %init(gPatches);
     %init(gSideloadingPatches);
-    if (!UYTIsJailbroken()) {
+    // Opt-IN only: the Dynamic Island fix is OFF by default and is installed
+    // solely when the user enables "Enable Dynamic Island Fix" in settings
+    // (and on non-jailbroken devices, where the official bundle lacks media
+    // entitlements). Nothing runs unless explicitly requested.
+    BOOL diFixEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:kEnableDynamicIslandFix];
+    if (!UYTIsJailbroken() && diFixEnabled) {
         %init(gDynamicIslandFix);
 
         // Returning to the app: clear any stale Now Playing session so an
@@ -327,10 +491,6 @@ static BOOL UYTIsJailbroken(void) {
                 [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;
             } @catch (NSException *e) {}
         }];
-    }
-
-    if (IS_ENABLED(kGoogleSignInPatch)) {
-        %init(gGoogleSignInPatch);
     }
 
     // Disable broken options

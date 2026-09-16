@@ -1,3 +1,9 @@
+"""Decode chained-fixup selector slots in a Mach-O into selector strings.
+
+Usage: python Scripts/crash-analysis/resolve_selref.py <dylib> 0x<selref> [more...]
+Reads the __objc_selrefs section, resolves each chained-fixup entry, and prints
+the selector it points at — used to identify missing selectors after a crash.
+"""
 import struct
 import sys
 

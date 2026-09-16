@@ -7,7 +7,7 @@ import os
 import re
 import sys
 
-REFDIR = os.path.join(os.path.dirname(__file__), "..", "crash-analysis-report", "refdata")
+REFDIR = os.path.join(os.path.dirname(__file__), "..", "..", "crash-analysis-report", "refdata")
 
 DYLIB_NAMES = [
     "YouSpeed", "libcolorpicker", "YouPiP", "YouGroupSettings",
