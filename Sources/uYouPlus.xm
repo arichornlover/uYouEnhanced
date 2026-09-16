@@ -1946,9 +1946,6 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
     if (IS_ENABLED(kDisableResumeToShorts)) {
         %init(gDisableResumeToShorts);
     }
-    if (IS_ENABLED(kFixCasting)) {
-        %init(gFixCasting);
-    }
 
     // Change the default value of some options
     NSArray *allKeys = [[[NSUserDefaults standardUserDefaults] dictionaryRepresentation] allKeys];
