@@ -1374,7 +1374,7 @@ static BOOL YouSliderIsEnabled(void) {
 }
 - (void)drawProgressRect:(CGRect)rect withColor:(UIColor *)color {
     if (IS_ENABLED(kRedProgressBar) && !YouSliderIsEnabled()) {
-        YTIPlayerBarDecorationModel *model = [(id)self valueForKey:@"_model"];
+        YTIPlayerBarDecorationModel *model = [self valueForKey:@"_model"];
         BOOL isLive = model.playingState.mode == PLAYER_BAR_MODE_LIVE || model.playingState.mode == PLAYER_BAR_MODE_LIVE_VDR;
         UIColor *targetColor = isLive ? [UIColor colorWithRed:1.00 green:0.00 blue:0.00 alpha:1.00] : [UIColor redColor];
         %orig(rect, targetColor);
@@ -1927,14 +1927,23 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 %hook YTSettingsViewController
 - (void)viewDidLoad {
     %orig;
+
     if (IS_ENABLED(kNewSettingsUI)) {
         @try {
             Class frostedGlassClass = %c(YTFrostedGlassView);
+
             if (frostedGlassClass) {
-                UIView *frostedView = [(id)[frostedGlassClass alloc] initWithBlurEffectStyle:1];
-                frostedView.frame = self.view.bounds;
-                frostedView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-                [self.view insertSubview:frostedView atIndex:0];
+                UIView *settingsView = [(UIViewController *)self view];
+
+                YTFrostedGlassView *frostedView =
+                    [[frostedGlassClass alloc] initWithBlurEffectStyle:1];
+
+                frostedView.frame = settingsView.bounds;
+                frostedView.autoresizingMask =
+                    UIViewAutoresizingFlexibleWidth |
+                    UIViewAutoresizingFlexibleHeight;
+
+                [settingsView insertSubview:frostedView atIndex:0];
             }
         } @catch (NSException *e) {
             HBLogWarn(@"[BlurrySettingsUI] Failed to apply frosted glass: %@", e);
@@ -1943,6 +1952,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 }
 %end
 %end
+
 
 #pragma mark - [4] Constructor
 // Group initialization. Groups whose feature is opt-in are initialized inside
