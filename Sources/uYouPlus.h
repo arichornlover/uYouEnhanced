@@ -127,6 +127,7 @@ static NSString *const kHideRelatedWatchNexts = @"hideRelatedWatchNexts_enabled"
 static NSString *const kHideBuySuperThanks = @"hideBuySuperThanks_enabled";
 static NSString *const kHideSubscriptions = @"hideSubscriptions_enabled";
 static NSString *const kShortsQualityPicker = @"shortsQualityPicker_enabled";
+static NSString *const kShortsProgressBar = @"shortsProgressBar_enabled";
 static NSString *const kHideShortsClipButton = @"hideShortsClipButton_enabled";
 static NSString *const kHideShortsDownloadButton = @"hideShortsDownloadButton_enabled";
 static NSString *const kHideShortsRemixButton = @"hideShortsRemixButton_enabled";

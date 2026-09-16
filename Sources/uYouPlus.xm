@@ -446,6 +446,10 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 // }
 // %end
 
+%end // gMisc1
+
+%group gMisc1b
+
 // A/B flags
 %hook YTColdConfig 
 - (BOOL)respectDeviceCaptionSetting { return NO; } // YouRememberCaption: https://poomsmart.github.io/repo/depictions/youremembercaption.html - deprecated flag ⚠️
@@ -455,6 +459,13 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 - (BOOL)enableIosFloatingMiniplayer { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer
 - (BOOL)enableIosFloatingMiniplayerSwipeUpToExpand { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer - deprecated flag ⚠️
 - (BOOL)enableIosFloatingMiniplayerRepositioning { return IS_ENABLED(@"floatingMiniplayer2_enabled"); } // Floating Miniplayer (Repositioning Support, Removes Swiping Up Gesture) - deprecated fla[...]
+%end
+
+%end // gMisc1b
+
+%group gMisc1c
+
+%hook YTColdConfig
 
 // Classic Video Player - Pinch to fullscreen
 - (BOOL)isPinchToEnterFullscreenEnabled {
@@ -537,7 +548,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 %end
 
-%end // gMisc1
+%end // gMisc1c
 
 %group gMisc2
 
@@ -1277,7 +1288,7 @@ static BOOL YouSliderIsEnabled(void) {
 %end
 %end
 
-%group gSection13
+%group gSection12
 
 // YTShortsProgress - https://github.com/PoomSmart/YTShortsProgress/
 %hook YTShortsPlayerViewController
@@ -1659,7 +1670,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 // %end
 %end
 
-%group gSection15
+%group gSection13
 
 // Hide "Play next in queue" - qnblackcat/uYouPlus#1138
 %hook YTMenuItemVisibilityHandler
@@ -1680,7 +1691,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 }
 %end
 
-%end // gSection15
+%end // gSection13
 
 // Hide the Videos under the Video Player - @Dayanch96 & @arichornlover
 %group gNoRelatedWatchNexts
@@ -1813,6 +1824,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
     %init;
     %init(gAlwaysOn);
     %init(gMisc1);
+    %init(gMisc1b);
+    %init(gMisc1c);
     %init(gMisc2);
     %init(gMisc3);
     %init(gSection5);
@@ -1822,8 +1835,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
     %init(gSection9);
     %init(gSection10);
     %init(gSection11);
+    %init(gSection12);
     %init(gSection13);
-    %init(gSection15);
 
     if (IS_ENABLED(kHideYouTubeLogo)) {
         %init(gHideYouTubeLogo);
