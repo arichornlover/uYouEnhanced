@@ -19,10 +19,9 @@ jobs:
       - name: Make .bundle files
         run: |
           cd Bundles
-          ln -s ../Tweaks/uYouUnofficial/layout/Library/Application\ Support/uYouBundle.bundle uYouBundle.bundle
           ln -s ../Tweaks/YouTubeLegacy/layout/Library/Application\ Support/YouTubeLegacy.bundle YouTubeLegacy.bundle
           git add .
-          git commit -m "Added 2 new bundles"
+          git commit -m "Added YouTubeLegacy bundle"
           git push origin
 
       - name: Update submodules
