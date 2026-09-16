@@ -328,10 +328,8 @@ https://github.com/PoomSmart/Return-YouTube-Dislikes/tree/main/layout/Library/Ap
 "AUTO_HIDE_HOME_INDICATOR_DESC" = "Automatically Hides the iOS Home Indicator when not interacting with the App.";
 "HIDE_INDICATORS" = "Hide Indicators";
 "HIDE_INDICATORS_DESC" = "Hides all Indicators that are currently in the App.";
-"FIX_CASTING" = "Fix Casting";
-"FIX_CASTING_DESC" = "Changes certain A/B flags to fix casting.";
 "NEW_SETTINGS_UI" = "Use New Settings UI";
-"NEW_SETTINGS_UI_DESC" = "Enables the new Settings UI with tweak categories.";
+"NEW_SETTINGS_UI_DESC" = "Enables the new Settings UI with tweak categories and a frosted glass blur effect (mimics the pivot bar's translucent style).";
 
 // YouMod migration
 "YOU_MOD_GITHUB" = "YouMod on GitHub";
