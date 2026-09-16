@@ -268,6 +268,11 @@ static NSString *const kGoogleSigninFix = @"googleSigninFix_enabled";
 - (void)alignCustomViewToCenterOfWindow;
 @end
 
+// Blurry Settings UI - @arichornlover
+@interface YTFrostedGlassView : UIView
+- (instancetype)initWithBlurEffectStyle:(NSInteger)style;
+@end
+
 // uYouPlus
 @interface YTHeaderLogoController : UIView
 @property(readonly, nonatomic) long long pageStyle;

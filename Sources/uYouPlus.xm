@@ -1374,7 +1374,7 @@ static BOOL YouSliderIsEnabled(void) {
 }
 - (void)drawProgressRect:(CGRect)rect withColor:(UIColor *)color {
     if (IS_ENABLED(kRedProgressBar) && !YouSliderIsEnabled()) {
-        YTIPlayerBarDecorationModel *model = [self valueForKey:@"_model"];
+        YTIPlayerBarDecorationModel *model = [(id)self valueForKey:@"_model"];
         BOOL isLive = model.playingState.mode == PLAYER_BAR_MODE_LIVE || model.playingState.mode == PLAYER_BAR_MODE_LIVE_VDR;
         UIColor *targetColor = isLive ? [UIColor colorWithRed:1.00 green:0.00 blue:0.00 alpha:1.00] : [UIColor redColor];
         %orig(rect, targetColor);
