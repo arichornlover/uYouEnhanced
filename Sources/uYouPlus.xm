@@ -332,220 +332,351 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 
 #pragma mark - [3] Feature Groups
-// Everything below is opt-in/opt-out via settings keys; each %group MUST have
-// a matching %init(...) in %ctor at the bottom of this file.
 
 // Ad Blocking - moved to Sources/AdBlocking.xm
 
 // Hide YouTube Logo - @dayanch96
 %group gHideYouTubeLogo
+
 %hook YTHeaderLogoController
+
 - (YTHeaderLogoController *)init {
     return nil;
 }
+
 %end
+
 %hook YTNavigationBarTitleView
+
 - (void)layoutSubviews {
     %orig;
-    if (self.subviews.count > 1 && [self.subviews[1].accessibilityIdentifier isEqualToString:@"id.yoodle.logo"]) {
+
+    if (self.subviews.count > 1 &&
+        [self.subviews[1].accessibilityIdentifier isEqualToString:@"id.yoodle.logo"]) {
         self.subviews[1].hidden = YES;
     }
 }
+
 %end
 %end
 
 // Center YouTube Logo - @arichornlover
-// Centers YTNavigationBarTitleView in layoutSubviews.
 %group gCenterYouTubeLogo
+
 %hook YTNavigationBarTitleView
+
 - (void)layoutSubviews {
     %orig;
+
     @try {
         UIView *superview = self.superview;
-        if (!superview || superview.bounds.size.width <= 0) return;
 
-        if (self.hidden || self.frame.size.width <= 0) return;
+        if (!superview || superview.bounds.size.width <= 0) {
+            return;
+        }
+
+        if (self.hidden || self.frame.size.width <= 0) {
+            return;
+        }
 
         CGRect frame = self.frame;
-        CGFloat centeredX = (superview.bounds.size.width - frame.size.width) / 2;
+        CGFloat centeredX =
+            (superview.bounds.size.width - frame.size.width) / 2.0;
+
         if (fabs(centeredX - frame.origin.x) > 0.5) {
             frame.origin.x = centeredX;
             self.frame = frame;
         }
-    } @catch (NSException *ex) {
-        NSLog(@"[CenterYouTubeLogo] Exception: %@", ex);
+    }
+    @catch (NSException *exception) {
+        NSLog(@"[CenterYouTubeLogo] Exception: %@", exception);
     }
 }
+
 %end
 %end
 
+// YTMiniPlayerEnabler / miscellaneous player fixes
 %group gMisc1
 
-// YTMiniPlayerEnabler: https://github.com/level3tjg/YTMiniplayerEnabler/
 %hook YTWatchMiniBarVisibilityController
+
 - (void)updateMiniBarPlayerStateFromRenderer {
-    if (!IS_ENABLED(kYTMiniPlayer)) { return %orig; }
+    if (IS_ENABLED(kYTMiniPlayer)) {
+        return;
+    }
+
+    %orig;
 }
+
 - (void)setMiniBarHidden:(BOOL)hidden animated:(BOOL)animated {
     if (IS_ENABLED(kYTMiniPlayer)) {
-        %orig(
-            NO,
-            animated
-        );
-    } else {
-        %orig;
+        %orig(NO, animated);
+        return;
     }
+
+    %orig;
 }
+
 %end
-// Legacy Code below of YTMiniPlayerEnabler kept for backwards compatibility
+
 %hook YTWatchMiniBarViewController
+
 - (void)updateMiniBarPlayerStateFromRenderer {
     if (!IS_ENABLED(kYTMiniPlayer)) {
         %orig;
     }
 }
+
 %end
 
-// Disable snap to chapter
 %hook YTIPlayerBarPlayingState
+
 - (BOOL)enableSnapToChapter {
-    return IS_ENABLED(kSnapToChapter) ? NO : %orig;
+    if (IS_ENABLED(kSnapToChapter)) {
+        return NO;
+    }
+
+    return %orig;
 }
+
 %end
 
-// Disable snap to chapter (legacy code)
 %hook YTSegmentableInlinePlayerBarView
+
 - (void)didMoveToWindow {
     %orig;
+
     if (IS_ENABLED(kSnapToChapter)) {
         self.enableSnapToChapter = NO;
     }
 }
+
 %end
 
-// YTNoHoverCards: https://github.com/level3tjg/YTNoHoverCards
 %hook YTCreatorEndscreenView
+
 - (void)setHidden:(BOOL)hidden {
-    if (IS_ENABLED(kHideHoverCards))
+    if (IS_ENABLED(kHideHoverCards)) {
         hidden = YES;
+    }
+
     %orig;
 }
+
 %end
 
-// YTClassicVideoQuality: https://github.com/PoomSmart/YTClassicVideoQuality
 %hook YTIMediaQualitySettingsHotConfig
 
-%new(B@:) - (BOOL)enableQuickMenuVideoQualitySettings { return NO; }
+%new(B@:)
+- (BOOL)enableQuickMenuVideoQualitySettings {
+    return NO;
+}
 
 %end
 
-// %hook YTVideoQualitySwitchControllerFactory
-// - (id)videoQualitySwitchControllerWithParentResponder:(id)responder {
-//     Class originalClass = %c(YTVideoQualitySwitchOriginalController);
-//     return originalClass ? [[originalClass alloc] initWithParentResponder:responder] : %orig;
-// }
-// %end
-
-%end // gMisc1
-
-%group gMisc1b
+%end
 
 // A/B flags
-%hook YTColdConfig 
-- (BOOL)respectDeviceCaptionSetting { return NO; } // YouRememberCaption: https://poomsmart.github.io/repo/depictions/youremembercaption.html - deprecated flag ⚠️
-- (BOOL)isLandscapeEngagementPanelSwipeRightToDismissEnabled { return YES; } // Swipe right to dismiss the right panel in fullscreen mode - deprecated flag ⚠️
-- (BOOL)enableModularPlayerBarController { return NO; } // fixes some of the iSponorBlock problems
-- (BOOL)mainAppCoreClientEnableCairoSettings { return IS_ENABLED(@"newSettingsUI_enabled"); } // New grouped settings UI
-- (BOOL)enableIosFloatingMiniplayer { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer
-- (BOOL)enableIosFloatingMiniplayerSwipeUpToExpand { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer - deprecated flag ⚠️
-- (BOOL)enableIosFloatingMiniplayerRepositioning { return IS_ENABLED(@"floatingMiniplayer2_enabled"); } // Floating Miniplayer (Repositioning Support, Removes Swiping Up Gesture) - deprecated fla[...]
-%end
+%group gMisc1b
 
-%end // gMisc1b
+%hook YTColdConfig
+
+- (BOOL)respectDeviceCaptionSetting {
+    return NO;
+}
+
+- (BOOL)isLandscapeEngagementPanelSwipeRightToDismissEnabled {
+    return YES;
+}
+
+- (BOOL)enableModularPlayerBarController {
+    return NO;
+}
+
+- (BOOL)mainAppCoreClientEnableCairoSettings {
+    return IS_ENABLED(@"newSettingsUI_enabled");
+}
+
+- (BOOL)enableIosFloatingMiniplayer {
+    return IS_ENABLED(@"floatingMiniplayer_enabled");
+}
+
+- (BOOL)enableIosFloatingMiniplayerSwipeUpToExpand {
+    return IS_ENABLED(@"floatingMiniplayer_enabled");
+}
+
+- (BOOL)enableIosFloatingMiniplayerRepositioning {
+    return IS_ENABLED(@"floatingMiniplayer2_enabled");
+}
+
+%end
+%end
 
 %group gMisc1c
 
 %hook YTColdConfig
 
-// Classic Video Player - Pinch to fullscreen
 - (BOOL)isPinchToEnterFullscreenEnabled {
-    return IS_ENABLED(kClassicVideoPlayer) ? YES : %orig;
+    if (IS_ENABLED(kClassicVideoPlayer)) {
+        return YES;
+    }
+
+    return %orig;
 }
+
 - (BOOL)deprecateTabletPinchFullscreenGestures {
-    return IS_ENABLED(kClassicVideoPlayer) ? NO : %orig;
+    if (IS_ENABLED(kClassicVideoPlayer)) {
+        return NO;
+    }
+
+    return %orig;
 }
 
-// Disable Ambient Mode in Fullscreen
 - (BOOL)disableCinematicForLowPowerMode {
-    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+    if (IS_ENABLED(kDisableAmbientMode)) {
+        return NO;
+    }
+
+    return %orig;
 }
+
 - (BOOL)enableCinematicContainer {
-    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+    if (IS_ENABLED(kDisableAmbientMode)) {
+        return NO;
+    }
+
+    return %orig;
 }
+
 - (BOOL)enableCinematicContainerOnClient {
-    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+    if (IS_ENABLED(kDisableAmbientMode)) {
+        return NO;
+    }
+
+    return %orig;
 }
+
 - (BOOL)enableCinematicContainerOnTablet {
-    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+    if (IS_ENABLED(kDisableAmbientMode)) {
+        return NO;
+    }
+
+    return %orig;
 }
+
 - (BOOL)iosCinematicContainerClientImprovement {
-    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+    if (IS_ENABLED(kDisableAmbientMode)) {
+        return NO;
+    }
+
+    return %orig;
 }
+
 - (BOOL)mainAppCoreClientEnableClientCinematicPlaylists {
-    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+    if (IS_ENABLED(kDisableAmbientMode)) {
+        return NO;
+    }
+
+    return %orig;
 }
+
 - (BOOL)mainAppCoreClientEnableClientCinematicPlaylistsPostMvp {
-    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+    if (IS_ENABLED(kDisableAmbientMode)) {
+        return NO;
+    }
+
+    return %orig;
 }
+
 - (BOOL)mainAppCoreClientEnableClientCinematicTablets {
-    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+    if (IS_ENABLED(kDisableAmbientMode)) {
+        return NO;
+    }
+
+    return %orig;
 }
 
-// Disable Pinch to zoom
 - (BOOL)videoZoomFreeZoomEnabledGlobalConfig {
-    return IS_ENABLED(kPinchToZoom) ? NO : %orig;
+    if (IS_ENABLED(kPinchToZoom)) {
+        return NO;
+    }
+
+    return %orig;
 }
 
-// Use stock iOS volume HUD
 - (BOOL)iosUseSystemVolumeControlInFullscreen {
-    return IS_ENABLED(kStockVolumeHUD) ? YES : NO;
+    if (IS_ENABLED(kStockVolumeHUD)) {
+        return YES;
+    }
+
+    return NO;
 }
 
-// Disable slide to seek
 - (BOOL)speedMasterArm2FastForwardWithoutSeekBySliding {
-    return IS_ENABLED(kSlideToSeek) ? NO : %orig;
+    if (IS_ENABLED(kSlideToSeek)) {
+        return NO;
+    }
+
+    return %orig;
 }
 
-// Hide Channel Watermark
 - (BOOL)iosEnableFeaturedChannelWatermarkOverlayFix {
-    return IS_ENABLED(kHideChannelWatermark) ? NO : %orig;
+    if (IS_ENABLED(kHideChannelWatermark)) {
+        return NO;
+    }
+
+    return %orig;
 }
 
-// Hide previous and next buttons in all videos - @bhackel
 - (BOOL)removeNextPaddleForAllVideos {
-    return IS_ENABLED(kHidePreviousAndNextButton) ? YES : %orig;
+    if (IS_ENABLED(kHidePreviousAndNextButton)) {
+        return YES;
+    }
+
+    return %orig;
 }
+
 - (BOOL)removePreviousPaddleForAllVideos {
-    return IS_ENABLED(kHidePreviousAndNextButton) ? YES : %orig;
+    if (IS_ENABLED(kHidePreviousAndNextButton)) {
+        return YES;
+    }
+
+    return %orig;
 }
 
-// Disable the right panel in fullscreen mode
 - (BOOL)isLandscapeEngagementPanelEnabled {
-    return IS_ENABLED(kHideRightPanel) ? NO : %orig;
+    if (IS_ENABLED(kHideRightPanel)) {
+        return NO;
+    }
+
+    return %orig;
 }
 
-// YTShortsProgress - https://github.com/PoomSmart/YTShortsProgress/
 - (BOOL)iosEnableVideoPlayerScrubber {
-    return IS_ENABLED(kShortsProgressBar) ? YES : %orig;
-}
-- (BOOL)mobileShortsTablnlinedExpandWatchOnDismiss {
-    return IS_ENABLED(kShortsProgressBar) ? YES : %orig;
+    if (IS_ENABLED(kShortsProgressBar)) {
+        return YES;
+    }
+
+    return %orig;
 }
 
-// YT startup animation
-- (BOOL)mainAppCoreClientIosEnableStartupAnimation {
-    return IS_ENABLED(kYTStartupAnimation) ? YES : NO;
+- (BOOL)mobileShortsTablnlinedExpandWatchOnDismiss {
+    if (IS_ENABLED(kShortsProgressBar)) {
+        return YES;
+    }
+
+    return %orig;
 }
+
+- (BOOL)mainAppCoreClientIosEnableStartupAnimation {
+    if (IS_ENABLED(kYTStartupAnimation)) {
+        return YES;
+    }
+
+    return NO;
+}
+
 %end
 
 %end // gMisc1c
