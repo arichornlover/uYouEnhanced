@@ -455,6 +455,86 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 - (BOOL)enableIosFloatingMiniplayer { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer
 - (BOOL)enableIosFloatingMiniplayerSwipeUpToExpand { return IS_ENABLED(@"floatingMiniplayer_enabled"); } // Floating Miniplayer - deprecated flag ⚠️
 - (BOOL)enableIosFloatingMiniplayerRepositioning { return IS_ENABLED(@"floatingMiniplayer2_enabled"); } // Floating Miniplayer (Repositioning Support, Removes Swiping Up Gesture) - deprecated fla[...]
+
+// Classic Video Player - Pinch to fullscreen
+- (BOOL)isPinchToEnterFullscreenEnabled {
+    return IS_ENABLED(kClassicVideoPlayer) ? YES : %orig;
+}
+- (BOOL)deprecateTabletPinchFullscreenGestures {
+    return IS_ENABLED(kClassicVideoPlayer) ? NO : %orig;
+}
+
+// Disable Ambient Mode in Fullscreen
+- (BOOL)disableCinematicForLowPowerMode {
+    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+}
+- (BOOL)enableCinematicContainer {
+    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+}
+- (BOOL)enableCinematicContainerOnClient {
+    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+}
+- (BOOL)enableCinematicContainerOnTablet {
+    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+}
+- (BOOL)iosCinematicContainerClientImprovement {
+    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+}
+- (BOOL)mainAppCoreClientEnableClientCinematicPlaylists {
+    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+}
+- (BOOL)mainAppCoreClientEnableClientCinematicPlaylistsPostMvp {
+    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+}
+- (BOOL)mainAppCoreClientEnableClientCinematicTablets {
+    return IS_ENABLED(kDisableAmbientMode) ? NO : %orig;
+}
+
+// Disable Pinch to zoom
+- (BOOL)videoZoomFreeZoomEnabledGlobalConfig {
+    return IS_ENABLED(kPinchToZoom) ? NO : %orig;
+}
+
+// Use stock iOS volume HUD
+- (BOOL)iosUseSystemVolumeControlInFullscreen {
+    return IS_ENABLED(kStockVolumeHUD) ? YES : NO;
+}
+
+// Disable slide to seek
+- (BOOL)speedMasterArm2FastForwardWithoutSeekBySliding {
+    return IS_ENABLED(kSlideToSeek) ? NO : %orig;
+}
+
+// Hide Channel Watermark
+- (BOOL)iosEnableFeaturedChannelWatermarkOverlayFix {
+    return IS_ENABLED(kHideChannelWatermark) ? NO : %orig;
+}
+
+// Hide previous and next buttons in all videos - @bhackel
+- (BOOL)removeNextPaddleForAllVideos {
+    return IS_ENABLED(kHidePreviousAndNextButton) ? YES : %orig;
+}
+- (BOOL)removePreviousPaddleForAllVideos {
+    return IS_ENABLED(kHidePreviousAndNextButton) ? YES : %orig;
+}
+
+// Disable the right panel in fullscreen mode
+- (BOOL)isLandscapeEngagementPanelEnabled {
+    return IS_ENABLED(kHideRightPanel) ? NO : %orig;
+}
+
+// YTShortsProgress - https://github.com/PoomSmart/YTShortsProgress/
+- (BOOL)iosEnableVideoPlayerScrubber {
+    return IS_ENABLED(kShortsProgressBar) ? YES : %orig;
+}
+- (BOOL)mobileShortsTablnlinedExpandWatchOnDismiss {
+    return IS_ENABLED(kShortsProgressBar) ? YES : %orig;
+}
+
+// YT startup animation
+- (BOOL)mainAppCoreClientIosEnableStartupAnimation {
+    return IS_ENABLED(kYTStartupAnimation) ? YES : NO;
+}
 %end
 
 %end // gMisc1
@@ -662,10 +742,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 // Classic Video Player (Restores the v16.xx.x Video Player Functionality) - @arichornlover
 // To-do: disabling "Precise Video Scrubbing" https://9to5google.com/2022/06/29/youtube-precise-video-scrubbing/
 %group gClassicVideoPlayer
-%hook YTColdConfig
-- (BOOL)isPinchToEnterFullscreenEnabled { return YES; } // Restore Pinch-to-fullscreen
-- (BOOL)deprecateTabletPinchFullscreenGestures { return NO; } // Restore Pinch-to-fullscreen
-%end
 %hook YTHotConfig
 - (BOOL)isTabletFullscreenSwipeGesturesEnabled { return NO; } // Disable Swipe-to-fullscreen (iPad)
 %end
@@ -680,16 +756,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 - (BOOL)watchFullScreenCinematicEnabled {
     return NO;
 }
-%end
-%hook YTColdConfig
-- (BOOL)disableCinematicForLowPowerMode { return NO; }
-- (BOOL)enableCinematicContainer { return NO; }
-- (BOOL)enableCinematicContainerOnClient { return NO; }
-- (BOOL)enableCinematicContainerOnTablet { return NO; }
-- (BOOL)iosCinematicContainerClientImprovement { return NO; }
-- (BOOL)mainAppCoreClientEnableClientCinematicPlaylists { return NO; }
-- (BOOL)mainAppCoreClientEnableClientCinematicPlaylistsPostMvp { return NO; }
-- (BOOL)mainAppCoreClientEnableClientCinematicTablets { return NO; }
 %end
 %end
 
@@ -838,23 +904,11 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 %end
 
-// Disable Pinch to zoom
-%hook YTColdConfig
-- (BOOL)videoZoomFreeZoomEnabledGlobalConfig {
-    return IS_ENABLED(kPinchToZoom) ? NO : %orig;
-}
-%end
-
 %end // gSection7
 
 // Use stock iOS volume HUD
 // Use YTColdConfig's method, see https://x.com/PoomSmart/status/1756904290445332653
 %group gStockVolumeHUD
-%hook YTColdConfig
-- (BOOL)iosUseSystemVolumeControlInFullscreen {
-    return IS_ENABLED(kStockVolumeHUD) ? YES : NO;
-}
-%end
 %hook UIApplication 
 - (void)setSystemVolumeHUDEnabled:(BOOL)arg1 forAudioCategory:(id)arg2 {
         %orig(
@@ -866,12 +920,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 
 %group gSection8
-
-%hook YTColdConfig
-- (BOOL)speedMasterArm2FastForwardWithoutSeekBySliding {
-    return IS_ENABLED(kSlideToSeek) ? NO : %orig;
-}
-%end
 
 // Disable double tap to seek
 %hook YTDoubleTapToSeekController
@@ -1061,11 +1109,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 // Hide Channel Watermark
 // (YTHUDMessageView / YTAnnotationsViewController removed — classes no longer
 // exist in YouTube 21.x per PoomSmart/YouTubeHeader)
-%hook YTColdConfig
-- (BOOL)iosEnableFeaturedChannelWatermarkOverlayFix {
-    return IS_ENABLED(kHideChannelWatermark) ? NO : %orig;
-}
-%end
 
 // Always use remaining time in the video player - @bhackel
 %hook YTPlayerBarController
@@ -1104,18 +1147,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 %end
 
 %end // gSection10
-
-// Hide previous and next buttons in all videos - @bhackel
-%group gHidePreviousAndNextButton
-%hook YTColdConfig
-- (BOOL)removeNextPaddleForAllVideos { 
-    return YES; 
-}
-- (BOOL)removePreviousPaddleForAllVideos { 
-    return YES; 
-}
-%end
-%end
 
 %group gSection11
 
@@ -1234,17 +1265,6 @@ static BOOL YouSliderIsEnabled(void) {
 %end
 %end
 
-%group gSection12
-
-// Disable the right panel in fullscreen mode
-%hook YTColdConfig
-- (BOOL)isLandscapeEngagementPanelEnabled {
-    return IS_ENABLED(kHideRightPanel) ? NO : %orig;
-}
-%end
-
-%end // gSection12
-
 // Shorts Quality Picker - @arichornlover
 %group gShortsQualityPicker
 %hook YTHotConfig
@@ -1273,15 +1293,6 @@ static BOOL YouSliderIsEnabled(void) {
 %hook YTReelPlayerViewControllerSub
 - (BOOL)shouldAlwaysEnablePlayerBar { return YES; }
 - (BOOL)shouldEnablePlayerBarOnlyOnPause { return NO; }
-%end
-
-%hook YTColdConfig
-- (BOOL)iosEnableVideoPlayerScrubber { return YES; }
-- (BOOL)mobileShortsTablnlinedExpandWatchOnDismiss { return YES; }
-%end
-
-%hook YTHotConfig
-- (BOOL)enablePlayerBarForVerticalVideoWhenControlsHiddenInFullscreen { return YES; }
 %end
 
 // Hide Shorts Cells - YTUnShorts v1.3.1 - for uYou 3.0.4+ (PoomSmart)
@@ -1590,17 +1601,6 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 %end
 %end
 
-%group gSection14
-
-// YT startup animation
-%hook YTColdConfig
-- (BOOL)mainAppCoreClientIosEnableStartupAnimation {
-    return IS_ENABLED(kYTStartupAnimation) ? YES : NO;
-}
-%end
-
-%end // gSection14
-
 // Disable hints
 %group gDisableHints
 %hook YTSettings
@@ -1822,13 +1822,8 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
     %init(gSection9);
     %init(gSection10);
     %init(gSection11);
-    %init(gSection12);
     %init(gSection13);
-    %init(gSection14);
     %init(gSection15);
-//  if (IS_ENABLED(kSettingsStyle_enabled)) {
-//      %init(gSettingsStyle);
-//  }
 
     if (IS_ENABLED(kHideYouTubeLogo)) {
         %init(gHideYouTubeLogo);
@@ -1990,10 +1985,6 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
         } else {
             [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"showPlaybackRate"]; 
         }
-    }
-    // Set video casting fix default to enabled
-    if (![allKeys containsObject:@"fixCasting_enabled"]) { 
-        [[NSUserDefaults standardUserDefaults] setBool:YES forKey:kFixCasting]; 
     }
     // Set new grouped settings UI to default enabled
     if (![allKeys containsObject:@"newSettingsUI_enabled"]) { 
