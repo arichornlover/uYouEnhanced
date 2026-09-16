@@ -1361,7 +1361,7 @@ static BOOL YouSliderIsEnabled(void) {
 %hook YTPlayerBarRectangleDecorationView // Red Progress Bar - @arichornlover & @PoomSmart - New (Compatible for v19.10.7+)
 - (void)drawRectangleDecorationWithSideMasks:(CGRect)rect {
     if (IS_ENABLED(kRedProgressBar) && !YouSliderIsEnabled()) {
-        YTIPlayerBarDecorationModel *model = [self valueForKey:@"_model"];
+        YTIPlayerBarDecorationModel *model = [(id)self valueForKey:@"_model"];
         YTIPlayerBarPlayingStateOverlayMode overlayMode = model.playingState.overlayMode;
         model.playingState.overlayMode = PLAYER_BAR_OVERLAY_MODE_DEFAULT;
         if ([model respondsToSelector:@selector(style)] && [model style]) {
@@ -1929,10 +1929,9 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
     %orig;
     if (IS_ENABLED(kNewSettingsUI)) {
         @try {
-            // Apply frosted glass blur effect to the settings view
             Class frostedGlassClass = %c(YTFrostedGlassView);
             if (frostedGlassClass) {
-                YTFrostedGlassView *frostedView = [[frostedGlassClass alloc] initWithBlurEffectStyle:1]; // UIBlurEffectStyleLight
+                UIView *frostedView = [(id)[frostedGlassClass alloc] initWithBlurEffectStyle:1];
                 frostedView.frame = self.view.bounds;
                 frostedView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
                 [self.view insertSubview:frostedView atIndex:0];
