@@ -16,6 +16,16 @@ jobs:
            git config --global user.email "actions@github.com"
            git config --global user.name "GitHub Actions"
 
+      - name: Delete .bundle files
+        run: |
+          cd Bundles
+          rm -f YouBundle.bundle
+          git add .
+          ln -s ../Tweaks/uYouUnofficial/layout/Library/Application\ Support/uYouBundle.bundle uYouBundle.bundle
+          git add .
+          git commit -m "Change YouBundle.bundle dir"
+          git push origin
+
       - name: Update submodules
         run: |
           git submodule update --init --recursive --remote Tweaks/Alderis
