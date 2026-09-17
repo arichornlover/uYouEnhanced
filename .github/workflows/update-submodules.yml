@@ -19,11 +19,17 @@ jobs:
       - name: Delete .bundle files
         run: |
           cd Bundles
-          rm -f YouBundle.bundle
+          rm -f uYouBundle.bundle
           git add .
+          git commit -m "Delete uYouBundle.bundle dir"
+          git push origin
+
+      - name: Change .bundle files
+        run: |
+          cd Bundles
           ln -s ../Tweaks/uYouUnofficial/layout/Library/Application\ Support/uYouBundle.bundle uYouBundle.bundle
           git add .
-          git commit -m "Change YouBundle.bundle dir"
+          git commit -m "Change uYouBundle.bundle dir"
           git push origin
 
       - name: Update submodules
