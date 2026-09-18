@@ -118,6 +118,14 @@ static NSDictionary *UYTFixVRBody(NSDictionary *incomingBody, NSString *visitorD
         return self;
     }
 
+    // Never rewrite the download pipeline's own innertube fetches. They carry a
+    // magic internal API key and deliberately choose per-client bodies (IOS,
+    // IOS_MUSIC, IOS_CREATOR, WEB) with downgraded versions so direct stream URLs
+    // come back — the VR spoof would replace the body/client and topple that.
+    if ([URL.absoluteString containsString:@"youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc"]) {
+        return self;
+    }
+
     // Pull the app-chosen visitorData out of THIS request so the VR session stays
     // consistent for that request (no shared-state races across threads).
     NSString *visitorData = @"";

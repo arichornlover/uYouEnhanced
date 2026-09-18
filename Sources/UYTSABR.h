@@ -23,6 +23,13 @@ NS_ASSUME_NONNULL_BEGIN
 // Helper to check if SABR has a valid captured request (for fallback gating)
 BOOL UYTSABRHasValidCapture(void);
 
+// Same as UYTSABRHasValidCapture but additionally requires the captured request
+// to belong to `videoID`. The capture is whatever video the player is CURRENTLY
+// streaming, so without this check a queued/requested download could silently
+// download a DIFFERENT video's segments. Returns capture-valid when `videoID`
+// is nil/empty or the captured videoID is unknown (backwards compatible).
+BOOL UYTSABRHasValidCaptureForVideoID(NSString *videoID);
+
 // Fallback entry for uYou pipeline: download best mp4+m4a for videoID via SABR,
 // then mux with FFmpegKitNext and finalize via uYou's DB. Called when innertube
 // returns -1002 / empty URLs on YouTube 21.29+.

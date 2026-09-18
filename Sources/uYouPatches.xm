@@ -957,6 +957,10 @@ static NSDictionary *UYTBestAvailableSource(id ui) {
         checkPath([docs stringByAppendingPathComponent:
                    [NSString stringWithFormat:@"uYouDownloads/%@.mp4", vid]],
                   @"muxed pipeline file");
+        // Audio-only SABR output (Shorts audio / pure audio downloads).
+        checkPath([docs stringByAppendingPathComponent:
+                   [NSString stringWithFormat:@"uYouDownloads/%@.m4a", vid]],
+                  @"sabr audio pipeline file");
     }
 
     checkPath(resolvePath(ui, @selector(tmpVideoPath)), @"tmp video stream");
@@ -1271,6 +1275,35 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
             }
         });
     }];
+}
+%end
+
+// --- Honest SABR finalize (no fake network task) ---
+// When the pipeline resolved only LOCAL file:// URLs, SABR already downloaded
+// and muxed the video on-device. Spinning up uYou's native download task on a
+// file:// URL fails instantly with -1002 leaving the item stuck forever. Instead
+// finalize the item end-to-end (file promotion, flags, DB row, queue purge,
+// notifications, Downloads list reload) with no %orig. Real http(s) URLs and
+// unknown states fall through to %orig untouched.
+%hook DownloadItem
+- (void)createDownloadTask {
+    @try {
+        NSString *vid = [NSString stringWithFormat:@"%@", self.videoID];
+        if (vid.length) {
+            NSString *resolved = UYTResolvedVideoURL(vid);
+            if (!resolved.length) resolved = UYTResolvedURLForVideo(vid, YES);
+            if (resolved.length && [resolved hasPrefix:@"file://"]) {
+                id ui = UYTResolveUYouItem(self);
+                if (ui) {
+                    HBLogWarn(@"[uYouPatches] SABR on-device file ready for %@ — finalizing without network task", vid);
+                    if (UYTFinalizeItem(self, @"SABR on-device")) return;
+                }
+            }
+        }
+    } @catch (NSException *e) {
+        HBLogWarn(@"[uYouPatches] createDownloadTask SABR shortcut failed: %@", e);
+    }
+    %orig;
 }
 %end
 

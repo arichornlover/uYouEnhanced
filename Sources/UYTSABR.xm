@@ -55,10 +55,22 @@
 // Serial queue guarding all shared engine state (capture globals, per-download
 // bookkeeping). Capture hooks and network completions fire on arbitrary threads and
 // hop here before touching shared state.
+static void *SABRQueueKey = &SABRQueueKey;
+
 static dispatch_queue_t SABRQueue(void) {
     static dispatch_queue_t q; static dispatch_once_t o;
-    dispatch_once(&o, ^{ q = dispatch_queue_create("youmod.sabr", DISPATCH_QUEUE_SERIAL); });
+    dispatch_once(&o, ^{
+        q = dispatch_queue_create("youmod.sabr", DISPATCH_QUEUE_SERIAL);
+        dispatch_queue_set_specific(q, SABRQueueKey, SABRQueueKey, NULL);
+    });
     return q;
+}
+
+// Whether the current thread already runs on SABRQueue. The read-only capture
+// accessors dispatch_sync() onto it when NOT on it and read directly when they
+// are, otherwise a caller originating ON the queue would deadlock itself.
+static BOOL SABROnQueue(void) {
+    return dispatch_get_specific(SABRQueueKey) == SABRQueueKey;
 }
 
 #pragma mark - UMP parser
@@ -440,7 +452,27 @@ static NSURL *gCapURL;
 static NSData *gCapPlainBody;      // pre-Brotli body (from -HTTPBody)
 static NSDictionary *gCapHeaders;
 static NSTimeInterval gCapExpire;  // from the URL's expire= param
+static NSString *gCapVideoID;      // best-effort videoID the capture belongs to
 static BOOL gSABRCancel;           // set to abort the active download loop (touched on SABRQueue)
+
+// Best-effort correlation of a captured videoplayback request to a videoID.
+// The captured request belongs to whatever the player is CURRENTLY streaming, so
+// mirror that from uYou's PlayerManager (uYouItem.videoID) or the persisted
+// last-played ID. A download for a different video must NOT reuse this capture.
+static NSString *SABRCurrentVideoID(void) {
+    @try {
+        Class pm = NSClassFromString(@"PlayerManager");
+        if (pm && [pm respondsToSelector:@selector(sharedInstance)]) {
+            id mgr = [pm performSelector:@selector(sharedInstance)];
+            if ([mgr respondsToSelector:@selector(currentVideo)]) {
+                id cur = [mgr performSelector:@selector(currentVideo)];
+                if ([cur respondsToSelector:@selector(videoID)])
+                    return [cur performSelector:@selector(videoID)];
+            }
+        }
+    } @catch (id e) {}
+    return [[NSUserDefaults standardUserDefaults] stringForKey:@"playerVideoID"];
+}
 
 static NSTimeInterval SABRExpireFromURL(NSURL *url) {
     for (NSURLQueryItem *item in [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO].queryItems)
@@ -465,6 +497,9 @@ static NSTimeInterval SABRExpireFromURL(NSURL *url) {
                 // Most-recent-wins: always track the latest videoplayback request (the
                 // current video), so switching videos captures the new one.
                 gCapURL = url; gCapPlainBody = plainCopy; gCapHeaders = hdrs; gCapExpire = SABRExpireFromURL(url);
+                // Correlate the capture to the video currently being streamed so a
+                // queued download can reject a capture that belongs to another video.
+                gCapVideoID = [SABRCurrentVideoID() copy];
             });
         }
     } @catch (id ex) {}
@@ -783,14 +818,27 @@ static void SABRRunDownload(uint64_t videoItag, uint64_t audioItag,
 #pragma mark - uYouEnhanced fallback helpers
 
 BOOL UYTSABRHasValidCapture(void) {
+    return UYTSABRHasValidCaptureForVideoID(nil);
+}
+
+// Capture validity PLUS per-video correlation (see header comment). Reads the
+// capture globals synchronously, hopping onto SABRQueue only when not already on it.
+BOOL UYTSABRHasValidCaptureForVideoID(NSString *videoID) {
     __block BOOL valid = NO;
-    dispatch_sync(SABRQueue(), ^{
-        valid = (gCapURL != nil && gCapPlainBody.length > 0 && gCapExpire > 0);
-        if (valid) {
-            NSTimeInterval now = [NSDate date].timeIntervalSince1970;
-            valid = (gCapExpire > now + 60); // 60s buffer
+    void (^evaluate)(void) = ^{
+        if (gCapURL == nil || gCapPlainBody.length == 0 || gCapExpire <= 0) return;
+        NSTimeInterval now = [NSDate date].timeIntervalSince1970;
+        if (gCapExpire < now + 60) return; // 60s buffer
+        valid = YES;
+        if (videoID.length && gCapVideoID.length) {
+            if (![gCapVideoID isEqualToString:videoID]) valid = NO;
         }
-    });
+    };
+    if (SABROnQueue()) {
+        evaluate();
+    } else {
+        dispatch_sync(SABRQueue(), evaluate);
+    }
     return valid;
 }
 
@@ -886,6 +934,16 @@ void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
                         [[NSFileManager defaultManager] removeItemAtPath:videoURL.path error:nil];
                         [[NSFileManager defaultManager] removeItemAtPath:audioURL.path error:nil];
                     }
+                    // Stage a canonical copy at uYouDownloads/<videoID>.mp4 — uYou's
+                    // best-source scan (UYTBestAvailableSource) and the stall watchdog
+                    // look HERE when UYTFinalizeItem runs, not at the title-based name.
+                    NSString *canonPath = [outDir stringByAppendingPathComponent:
+                                           [NSString stringWithFormat:@"%@.mp4", videoID]];
+                    NSString *produced = muxed ? outPath : videoURL.path;
+                    if (produced.length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:produced]) {
+                        [[NSFileManager defaultManager] removeItemAtPath:canonPath error:nil];
+                        [[NSFileManager defaultManager] copyItemAtPath:produced toPath:canonPath error:nil];
+                    }
                     [[NSUserDefaults standardUserDefaults] setObject:videoID forKey:@"UYTSABRVideoID"];
                     completion(YES, nil);
                 }];
@@ -899,6 +957,17 @@ void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
                     // Remux fragmented mp4 audio to clean m4a (YouMod: exportSABRAudioURL)
                     // For now, just stash the elementary file; uYouPatches will handle conversion
                     [[NSUserDefaults standardUserDefaults] setObject:audioURL.path forKey:@"UYTSABRAudioPath"];
+                    // Stage a canonical copy at uYouDownloads/<videoID>.m4a so the
+                    // audio-only finalize (UYTBestAvailableSource) can promote it.
+                    NSString *docs2 = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+                    NSString *outDir2 = [docs2 stringByAppendingPathComponent:@"uYouDownloads"];
+                    [[NSFileManager defaultManager] createDirectoryAtPath:outDir2 withIntermediateDirectories:YES attributes:nil error:nil];
+                    NSString *canonAudio = [outDir2 stringByAppendingPathComponent:
+                                            [NSString stringWithFormat:@"%@.m4a", videoID]];
+                    if ([[NSFileManager defaultManager] fileExistsAtPath:audioURL.path]) {
+                        [[NSFileManager defaultManager] removeItemAtPath:canonAudio error:nil];
+                        [[NSFileManager defaultManager] copyItemAtPath:audioURL.path toPath:canonAudio error:nil];
+                    }
                     [[NSUserDefaults standardUserDefaults] setObject:videoID forKey:@"UYTSABRVideoID"];
                     completion(YES, nil);
                 }];

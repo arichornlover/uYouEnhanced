@@ -182,63 +182,82 @@ static NSString *UYTYouTubeCookiesString(void) {
     [task resume];
 }
 
+// Really run a SABR on-device download and expose the produced files as
+// file:// "formats" to the rest of the pipeline. Requires a valid capture for
+// THIS videoID (checked by the callers). Guarantees exactly one completion call.
++ (void)runSABRDownloadForVideoID:(NSString *)videoID
+                        isShorts:(BOOL)isShorts
+                       completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
+    // For Shorts, only use SABR for audio (video is handled via innertube when available).
+    BOOL audioOnlyForShorts = isShorts;
+    UYTSABRFallbackDownloadForVideoID(videoID, nil, audioOnlyForShorts, ^(BOOL success, NSString *errMsg) {
+        if (success) {
+            // SABR produced elementary files; re-resolve URLs from stashed paths
+            NSString *vPath = [[NSUserDefaults standardUserDefaults] stringForKey:@"UYTSABRVideoPath"];
+            NSString *aPath = [[NSUserDefaults standardUserDefaults] stringForKey:@"UYTSABRAudioPath"];
+            if (vPath.length || aPath.length) {
+                // Stash as file:// URLs so DownloadItem swap can pick them up
+                NSString *vURL = vPath.length ? [NSURL fileURLWithPath:vPath].absoluteString : nil;
+                NSString *aURL = aPath.length ? [NSURL fileURLWithPath:aPath].absoluteString : nil;
+                UYTStoreResolvedURLs(videoID, vURL, aURL, vURL);
+                // Build synthetic formats so caller can proceed
+                NSMutableArray *sabrFormats = [NSMutableArray array];
+                if (vURL) {
+                    UYTStreamFormat *vf = [[UYTStreamFormat alloc] init];
+                    vf.url = vURL; vf.itag = 137; vf.mimeType = @"video/mp4"; vf.hasVideo = YES; vf.hasAudio = NO; vf.qualityLabel = @"1080p";
+                    [sabrFormats addObject:vf];
+                }
+                if (aURL) {
+                    UYTStreamFormat *af = [[UYTStreamFormat alloc] init];
+                    af.url = aURL; af.itag = 140; af.mimeType = @"audio/mp4"; af.hasVideo = NO; af.hasAudio = YES;
+                    [sabrFormats addObject:af];
+                }
+                completion(sabrFormats, nil);
+                return;
+            }
+        }
+        NSLog(@"[UYTPipeline] SABR download failed for %@: %@", videoID, errMsg);
+        completion(@[], [NSError errorWithDomain:@"UYTDownload" code:-1002
+                userInfo:@{NSLocalizedDescriptionKey: errMsg ?: @"SABR download failed"}]);
+    });
+}
+
 // Fetch stream formats with version-aware strategy:
 // - YouTube 21.29+: SABR primary (innertube returns -1002), innertube fallback
-// - Older versions: innertube primary (IOS -> IOS_MUSIC -> IOS_CREATOR -> WEB), SABR fallback
-// For Shorts, SABR only downloads audio (video downloaded via innertube if available)
+// - Older versions: innertube primary (IOS -> IOS_MUSIC -> IOS_CREATOR -> WEB),
+//   SABR as last resort when the whole chain fails but a valid capture exists
+//   for THIS video (the capture is per-video, see UYTSABRHasValidCaptureForVideoID:).
 + (void)fetchFormatsForVideoID:(NSString *)videoID
                     isShorts:(BOOL)isShorts
                     completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
     BOOL is2129OrNewer = UYTIsYouTubeVersion2129OrNewer();
-    
-    if (is2129OrNewer) {
-        NSLog(@"[UYTPipeline] YouTube 21.29+ detected — trying SABR primary for %@", videoID);
-        
+
+    if (is2129OrNewer && UYTSABRHasValidCaptureForVideoID(videoID)) {
+        NSLog(@"[UYTPipeline] YouTube 21.29+ with matching SABR capture — on-device download for %@", videoID);
         // Try SABR first for 21.29+. If SABR has a valid capture, it owns the
         // completion (success OR failure) — we must NOT fall through to the
         // innertube chain below, or completion would fire twice.
-        if (UYTSABRHasValidCapture()) {
-            // For Shorts, only use SABR for audio (skip video to avoid unwanted downloads)
-            BOOL audioOnlyForShorts = isShorts;
-            UYTSABRFallbackDownloadForVideoID(videoID, nil, audioOnlyForShorts, ^(BOOL success, NSString *errMsg) {
-                if (success) {
-                    // SABR produced elementary files; re-resolve URLs from stashed paths
-                    NSString *vPath = [[NSUserDefaults standardUserDefaults] stringForKey:@"UYTSABRVideoPath"];
-                    NSString *aPath = [[NSUserDefaults standardUserDefaults] stringForKey:@"UYTSABRAudioPath"];
-                    if (vPath.length || aPath.length) {
-                        // Stash as file:// URLs so DownloadItem swap can pick them up
-                        NSString *vURL = vPath.length ? [NSURL fileURLWithPath:vPath].absoluteString : nil;
-                        NSString *aURL = aPath.length ? [NSURL fileURLWithPath:aPath].absoluteString : nil;
-                        UYTStoreResolvedURLs(videoID, vURL, aURL, vURL);
-                        // Build synthetic formats so caller can proceed
-                        NSMutableArray *sabrFormats = [NSMutableArray array];
-                        if (vURL) {
-                            UYTStreamFormat *vf = [[UYTStreamFormat alloc] init];
-                            vf.url = vURL; vf.itag = 137; vf.mimeType = @"video/mp4"; vf.hasVideo = YES; vf.hasAudio = NO; vf.qualityLabel = @"1080p";
-                            [sabrFormats addObject:vf];
-                        }
-                        if (aURL) {
-                            UYTStreamFormat *af = [[UYTStreamFormat alloc] init];
-                            af.url = aURL; af.itag = 140; af.mimeType = @"audio/mp4"; af.hasVideo = NO; af.hasAudio = YES;
-                            [sabrFormats addObject:af];
-                        }
-                        completion(sabrFormats, nil);
-                        return;
-                    }
-                }
-                // SABR failed — fall back to innertube chain (single completion).
-                NSLog(@"[UYTPipeline] SABR primary failed for %@: %@ — falling back to innertube", videoID, errMsg);
-                [self runInnertubeFallbackChainForVideoID:videoID completion:completion];
-            });
-            // SABR owns the completion from here — do NOT fall through.
-            return;
-        } else {
-            NSLog(@"[UYTPipeline] YouTube 21.29+ but no SABR capture yet — using innertube fallback");
-        }
+        [self runSABRDownloadForVideoID:videoID isShorts:isShorts completion:completion];
+        return;
     }
-    
-    // Innertube fallback chain: IOS -> IOS_MUSIC -> IOS_CREATOR -> WEB
-    [self runInnertubeFallbackChainForVideoID:videoID completion:completion];
+    if (is2129OrNewer) {
+        NSLog(@"[UYTPipeline] YouTube 21.29+ but no matching SABR capture — using innertube fallback");
+    }
+
+    // Innertube fallback chain: IOS -> IOS_MUSIC -> IOS_CREATOR -> WEB.
+    // If the whole chain produces nothing, SABR is the last resort on ANY
+    // YouTube version (403/-1002 happens on older installs too) — but only when
+    // the capture actually belongs to this videoID.
+    [self runInnertubeFallbackChainForVideoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts, NSError *err) {
+        if (fmts.count > 0) { completion(fmts, nil); return; }
+        if (UYTSABRHasValidCaptureForVideoID(videoID)) {
+            NSLog(@"[UYTPipeline] innertube chain empty for %@ — SABR last resort", videoID);
+            [self runSABRDownloadForVideoID:videoID isShorts:isShorts completion:completion];
+            return;
+        }
+        NSLog(@"[UYTPipeline] all innertube clients failed and no matching SABR capture for %@", videoID);
+        completion(@[], err);
+    }];
 }
 
 // Innertube fallback chain: IOS -> IOS_MUSIC -> IOS_CREATOR -> WEB.
