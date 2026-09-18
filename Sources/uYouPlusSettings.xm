@@ -761,13 +761,6 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
                 case 91: return @"v20.03.1 (Deprecated)";
                 case 92: return @"v20.03.02 (Deprecated)";
                 case 93: return @"v20.02.3 (Deprecated)";
-                case 94: return @"v19.45.1 (YouTubeLegacy)";
-                case 95: return @"v19.16.3 (YouTubeLegacy)";
-                case 96: return @"v19.14.2 (YouTubeLegacy)";
-                case 97: return @"v18.46.3 (YouTubeLegacy)";
-                case 98: return @"v18.33.3 (YouTubeLegacy)";
-                case 99: return @"v17.40.5 (YouTubeLegacy)";
-                case 100: return @"v16.46.5 (YouTubeLegacy)";
                 default: return @"v21.33.6";
             }
         }
