@@ -15,7 +15,7 @@ ifndef YOUTUBE_VERSION
 YOUTUBE_VERSION = 21.20.4
 endif
 ifndef UYOU_VERSION
-UYOU_VERSION = 3.0.6
+UYOU_VERSION = 3.0.5
 endif
 PACKAGE_NAME = $(TWEAK_NAME)
 PACKAGE_VERSION = $(YOUTUBE_VERSION)-$(UYOU_VERSION)
@@ -42,6 +42,7 @@ MODULES = jailed
 endif
 
 $(TWEAK_NAME)_INJECT_DYLIBS = \
+	Tweaks/uYou/Library/MobileSubstrate/DynamicLibraries/uYou.dylib \
 	$(THEOS_OBJ_DIR)/libFLEX.dylib \
 	$(THEOS_OBJ_DIR)/YTABConfig.dylib \
 	$(THEOS_OBJ_DIR)/YTIcons.dylib \
@@ -58,8 +59,7 @@ $(TWEAK_NAME)_INJECT_DYLIBS = \
 	$(THEOS_OBJ_DIR)/YTHoldForSpeed.dylib \
 	$(THEOS_OBJ_DIR)/YTVideoOverlay.dylib \
 	$(THEOS_OBJ_DIR)/YTweaks.dylib \
-	$(THEOS_OBJ_DIR)/YouTubeLegacy.dylib \
-	$(THEOS_OBJ_DIR)/uYouUnofficial.dylib
+	$(THEOS_OBJ_DIR)/YouTubeLegacy.dylib
 
 ifeq ($(SPONSORBLOCK_ENABLED),1)
 $(TWEAK_NAME)_INJECT_DYLIBS += $(THEOS_OBJ_DIR)/iSponsorBlock.dylib
@@ -82,7 +82,7 @@ FINALPACKAGE = 1
 include $(THEOS)/makefiles/common.mk
 
 ifneq ($(JAILBROKEN),1)
-SUBPROJECTS += Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing/libflex Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouPiP Tweaks/YouQuality Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTVideoOverlay Tweaks/YTweaks Tweaks/YouTubeLegacy Tweaks/uYouUnofficial
+SUBPROJECTS += Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing/libflex Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouPiP Tweaks/YouQuality Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTVideoOverlay Tweaks/YTweaks Tweaks/YouTubeLegacy
 
 ifeq ($(SPONSORBLOCK_ENABLED),1)
 SUBPROJECTS += Tweaks/iSponsorBlock
@@ -103,6 +103,25 @@ internal-clean::
 	@rm -rf $(UYOU_PATH)/*
 
 ifneq ($(JAILBROKEN),1)
+before-all::
+	@if [[ ! -f $(UYOU_DEB) ]]; then \
+		rm -rf $(UYOU_PATH)/*; \
+		$(PRINT_FORMAT_BLUE) "Downloading uYou"; \
+	fi
+before-all::
+	@if [[ ! -f $(UYOU_DEB) ]]; then \
+ 		curl -s -L "https://www.dropbox.com/scl/fi/01vvu5lm8nkkicrznku9v/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb?rlkey=efgz7po8kqqvha8doplk1s3ky&dl=1" -o $(UYOU_DEB); \
+ 	fi; \
+	if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
+		tar -xf Tweaks/uYou/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb -C Tweaks/uYou; tar -xf Tweaks/uYou/data.tar* -C Tweaks/uYou; \
+		if [[ ! -f $(UYOU_DYLIB) || ! -d $(UYOU_BUNDLE) ]]; then \
+			$(PRINT_FORMAT_ERROR) "Failed to extract uYou"; exit 1; \
+		fi; \
+	fi; \
+	perl -pi -e 's/3\.0\.4/3.0.5/g' $(UYOU_DYLIB); \
+	python3 Scripts/rebrand_uyou.py $(UYOU_DYLIB); \
+	$(PRINT_FORMAT_BLUE) "uYou rebranded to 3.0.5 (Unofficial Build)";
+
 else
 before-package::
 	@mkdir -p $(THEOS_STAGING_DIR)/Library/Application\ Support; cp -r Localizations/uYouPlus.bundle $(THEOS_STAGING_DIR)/Library/Application\ Support/

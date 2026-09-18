@@ -5,6 +5,6 @@ Description: The continuation of uYouPlus
 Maintainer: arichornlover
 Author: qnblackcat
 Section: Tweaks
-Depends: mobilesubstrate (>= 0.9.5000), com.miro.uyouunofficial
-Conflicts: com.level3tjg.ytminiplayerenabler, com.level3tjg.ytnohovercards, com.ps.noytpremium, com.ps.ytnopaidpromo, com.ps.ytreexplore, com.galacticdev.bigytminiplayer, com.lilacvibes.ytstockvolumehud, net.sarahh12099.youtubereborn, com.twickd.sarahh12099.youtube-reborn, h.ryan.youtubereborn, weeb.lillie.enhancerforyoutubepremium, com.ps.uyoucompat, com.ichitaso.uyouplus, com.miro.uyou
+Depends: mobilesubstrate (>= 0.9.5000), com.miro.uyou
+Conflicts: com.level3tjg.ytminiplayerenabler, com.level3tjg.ytnohovercards, com.ps.noytpremium, com.ps.ytnopaidpromo, com.ps.ytreexplore, com.galacticdev.bigytminiplayer, com.lilacvibes.ytstockvolumehud, net.sarahh12099.youtubereborn, com.twickd.sarahh12099.youtube-reborn, h.ryan.youtubereborn, weeb.lillie.enhancerforyoutubepremium, com.ps.uyoucompat, com.ichitaso.uyouplus, com.miro.uyouunofficial
 Recommends: com.ps.youmute, com.ps.youpip, com.ps.youquality, com.ps.ytabconfig, com.ps.ytvideooverlay, libflex, weeb.lillie.youtubedislikesreturn
