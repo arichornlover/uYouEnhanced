@@ -48,7 +48,7 @@ body:
 - type: input
   attributes:
     label: uYouEnhanced version
-    placeholder: "21.xx.x-3.0.6"
+    placeholder: "21.xx.x-3.0.5"
     description: "**latest or newest is NOT a version number!**"
   validations:
     required: true
