@@ -25,6 +25,7 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import "MediaKit/UYTMediaKit.h"
+#import "UYTSABR.h"
 
 // uYouEnhanced: SABR is always enabled as a fallback for YouTube 21.29+
 // where innertube returns -1002 (unsupported URL). The capture hook runs
@@ -784,15 +785,7 @@ static void SABRRunDownload(uint64_t videoItag, uint64_t audioItag,
 // Download the chosen mp4 video itag + m4a audio itag on-device via SABR, producing
 // two elementary files. `progress` (0..1) and `completion` are always delivered on
 // the main queue. The caller hands the two files to its existing muxer.
-@interface YMSABR : NSObject
-+ (void)downloadVideoItag:(int)videoItag audioItag:(int)audioItag
-                 progress:(void (^)(float fraction, unsigned long long bytesDownloaded, BOOL isAudio))progress
-               completion:(void (^)(NSURL *videoURL, NSURL *audioURL, NSString *err))completion;
-+ (void)downloadAudioItag:(int)audioItag
-                 progress:(void (^)(float fraction, unsigned long long bytesDownloaded))progress
-               completion:(void (^)(NSURL *audioURL, NSString *err))completion;
-+ (void)cancelCurrent;
-@end
+// (Interface declared in UYTSABR.h.)
 
 @implementation YMSABR
 + (void)downloadVideoItag:(int)videoItag audioItag:(int)audioItag
@@ -898,7 +891,7 @@ void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
                     // This mirrors YouMod's Download.x mergeVideoURL:audioURL: flow but
                     // uses FFmpegKitNext instead of AVFoundation for webm/VP9 safety.
                     NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-                    NSString *outDir = [docs stringByAppendingPathComponent:@"uYouDownloads"];
+                    NSString *outDir = [docs stringByAppendingPathComponent:@"Downloaded"];
                     [[NSFileManager defaultManager] createDirectoryAtPath:outDir withIntermediateDirectories:YES attributes:nil error:nil];
                     NSString *safeTitle = title.length ? title : videoID;
                     // Sanitize filename (YouMod: YouModSanitizedFileName)
@@ -934,7 +927,7 @@ void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
                         [[NSFileManager defaultManager] removeItemAtPath:videoURL.path error:nil];
                         [[NSFileManager defaultManager] removeItemAtPath:audioURL.path error:nil];
                     }
-                    // Stage a canonical copy at uYouDownloads/<videoID>.mp4 — uYou's
+                    // Stage a canonical copy at Downloaded/<videoID>.mp4 — uYou's
                     // best-source scan (UYTBestAvailableSource) and the stall watchdog
                     // look HERE when UYTFinalizeItem runs, not at the title-based name.
                     NSString *canonPath = [outDir stringByAppendingPathComponent:
@@ -957,10 +950,10 @@ void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
                     // Remux fragmented mp4 audio to clean m4a (YouMod: exportSABRAudioURL)
                     // For now, just stash the elementary file; uYouPatches will handle conversion
                     [[NSUserDefaults standardUserDefaults] setObject:audioURL.path forKey:@"UYTSABRAudioPath"];
-                    // Stage a canonical copy at uYouDownloads/<videoID>.m4a so the
+                    // Stage a canonical copy at Downloaded/<videoID>.m4a so the
                     // audio-only finalize (UYTBestAvailableSource) can promote it.
                     NSString *docs2 = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-                    NSString *outDir2 = [docs2 stringByAppendingPathComponent:@"uYouDownloads"];
+                    NSString *outDir2 = [docs2 stringByAppendingPathComponent:@"Downloaded"];
                     [[NSFileManager defaultManager] createDirectoryAtPath:outDir2 withIntermediateDirectories:YES attributes:nil error:nil];
                     NSString *canonAudio = [outDir2 stringByAppendingPathComponent:
                                             [NSString stringWithFormat:@"%@.m4a", videoID]];

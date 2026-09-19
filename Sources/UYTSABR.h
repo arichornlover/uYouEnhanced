@@ -28,7 +28,7 @@ BOOL UYTSABRHasValidCapture(void);
 // streaming, so without this check a queued/requested download could silently
 // download a DIFFERENT video's segments. Returns capture-valid when `videoID`
 // is nil/empty or the captured videoID is unknown (backwards compatible).
-BOOL UYTSABRHasValidCaptureForVideoID(NSString *videoID);
+BOOL UYTSABRHasValidCaptureForVideoID(NSString * _Nullable videoID);
 
 // Fallback entry for uYou pipeline: download best mp4+m4a for videoID via SABR,
 // then mux with FFmpegKitNext and finalize via uYou's DB. Called when innertube

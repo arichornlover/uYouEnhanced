@@ -955,11 +955,11 @@ static NSDictionary *UYTBestAvailableSource(id ui) {
     if (vid.length) {
         NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
         checkPath([docs stringByAppendingPathComponent:
-                   [NSString stringWithFormat:@"uYouDownloads/%@.mp4", vid]],
+                   [NSString stringWithFormat:@"Downloaded/%@.mp4", vid]],
                   @"muxed pipeline file");
         // Audio-only SABR output (Shorts audio / pure audio downloads).
         checkPath([docs stringByAppendingPathComponent:
-                   [NSString stringWithFormat:@"uYouDownloads/%@.m4a", vid]],
+                   [NSString stringWithFormat:@"Downloaded/%@.m4a", vid]],
                   @"sabr audio pipeline file");
     }
 
@@ -1589,7 +1589,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 
             NSString *docsDir = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
             NSString *fallbackName = [dstPath lastPathComponent];
-            NSString *fallbackPath = [docsDir stringByAppendingPathComponent:@"uYouDownloads"];
+            NSString *fallbackPath = [docsDir stringByAppendingPathComponent:@"Downloaded"];
             fallbackPath = [fallbackPath stringByAppendingPathComponent:fallbackName];
 
             // Create the directory if needed
