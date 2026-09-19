@@ -1,6 +1,6 @@
 #import "uYouPlus.h"
 #import "uYouPatches.h"
-#import "UYTMediaKit.h"
+#import "MediaKit/UYTMediaKit.h"
 #import "DownloadPipeline.h"
 #import <YouTubeHeader/YTUIUtils.h>
 #import <sqlite3.h>
@@ -273,7 +273,11 @@ static void refreshUYouAppearance() {
 - (void)layoutSubviews {
     %orig;
     
-    if (!IS_ENABLED(@"downloadButton_enabled")) return;
+    // Default ON: only skip when the key is explicitly set to NO.
+    // (The key is never registered anywhere, so a plain IS_ENABLED() check
+    // makes this whole group dead code by default.)
+    NSUserDefaults *uytd = [NSUserDefaults standardUserDefaults];
+    if ([uytd objectForKey:@"downloadButton_enabled"] && ![uytd boolForKey:@"downloadButton_enabled"]) return;
     
     // Ensure the existing uYouButton has its action wired to call uYou on the overlay view
     id btn = [self valueForKey:@"uYouButton"];
@@ -456,7 +460,7 @@ static id UYTFindShortsPlayerVC(id overlay) {
 }
 
 @interface YTMainAppControlsOverlayView (UYTShortsDownload)
-- (void)_uytShowShortsDownloadMenuForVideoID:(NSString *)videoID sourceView:(id)sourceView;
+- (void)_uytShowDownloadMenuForVideoID:(NSString *)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts;
 @end
 
 // YTUIUtils is only forward-declared (@class), so we can't add a category.
@@ -464,8 +468,13 @@ static id UYTFindShortsPlayerVC(id overlay) {
 
 %hook YTMainAppControlsOverlayView
 - (void)uYou {
+    // No %orig here: - (void)uYou has NO native original on YTMainAppControlsOverlayView
+    // (uYou's own menu was stripped from the uYouUnofficial rebuild), so %orig would
+    // jump to a NULL IMP and crash. Both Shorts AND the video player get the modern
+    // UYTDownloadPipeline menu instead.
     @try {
-        if (UYTIsShortsOverlay(self)) {
+        BOOL shorts = UYTIsShortsOverlay(self);
+        if (shorts) {
             // Wire up the playerViewController so uYou's native menu logic can
             // find the video ID. On Shorts the overlay's playerViewController
             // is often nil — grab it from the responder chain (YTReelPlayerVC.player).
@@ -475,26 +484,19 @@ static id UYTFindShortsPlayerVC(id overlay) {
                     self.playerViewController = player;
                 }
             }
-
-            NSString *videoID = UYTShortsVideoID(self);
-            if (videoID.length > 0) {
-                NSLog(@"[uYouEnhanced] uYou button on Shorts -> download menu for %@", videoID);
-                [self _uytShowShortsDownloadMenuForVideoID:videoID sourceView:self];
-                return;
-            }
-
-            // If we couldn't get a video ID, try %orig as absolute last resort.
-            @try {
-                %orig;
-                return;
-            } @catch (NSException *e) {
-                NSLog(@"[uYouEnhanced] Shorts uYou native fallback also failed: %@", e);
-            }
         }
+
+        NSString *videoID = UYTShortsVideoID(self);
+        if (videoID.length > 0) {
+            NSLog(@"[uYouEnhanced] uYou button -> download menu for %@ (%@)", videoID, shorts ? @"Shorts" : @"video player");
+            [self _uytShowDownloadMenuForVideoID:videoID sourceView:self isShorts:shorts];
+            return;
+        }
+
+        NSLog(@"[uYouEnhanced] uYou button but no video ID found — no-op (no crash)");
     } @catch (NSException *e) {
-        NSLog(@"[uYouEnhanced] Shorts uYou hook failed: %@", e);
+        NSLog(@"[uYouEnhanced] uYou hook failed: %@", e);
     }
-    %orig;
 }
 
 // --- Shorts Download Menu (1:1 remake of uYou's menu using modern classes) ---
@@ -537,7 +539,7 @@ static void UYTPresentActionSheet(id controller) {
 }
 
 // Kick off the actual download at the chosen quality via uYou's native flow.
-static void UYTStartShortsDownload(NSString *videoID, id sourceView, NSString *quality, BOOL audioOnly) {
+static void UYTStartShortsDownload(NSString *videoID, id sourceView, NSString *quality, BOOL audioOnly, BOOL isShorts) {
     @try {
         id dlManager = [%c(DownloadsManager) sharedInstance];
         if (!dlManager) return;
@@ -551,31 +553,31 @@ static void UYTStartShortsDownload(NSString *videoID, id sourceView, NSString *q
             } else {
                 [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedAudioOnly"];
             }
-            [dlManager getLinksLocallyPlayerItem:nil videoID:videoID sourceView:sourceView isShorts:YES];
+            [dlManager getLinksLocallyPlayerItem:nil videoID:videoID sourceView:sourceView isShorts:isShorts];
         }
     } @catch (NSException *e) {
         NSLog(@"[uYouEnhanced] start shorts download failed: %@", e);
     }
 }
 
-// Build and present the download menu for a Shorts video.
-- (void)_uytShowShortsDownloadMenuForVideoID:(NSString *)videoID sourceView:(id)sourceView {
+// Build and present the download menu for a video (Shorts or the video player).
+- (void)_uytShowDownloadMenuForVideoID:(NSString *)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
     @try {
         // Fetch formats first so we can offer real quality options.
-        [UYTDownloadPipeline fetchFormatsForVideoID:videoID isShorts:YES completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
+        [UYTDownloadPipeline fetchFormatsForVideoID:videoID isShorts:isShorts completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 @try {
                     Class controllerClass = %c(YTActionSheetController);
                     Class actionClass = %c(YTActionSheetAction);
                     if (!controllerClass || !actionClass) {
                         NSLog(@"[uYouEnhanced] YTActionSheet classes unavailable — falling back to direct download");
-                        UYTStartShortsDownload(videoID, sourceView, nil, NO);
+                        UYTStartShortsDownload(videoID, sourceView, nil, NO, isShorts);
                         return;
                     }
 
                     id controller = [controllerClass actionSheetController];
                     if (!controller) {
-                        UYTStartShortsDownload(videoID, sourceView, nil, NO);
+                        UYTStartShortsDownload(videoID, sourceView, nil, NO, isShorts);
                         return;
                     }
 
@@ -615,7 +617,7 @@ static void UYTStartShortsDownload(NSString *videoID, id sourceView, NSString *q
                     // Add a quality action for each distinct quality.
                     for (NSString *ql in qualities) {
                         id action = [actionClass actionWithTitle:ql style:0 handler:^(YTActionSheetAction *a) {
-                            UYTStartShortsDownload(videoID, sourceView, ql, NO);
+                            UYTStartShortsDownload(videoID, sourceView, ql, NO, isShorts);
                         }];
                         if (action && [controller respondsToSelector:@selector(addAction:)]) {
                             [controller addAction:action];
@@ -625,7 +627,7 @@ static void UYTStartShortsDownload(NSString *videoID, id sourceView, NSString *q
                     // Audio-only action (if an audio stream exists).
                     if (bestAudio && wantAudio) {
                         id audioAction = [actionClass actionWithTitle:@"Audio only" style:0 handler:^(YTActionSheetAction *a) {
-                            UYTStartShortsDownload(videoID, sourceView, nil, YES);
+                            UYTStartShortsDownload(videoID, sourceView, nil, YES, isShorts);
                         }];
                         if (audioAction && [controller respondsToSelector:@selector(addAction:)]) {
                             [controller addAction:audioAction];
@@ -639,13 +641,13 @@ static void UYTStartShortsDownload(NSString *videoID, id sourceView, NSString *q
                     UYTPresentActionSheet(controller);
                 } @catch (NSException *e) {
                     NSLog(@"[uYouEnhanced] build shorts menu failed: %@", e);
-                    UYTStartShortsDownload(videoID, sourceView, nil, NO);
+                    UYTStartShortsDownload(videoID, sourceView, nil, NO, isShorts);
                 }
             });
         }];
     } @catch (NSException *e) {
         NSLog(@"[uYouEnhanced] shorts menu exception: %@", e);
-        UYTStartShortsDownload(videoID, sourceView, nil, NO);
+        UYTStartShortsDownload(videoID, sourceView, nil, NO, isShorts);
     }
 }
 %end
