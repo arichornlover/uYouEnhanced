@@ -1,8 +1,12 @@
 #import "uYouPlus.h"
 
+// Legacy mini bar classes (YTWatchMiniBarView era, up to v20).
 @interface YTWatchMiniBarView : UIView
 @end
-@interface YTWatchMiniBarButtonView : UIView
+
+// v21+ replacements.
+@interface YTNGWatchMiniBarView : UIView
+@property (nonatomic, assign, readwrite) NSInteger watchMiniPlayerLayout;
 @end
-@interface YTPlaylistMiniBarView : UIView
+@interface YTWatchFloatingMiniplayerViewController : UIViewController
 @end

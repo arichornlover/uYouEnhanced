@@ -399,27 +399,8 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 // YTMiniPlayerEnabler / miscellaneous player fixes
 %group gMisc1
 
-%hook YTWatchMiniBarVisibilityController
-
-- (void)updateMiniBarPlayerStateFromRenderer {
-    if (IS_ENABLED(kYTMiniPlayer)) {
-        return;
-    }
-
-    %orig;
-}
-
-- (void)setMiniBarHidden:(BOOL)hidden animated:(BOOL)animated {
-    if (IS_ENABLED(kYTMiniPlayer)) {
-        %orig(NO, animated);
-        return;
-    }
-
-    %orig;
-}
-
-%end
-
+// Legacy path: keep the watch mini bar's player state as-is instead of letting
+// the renderer swap it out. YTWatchMiniBarViewController is still live on v21.
 %hook YTWatchMiniBarViewController
 
 - (void)updateMiniBarPlayerStateFromRenderer {
@@ -477,6 +458,28 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
 %end
 
+// Modern YTMiniPlayerEnabler for v21+: stop YTIMiniplayerRenderer from exposing
+// a minimized endpoint / persistent playback mode so the mini player no longer
+// collapses away. Same approach as level3tjg/YTMiniplayerEnabler and YouMod's
+// "ForceMiniPlayer". Group is initialized in %ctor only when the toggle is on,
+// so stock behavior is untouched when disabled.
+%group gYTMiniPlayerEnabler
+
+%hook YTIMiniplayerRenderer
+
+%new
+- (BOOL)hasMinimizedEndpoint {
+    return NO;
+}
+
+%new
+- (BOOL)hasPlaybackMode {
+    return NO;
+}
+
+%end
+%end
+
 // A/B flags
 %group gMisc1b
 
@@ -496,18 +499,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
 - (BOOL)mainAppCoreClientEnableCairoSettings {
     return IS_ENABLED(@"newSettingsUI_enabled");
-}
-
-- (BOOL)enableIosFloatingMiniplayer {
-    return IS_ENABLED(@"floatingMiniplayer_enabled");
-}
-
-- (BOOL)enableIosFloatingMiniplayerSwipeUpToExpand {
-    return IS_ENABLED(@"floatingMiniplayer_enabled");
-}
-
-- (BOOL)enableIosFloatingMiniplayerRepositioning {
-    return IS_ENABLED(@"floatingMiniplayer2_enabled");
 }
 
 %end
@@ -1964,6 +1955,9 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
     %init;
     %init(gAlwaysOn);
     %init(gMisc1);
+    if (IS_ENABLED(kYTMiniPlayer)) {
+        %init(gYTMiniPlayerEnabler);
+    }
     %init(gMisc1b);
     %init(gMisc1c);
     %init(gMisc2);

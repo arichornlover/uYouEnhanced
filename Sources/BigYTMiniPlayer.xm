@@ -2,14 +2,16 @@
 
 %group BigYTMiniPlayer // https://github.com/Galactic-Dev/BigYTMiniPlayer
 
-// v16.xx.x+ backwards compat: YTWatchMiniBarView / YTWatchMiniBarViewController removed in v21.xx.x
+// v16–v20 backwards compat: YTWatchMiniBarView / YTWatchMiniBarViewController remained
+// until v21, where the mini bar was switched to YTNGWatchMiniBarView and
+// YTWatchFloatingMiniplayerViewController (see BigYTMiniPlayerModern below).
 %hook YTWatchMiniBarView
-- (void)setWatchMiniPlayerLayout:(int)arg1 {
+- (void)setWatchMiniPlayerLayout:(NSInteger)arg1 {
     %orig(
         1
     );
 }
-- (int)watchMiniPlayerLayout {
+- (NSInteger)watchMiniPlayerLayout {
     return 1;
 }
 - (void)layoutSubviews {
@@ -28,72 +30,83 @@
 %end
 %end
 
-// v21.xx.x+ modern version of BigYTMiniPlayer
+// v21.xx.x+ modern version of BigYTMiniPlayer.
+// YouTube replaced YTWatchMiniBarView with YTNGWatchMiniBarView (same
+// watchMiniPlayerLayout property) and added the floating mini player
+// (YTWatchFloatingMiniplayerViewController). The old hooks below were hooked
+// against classes that no longer exist, so the feature silently did nothing.
 %group BigYTMiniPlayerModern
 
-%hook YTWatchMiniBarVisibilityController
-- (void)setMiniBarHidden:(BOOL)hidden animated:(BOOL)animated {
+%hook YTNGWatchMiniBarView
+- (void)setWatchMiniPlayerLayout:(NSInteger)layout {
     if (IS_ENABLED(kBigYTMiniPlayer)) {
-        %orig(
-            NO,
-            animated
-        );
-    } else {
-        %orig;
+        layout = 1;
     }
+
+    %orig(layout);
+}
+- (NSInteger)watchMiniPlayerLayout {
+    if (IS_ENABLED(kBigYTMiniPlayer)) {
+        return 1;
+    }
+
+    return %orig;
 }
 %end
 
-%hook YTWatchMiniBarButtonView
-- (void)layoutSubviews {
+// Floating mini player: scale the pill up so it is actually "big" on v21+.
+// Transform is reapplied on every layout so YouTube's animations cannot
+// permanently reset it, and it never fights Auto Layout frames.
+%hook YTWatchFloatingMiniplayerViewController
+- (void)viewDidLayoutSubviews {
     %orig;
-    if (IS_ENABLED(kBigYTMiniPlayer)) {
-        UIView *v = (UIView *)self;
-        v.frame = CGRectMake(([UIScreen mainScreen].bounds.size.width - v.frame.size.width), v.frame.origin.y, v.frame.size.width, v.frame.size.height);
-    }
-}
-%end
 
-%hook YTPlaylistMiniBarView
-- (void)layoutSubviews {
-    %orig;
     if (IS_ENABLED(kBigYTMiniPlayer)) {
-        UIView *v = (UIView *)self;
-        v.frame = CGRectMake(([UIScreen mainScreen].bounds.size.width - v.frame.size.width), v.frame.origin.y, v.frame.size.width, v.frame.size.height);
-    }
-}
-%end
-
-%hook YTMainAppVideoPlayerOverlayView
-- (BOOL)isUserInteractionEnabled {
-    UIViewController *ancestor = (UIViewController *)[self _viewControllerForAncestor];
-    if (ancestor) {
-        UIViewController *parent = ancestor.parentViewController;
-        if (parent) {
-            UIViewController *grandparent = parent.parentViewController;
-            if (grandparent) {
-                if ([grandparent isKindOfClass:%c(YTWatchMiniBarViewController)]) {
-                    return NO;
-                }
-                if ([grandparent isKindOfClass:%c(YTWatchMiniBarVisibilityController)] ||
-                    [grandparent isKindOfClass:%c(YTPlaylistMiniBarViewController)]) {
-                    return NO;
-                }
-            }
+        CGAffineTransform desired = CGAffineTransformMakeScale(1.15f, 1.15f);
+        if (!CGAffineTransformEqualToTransform(self.view.transform, desired)) {
+            self.view.transform = desired;
         }
     }
+}
+%end
+
+// Prevent touches inside the enlarged mini bar from falling through to the
+// player overlay underneath. Checks the live ancestor chain so it works for
+// both the classic watch mini bar and the floating mini player.
+%hook YTMainAppVideoPlayerOverlayView
+- (BOOL)isUserInteractionEnabled {
+    if (IS_ENABLED(kBigYTMiniPlayer)) {
+        UIViewController *node = (UIViewController *)[self _viewControllerForAncestor];
+        while (node) {
+            if ([node isKindOfClass:%c(YTWatchMiniBarViewController)] ||
+                [node isKindOfClass:%c(YTWatchFloatingMiniplayerViewController)]) {
+                return NO;
+            }
+            node = node.parentViewController;
+        }
+    }
+
     return %orig;
 }
 %end
 %end
 
-%ctor {
-    // v16.xx.x+ backwards compat
-    if (IS_ENABLED(kBigYTMiniPlayer) && (UIDevice.currentDevice.userInterfaceIdiom != UIUserInterfaceIdiomPad)) {
-        %init(BigYTMiniPlayer);
+static BOOL UYTAppVersionAtLeast(NSString *minVersion) {
+    Class versionUtils = %c(YTVersionUtils);
+    if (!versionUtils) {
+        return NO;
     }
-    // v21.xx.x+ modern
+
+    NSString *appVersion = [versionUtils performSelector:@selector(appVersion)];
+    return appVersion != nil && [appVersion compare:minVersion options:NSNumericSearch] != NSOrderedAscending;
+}
+
+%ctor {
     if (IS_ENABLED(kBigYTMiniPlayer) && (UIDevice.currentDevice.userInterfaceIdiom != UIUserInterfaceIdiomPad)) {
-        %init(BigYTMiniPlayerModern);
+        if (UYTAppVersionAtLeast(@"21.0.0")) {
+            %init(BigYTMiniPlayerModern);
+        } else {
+            %init(BigYTMiniPlayer);
+        }
     }
 }
