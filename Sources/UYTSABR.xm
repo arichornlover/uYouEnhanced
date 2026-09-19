@@ -24,7 +24,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
-#import "MediaKit/UYTMediaKit.h"
+#import "UYTMediaKit.h"
 #import "UYTSABR.h"
 
 // uYouEnhanced: SABR is always enabled as a fallback for YouTube 21.29+
