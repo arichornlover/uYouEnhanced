@@ -88,7 +88,7 @@
 "REPLACE_PREVIOUS_NEXT_BUTTON_DESC" = "Replaces previous and next buttons with fast forward and rewind";
 
 "RED_PROGRESS_BAR" = "Red progress bar";
-"RED_PROGRESS_BAR_DESC" = "";
+"RED_PROGRESS_BAR_DESC" = "Restores the red progress bar. Requires app restart. Note: Disabled automatically if YouSlider tweak is enabled to avoid conflicts.";
 
 "HIDE_HOVER_CARD" = "YTNoHoverCards";
 "HIDE_HOVER_CARD_DESC" = "Hides videos' end screens";
@@ -217,6 +217,9 @@
 "SHORTS_QUALITY_PICKER" = "Shorts Quality Picker";
 "SHORTS_QUALITY_PICKER_DESC" = "Enables the YouTube Shorts Quality Picker";
 
+"SHORTS_PROGRESS_BAR" = "Shorts Progress Bar";
+"SHORTS_PROGRESS_BAR_DESC" = "Enables the progress bar on Shorts videos (YTShortsProgress)";
+
 "HIDE_SHORTS_CLIP_BUTTON" = "Hide Clip Button on Shorts";
 "HIDE_SHORTS_CLIP_BUTTON_DESC" = "Hides the Clip button when a Short is paused.";
 "HIDE_SHORTS_DOWNLOAD_BUTTON" = "Hide Download Button on Shorts";
@@ -286,11 +289,13 @@
 
 "ADBLOCK_WORKAROUND_LITE" = "AdBlock Workaround (Lite)";
 "ADBLOCK_WORKAROUND_LITE_DESC" = "Uses weaker adblocking code, this will disable uYou's Adblocking Option.";
+"ENABLE_DYNAMIC_ISLAND_FIX" = "Enable Dynamic Island Fix";
+"ENABLE_DYNAMIC_ISLAND_FIX_DESC" = "Off by default. Turn on only if the Dynamic Island expands while using the app on an iPhone 14 Pro or newer (sideloaded). Takes effect after an app restart.";
 "ADBLOCK_WORKAROUND" = "AdBlock Workaround";
 "ADBLOCK_WORKAROUND_DESC" = "Uses stronger adblocking code.";
 
 "FIX_PLAYBACK_ISSUES" = "Fix playback issues";
-"FIX_PLAYBACK_ISSUES_DESC" = "Fixes videos stopping mid-playback with an endless spinner by using Apple's native player instead of YouTube's Ham player. Turning this on will disable VP9 and AV1.";
+"FIX_PLAYBACK_ISSUES_DESC" = "Automatically recovers playback when a video stops or errors out mid-playback (e.g. after about a minute). Recommended for everyone.";
 "FAKE_PREMIUM" = "Fake Premium";
 "FAKE_PREMIUM_DESC" = "Uses Premium logo and creates fake buttons in the You tab. Will disable animated YouTube logo.";
 "FAKE_PREMIUM_WARNING" = "The *You* Tab doesn't exist in v%@, fake buttons will not be created.\nBut the *Fake Premium Logo* will still work.";
@@ -311,11 +316,19 @@
 "AUTO_HIDE_HOME_INDICATOR_DESC" = "Automatically Hides the iOS Home Indicator when not interacting with the App.";
 "HIDE_INDICATORS" = "Hide Indicators";
 "HIDE_INDICATORS_DESC" = "Hides all Indicators that are currently in the App.";
-"FIX_CASTING" = "Fix Casting";
-"FIX_CASTING_DESC" = "Changes certain A/B flags to fix casting.";
 "NEW_SETTINGS_UI" = "Use New Settings UI";
-"NEW_SETTINGS_UI_DESC" = "Enables the new Settings UI with tweak categories.";
+"NEW_SETTINGS_UI_DESC" = "Enables the new Settings UI with tweak categories and a frosted glass blur effect (mimics the pivot bar's translucent style).";
+
+// YouMod migration
+"YOU_MOD_GITHUB" = "YouMod on GitHub";
+"YOU_MOD_GITHUB_DESC" = "Lightweight alternative — visit the YouMod repo first to prepare!";
+"MIGRATE_TO_YOU_MOD" = "⭐ Migrate to YouMod 2.0.0 (Recommended)";
+"MIGRATE_TO_YOU_MOD_DESC" = "Copies your compatible uYouEnhanced settings over to YouMod 2.0.0. Your uYouEnhanced settings are kept. A HUD message confirms how many keys migrated.";
+"MIGRATE_TO_YOU_MOD_RESET" = "⚠️ Migrate to YouMod 2.0.0 + Reset uYouEnhanced (Advanced)";
+"MIGRATE_TO_YOU_MOD_RESET_DESC" = "Copies your settings to YouMod 2.0.0, then REMOVES all toggled uYouEnhanced settings. Only use this if you fully intend to switch to YouMod 2.0.0.";
 
 "DEFAULT" = "Default";
 "CUSTOM_COLOR" = "Custom Color";
 "RESTART_REQUIRED" = "App restart is required.";
+"OK" = "OK";
+"FAILED" = "Failed";

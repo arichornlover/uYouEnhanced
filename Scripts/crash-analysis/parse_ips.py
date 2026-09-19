@@ -5,7 +5,7 @@ import json
 import os
 import sys
 
-REFDIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "crash-analysis-report", "refdata"))
+REFDIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "crash-analysis-report", "refdata"))
 
 DYLIB_NAMES = [
     "YouSpeed", "libcolorpicker", "YouPiP", "YouGroupSettings",
@@ -41,6 +41,10 @@ def load_funcstarts(index):
 
 
 def main():
+    if len(sys.argv) < 2:
+        print("usage: python parse_ips.py <crash.ips>")
+        return
+
     doc = load_ips(sys.argv[1])
 
     reason = doc.get("exceptionReason", {})

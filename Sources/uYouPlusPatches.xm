@@ -16,16 +16,16 @@
 
 # pragma mark - YouTube patches
 
-// Fix Google Sign in Patch - handles AltStore and SideStore bundle IDs
-%group gGoogleSignInPatch
+%group gPatches
+
+// Fix Google Sign in Patch - handles AltStore bundle IDs (always-on)
 %hook NSBundle
 + (NSBundle *)bundleWithIdentifier:(NSString *)identifier {
     if ([identifier isEqualToString:YT_BUNDLE_ID])
         return NSBundle.mainBundle;
-    // SideStore: also handle alternative bundle ID formats
-    if (uYouIsSideStore() && [identifier hasSuffix:@".google.ios.youtube"])
-        return NSBundle.mainBundle;
-    return %orig(identifier);
+    return %orig(
+        identifier
+    );
 }
 - (NSString *)bundleIdentifier {
     if ([self isEqual:NSBundle.mainBundle])
@@ -53,17 +53,14 @@
     return %orig;
 }
 %end
-%end
-
-%group gPatches
 
 // Workaround for MiRO92/uYou-for-YouTube#12, qnblackcat/uYouPlus#263
 %hook YTDataUtils
 + (NSMutableDictionary *)spamSignalsDictionary {
-    return nil;
+    return [@{ @"ms": @"" } mutableCopy];
 }
 + (NSMutableDictionary *)spamSignalsDictionaryWithoutIDFA {
-    return nil;
+    return [@{} mutableCopy];
 }
 %end
 
@@ -223,20 +220,18 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 
 %end // gPatches
 
-// Sideloading - Fix App Group Directory (handles both AltStore and SideStore)
+// Sideloading - Fix App Group Directory
 %group gSideloadingPatches
 %hook NSFileManager
 - (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
     if (groupIdentifier != nil) {
         NSArray *paths = [[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask];
         NSURL *documentsURL = [paths lastObject];
-        // SideStore: use a separate AppGroup directory to avoid conflicts
-        if (uYouIsSideStore()) {
-            return [documentsURL URLByAppendingPathComponent:@"SideStoreAppGroup"];
-        }
         return [documentsURL URLByAppendingPathComponent:@"AppGroup"];
     }
-    return %orig(groupIdentifier);
+    return %orig(
+        groupIdentifier
+    );
 }
 %end
 
@@ -276,6 +271,7 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
     }
 }
 %end
+
 %end // gSideloadingPatches
 
 // Dynamic Island suppression while in-app (#69, #358, #823)
@@ -291,7 +287,9 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 - (void)setNowPlayingInfo:(NSDictionary *)info {
     // Clearing is always allowed; fresh publications are blocked in-app so
     // the island can't expand while you're inside YouTube.
-    if (info != nil && [[UIApplication sharedApplication] applicationState] == UIApplicationStateActive) {
+    UIApplication *app = [UIApplication sharedApplication];
+    BOOL isActive = (app != nil && app.applicationState == UIApplicationStateActive);
+    if (info != nil && isActive) {
         return;
     }
     %orig;
@@ -314,7 +312,12 @@ static BOOL UYTIsJailbroken(void) {
     %init;
     %init(gPatches);
     %init(gSideloadingPatches);
-    if (!UYTIsJailbroken()) {
+    // Opt-IN only: the Dynamic Island fix is OFF by default and is installed
+    // solely when the user enables "Enable Dynamic Island Fix" in settings
+    // (and on non-jailbroken devices, where the official bundle lacks media
+    // entitlements). Nothing runs unless explicitly requested.
+    BOOL diFixEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:kEnableDynamicIslandFix];
+    if (!UYTIsJailbroken() && diFixEnabled) {
         %init(gDynamicIslandFix);
 
         // Returning to the app: clear any stale Now Playing session so an
@@ -327,10 +330,6 @@ static BOOL UYTIsJailbroken(void) {
                 [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;
             } @catch (NSException *e) {}
         }];
-    }
-
-    if (IS_ENABLED(kGoogleSignInPatch)) {
-        %init(gGoogleSignInPatch);
     }
 
     // Disable broken options

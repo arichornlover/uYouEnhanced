@@ -32,6 +32,7 @@
 #import <YouTubeHeader/YTIGuideResponse.h>
 #import <YouTubeHeader/YTIGuideResponseSupportedRenderers.h>
 #import <YouTubeHeader/YTIMenuConditionalServiceItemRenderer.h>
+#import <YouTubeHeader/YTIItemSectionRenderer.h>
 #import <YouTubeHeader/YTInnerTubeCollectionViewController.h>
 #import <YouTubeHeader/YTInlinePlayerBarContainerView.h>
 #import <YouTubeHeader/YTIShelfRenderer.h>
@@ -49,6 +50,7 @@
 #import <YouTubeHeader/YTNavigationBarTitleView.h>
 #import <YouTubeHeader/YTPlayerBarController.h>
 #import <YouTubeHeader/YTPlayerBarRectangleDecorationView.h>
+#import <YouTubeHeader/YTPlayerBarProgressDecorationView.h>
 #import <YouTubeHeader/YTPlayerOverlay.h>
 #import <YouTubeHeader/YTPlayerOverlayProvider.h>
 #import <YouTubeHeader/QTMIcon.h>
@@ -62,6 +64,10 @@
 #import <YouTubeHeader/YTWatchPullToFullController.h>
 #import <YouTubeHeader/YTWatchViewController.h>
 #import "uYouPlusThemes.h" // uYouPlus Themes
+
+// Forward declarations for classes not in YouTubeHeader
+@class YTAppViewControllerImpl;
+@class YTTabBarController;
 
 extern NSBundle *tweakBundle;
 
@@ -122,10 +128,12 @@ static NSString *const kHideRelatedWatchNexts = @"hideRelatedWatchNexts_enabled"
 static NSString *const kHideBuySuperThanks = @"hideBuySuperThanks_enabled";
 static NSString *const kHideSubscriptions = @"hideSubscriptions_enabled";
 static NSString *const kShortsQualityPicker = @"shortsQualityPicker_enabled";
+static NSString *const kShortsProgressBar = @"shortsProgressBar_enabled";
 static NSString *const kHideShortsClipButton = @"hideShortsClipButton_enabled";
 static NSString *const kHideShortsDownloadButton = @"hideShortsDownloadButton_enabled";
 static NSString *const kHideShortsRemixButton = @"hideShortsRemixButton_enabled";
 static NSString *const kHideShortsStatsButton = @"hideShortsStatsButton_enabled";
+static NSString *const kDisableResumeToShorts = @"disableResumeToShorts_enabled";
 // Video player buttons
 static NSString *const kRedSubscribeButton = @"redSubscribeButton_enabled";
 static NSString *const kHideButtonContainers = @"hideButtonContainers_enabled";
@@ -159,6 +167,7 @@ static NSString *const kDisableModernFlags = @"disableModernFlags_enabled";
 static NSString *const kEnableVersionSpoofer = @"enableVersionSpoofer_enabled";
 // Miscellaneous
 static NSString *const kGoogleSignInPatch = @"googleSignInPatch_enabled";
+static NSString *const kEnableDynamicIslandFix = @"enableDynamicIslandFix_enabled"; // opt-IN: fix stays off unless enabled
 static NSString *const kAdBlockWorkaroundLite = @"adBlockWorkaroundLite_enabled";
 static NSString *const kAdBlockWorkaround = @"adBlockWorkaround_enabled";
 static NSString *const kFixPlaybackIssues = @"fixPlaybackIssues_enabled";
@@ -258,6 +267,11 @@ static NSString *const kGoogleSigninFix = @"googleSigninFix_enabled";
 @interface YTNavigationBarTitleView (uYouEnhanced)
 @property (nonatomic, strong) UIView *customView;
 - (void)alignCustomViewToCenterOfWindow;
+@end
+
+// Blurry Settings UI - @arichornlover
+@interface YTFrostedGlassView : UIView
+- (instancetype)initWithBlurEffectStyle:(NSInteger)style;
 @end
 
 // uYouPlus

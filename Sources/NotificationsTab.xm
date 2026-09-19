@@ -113,7 +113,9 @@ static NSInteger _notificationsBadgeCount = 0;
     } @catch (NSException *exception) {
         NSLog(@"Error setting renderer: %@", exception.reason);
     }
-    %orig(renderer);
+    %orig(
+        renderer
+    );
 }
 %end
 %hook YTBrowseViewController

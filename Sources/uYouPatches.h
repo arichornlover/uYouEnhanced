@@ -30,6 +30,9 @@ BOOL uYouIsSideStore();
 - (int)ffmpegWithArguments:(id)arguments;
 - (void)setupURLSessionConfiguration;
 - (void)createDownloadTask;
+- (void)reloadDownloadedVC;              // HOTFIX4: refresh Downloads list UI
+- (NSMutableArray *)downloadItemsArray;  // HOTFIX4: active downloading queue
+- (void)setDownloadingItems:(id)items;
 - (void)exportVideoToCameraRollWithPath:(id)path removeFile:(BOOL)remove;
 - (void)dismissHUD;
 - (void)errorHUDWithMeessage:(id)message inView:(id)view delay:(double)delay;
@@ -101,6 +104,28 @@ BOOL uYouIsSideStore();
 
 // Minimal declaration so touch-forwarding hooks can use UIView's nextResponder
 @interface YTFullScreenEngagementOverlayView : UIView
+@end
+
+// YTReelHeaderView (Shorts) — has uYouButton property (YTReelPlayerButton)
+@interface YTReelHeaderView : UIView
+@property (nonatomic, strong) id uYouButton;
+@end
+
+// Modern YouTube action sheet — used for the 1:1 Shorts download menu remake.
+// YouTubeHeader's YTActionSheetController.h does NOT declare addAction:, so we
+// declare the full surface we need here (runtime classes, resolved via %c()).
+@interface YTActionSheetAction : NSObject
+@property (nonatomic, copy) id handler;
+@property (nonatomic, assign) BOOL shouldDismissOnAction;
++ (instancetype)actionWithTitle:(NSString *)title style:(NSInteger)style handler:(void (^)(YTActionSheetAction *))handler;
++ (instancetype)actionWithTitle:(NSString *)title iconImage:(UIImage *)iconImage style:(NSInteger)style handler:(void (^)(YTActionSheetAction *))handler;
+@end
+
+@interface YTActionSheetController : UIViewController
++ (instancetype)actionSheetController;
+- (void)addAction:(YTActionSheetAction *)action;
+- (void)addCancelActionIfNeeded;
+- (void)presentFromViewController:(UIViewController *)viewController animated:(BOOL)animated completion:(void (^)(void))completion;
 @end
 
 @interface DownloadsPagerVC : UIViewController

@@ -2,7 +2,7 @@ ifndef SDK_VERSION
 SDK_VERSION = 18.6
 endif
 
-export TARGET = iphone:clang:$(SDK_VERSION):16.0
+export TARGET = iphone:clang:$(SDK_VERSION):15.0
 export SDK_PATH = $(THEOS)/sdks/iPhoneOS$(SDK_VERSION).sdk/
 export SYSROOT = $(SDK_PATH)
 export ARCHS = arm64
@@ -12,7 +12,7 @@ DISPLAY_NAME ?= YouTube
 BUNDLE_ID ?= com.google.ios.youtube
 
 ifndef YOUTUBE_VERSION
-YOUTUBE_VERSION = 21.14.4
+YOUTUBE_VERSION = 21.20.4
 endif
 ifndef UYOU_VERSION
 UYOU_VERSION = 3.0.4
@@ -22,7 +22,7 @@ PACKAGE_VERSION = $(YOUTUBE_VERSION)-$(UYOU_VERSION)
 
 $(TWEAK_NAME)_FILES := $(wildcard Sources/*.xm) $(wildcard Sources/*.x) $(wildcard Sources/*.m)
 $(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation AVFoundation AVKit Photos Accelerate CoreMotion GameController VideoToolbox Security MediaPlayer
-$(TWEAK_NAME)_LIBRARIES = bz2 c++ iconv z
+$(TWEAK_NAME)_LIBRARIES = bz2 c++ iconv z sqlite3
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-but-set-variable -DTWEAK_VERSION=\"$(PACKAGE_VERSION)\"
 
 export libcolorpicker_ARCHS = arm64
@@ -54,7 +54,8 @@ $(TWEAK_NAME)_INJECT_DYLIBS = \
 	$(THEOS_OBJ_DIR)/DontEatMyContent.dylib \
 	$(THEOS_OBJ_DIR)/YTHoldForSpeed.dylib \
 	$(THEOS_OBJ_DIR)/YTVideoOverlay.dylib \
-	$(THEOS_OBJ_DIR)/YTweaks.dylib
+	$(THEOS_OBJ_DIR)/YTweaks.dylib \
+	$(THEOS_OBJ_DIR)/YouTubeLegacy.dylib
 
 ifeq ($(SPONSORBLOCK_ENABLED),1)
 $(TWEAK_NAME)_INJECT_DYLIBS += $(THEOS_OBJ_DIR)/iSponsorBlock.dylib
@@ -82,7 +83,7 @@ UYOU_BUNDLE = $(UYOU_PATH)/Library/Application\ Support/uYouBundle.bundle
 include $(THEOS)/makefiles/common.mk
 
 ifneq ($(JAILBROKEN),1)
-SUBPROJECTS += Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing/libflex Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouPiP Tweaks/YouQuality Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTVideoOverlay Tweaks/YTweaks
+SUBPROJECTS += Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing/libflex Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouPiP Tweaks/YouQuality Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTVideoOverlay Tweaks/YTweaks Tweaks/YouTubeLegacy
 ifeq ($(SPONSORBLOCK_ENABLED),1)
 SUBPROJECTS += Tweaks/iSponsorBlock
 endif

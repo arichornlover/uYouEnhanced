@@ -76,7 +76,7 @@
     url = https://github.com/aricloverEXTRA/YTIcons.git
 [submodule "Tweaks/YTUHD"]
     path = Tweaks/YTUHD
-    url = https://github.com/PoomSmart/YTUHD.git
+    url = https://github.com/aricloverEXTRA/YTUHD.git
 [submodule "Tweaks/YTVideoOverlay"]
     path = Tweaks/YTVideoOverlay
     url = https://github.com/PoomSmart/YTVideoOverlay.git
@@ -97,3 +97,9 @@
 [submodule "Tweaks/YTweaks"]
 	path = Tweaks/YTweaks
 	url = https://github.com/fosterbarnes/YTweaks.git
+[submodule "Tweaks/YouTubeLegacy"]
+	path = Tweaks/YouTubeLegacy
+	url = https://github.com/aricloverEXTRA/YouTubeLegacy.git
+[submodule "Tweaks/uYouUnofficial"]
+	path = Tweaks/uYouUnofficial
+	url = https://github.com/aricloverEXTRA/uYouUnofficial.git

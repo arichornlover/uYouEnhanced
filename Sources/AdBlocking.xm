@@ -37,13 +37,17 @@
 
 %hook YTAdsInnerTubeContextDecorator
 - (void)decorateContext:(id)context {
-    %orig(nil);
+    %orig(
+        nil
+    );
 }
 %end
 
 %hook YTAccountScopedAdsInnerTubeContextDecorator
 - (void)decorateContext:(id)context {
-    %orig(nil);
+    %orig(
+        nil
+    );
 }
 %end
 
@@ -53,15 +57,6 @@
 
 %hook MDXSession
 - (void)adPlaying:(id)ad {}
-%end
-
-%hook YTReelInfinitePlaybackDataSource
-- (YTReelModel *)makeContentModelForEntry:(id)entry {
-    YTReelModel *model = %orig;
-    if ([model respondsToSelector:@selector(videoType)] && model.videoType == 3)
-        return nil;
-    return model;
-}
 %end
 %end
 
@@ -110,6 +105,18 @@
     YTReelModel *model = %orig;
     if ([model respondsToSelector:@selector(videoType)] && model.videoType == 3)
         return nil;
+    if ([model isKindOfClass:%c(YTReelNonVideoContentModel)])
+        return nil;
+    return model;
+}
+%end
+%hook YTReelContentModel
++ (YTReelModel *)makeContentModelForEntry:(id)entry {
+    YTReelModel *model = %orig;
+    if ([model respondsToSelector:@selector(videoType)] && model.videoType == 3)
+        return nil;
+    if ([model isKindOfClass:%c(YTReelNonVideoContentModel)])
+        return nil;
     return model;
 }
 %end
@@ -118,11 +125,15 @@
     YTReelModel *model = %orig;
     if ([model respondsToSelector:@selector(videoType)] && model.videoType == 3)
         return nil;
+    if ([model isKindOfClass:%c(YTReelNonVideoContentModel)])
+        return nil;
     return model;
 }
 - (void)setReels:(NSMutableOrderedSet <YTReelModel *> *)reels {
     [reels removeObjectsAtIndexes:[reels indexesOfObjectsPassingTest:^BOOL(YTReelModel *obj, NSUInteger idx, BOOL *stop) {
-        return [obj respondsToSelector:@selector(videoType)] ? obj.videoType == 3 : NO;
+        if ([obj respondsToSelector:@selector(videoType)] && obj.videoType == 3) return YES;
+        if ([obj isKindOfClass:%c(YTReelNonVideoContentModel)]) return YES;
+        return NO;
     }]];
     %orig;
 }
@@ -240,7 +251,9 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     %orig;
 }
 - (void)addSectionsFromArray:(NSArray <YTIItemSectionRenderer *> *)array {
-    %orig(filteredArray(array));
+    %orig(
+        filteredArray(array)
+    );
 }
 %end
 %end
