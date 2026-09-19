@@ -16,11 +16,19 @@
 @interface UYTDownloadPipeline : NSObject
 + (void)fetchFormatsForVideoID:(NSString *)videoID
                     isShorts:(BOOL)isShorts
+                    progress:(void (^_Nullable)(double fractionComplete, unsigned long long bytesDownloaded))progress
                     completion:(void (^)(NSArray<UYTStreamFormat *> *formats, NSError *error))completion;
 + (UYTStreamFormat *)bestMuxedFormat:(NSArray<UYTStreamFormat *> *)formats;
 + (UYTStreamFormat *)bestAudioFormat:(NSArray<UYTStreamFormat *> *)formats;
 + (UYTStreamFormat *)bestVideoFormat:(NSArray<UYTStreamFormat *> *)formats;
 @end
+
+// Drive uYou's own DownloadItem UI off SABR's live (fraction, bytes) signal.
+// All real uYou key access is KVC + @try-guarded, so unknown names no-op.
+void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double fractionComplete, unsigned long long bytesDownloaded);
+// Write accurate final values (100% + real file size) on the item once the
+// file actually exists on disk.
+void UYTWriteFinalDownloadProgress(id item, NSString *filePath);
 
 // Shared URL storage functions
 void UYTStoreResolvedURLs(NSString *vid, NSString *muxedURL, NSString *audioURL, NSString *videoURL);

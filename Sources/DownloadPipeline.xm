@@ -10,6 +10,10 @@
 #import "UYTSABR.h"
 #import <UIKit/UIKit.h>
 
+@interface DownloadsManager : NSObject
++ (instancetype)sharedInstance;
+@end
+
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
 
 // Client versions are deliberately DOWNGRADED from the app's own version.
@@ -187,10 +191,16 @@ static NSString *UYTYouTubeCookiesString(void) {
 // THIS videoID (checked by the callers). Guarantees exactly one completion call.
 + (void)runSABRDownloadForVideoID:(NSString *)videoID
                         isShorts:(BOOL)isShorts
+                        progress:(void (^_Nullable)(double fractionComplete, unsigned long long bytesDownloaded))progress
                        completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
     // For Shorts, only use SABR for audio (video is handled via innertube when available).
     BOOL audioOnlyForShorts = isShorts;
-    UYTSABRFallbackDownloadForVideoID(videoID, nil, audioOnlyForShorts, ^(BOOL success, NSString *errMsg) {
+    UYTSABRFallbackDownloadForVideoID(videoID, nil, audioOnlyForShorts, ^(double frac, unsigned long long bytes) {
+        if (progress) progress(frac, bytes);
+        // Feed uYou's own DownloadItem UI live during the download (no-op if
+        // the item doesn't exist yet).
+        UYTDriveDownloadItemProgressForVideoID(videoID, frac, bytes);
+    }, ^(BOOL success, NSString *errMsg) {
         if (success) {
             // SABR produced elementary files; re-resolve URLs from stashed paths
             NSString *vPath = [[NSUserDefaults standardUserDefaults] stringForKey:@"UYTSABRVideoPath"];
@@ -229,6 +239,7 @@ static NSString *UYTYouTubeCookiesString(void) {
 //   for THIS video (the capture is per-video, see UYTSABRHasValidCaptureForVideoID:).
 + (void)fetchFormatsForVideoID:(NSString *)videoID
                     isShorts:(BOOL)isShorts
+                    progress:(void (^_Nullable)(double fractionComplete, unsigned long long bytesDownloaded))progress
                     completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
     BOOL is2129OrNewer = UYTIsYouTubeVersion2129OrNewer();
 
@@ -237,7 +248,7 @@ static NSString *UYTYouTubeCookiesString(void) {
         // Try SABR first for 21.29+. If SABR has a valid capture, it owns the
         // completion (success OR failure) — we must NOT fall through to the
         // innertube chain below, or completion would fire twice.
-        [self runSABRDownloadForVideoID:videoID isShorts:isShorts completion:completion];
+        [self runSABRDownloadForVideoID:videoID isShorts:isShorts progress:progress completion:completion];
         return;
     }
     if (is2129OrNewer) {
@@ -252,7 +263,7 @@ static NSString *UYTYouTubeCookiesString(void) {
         if (fmts.count > 0) { completion(fmts, nil); return; }
         if (UYTSABRHasValidCaptureForVideoID(videoID)) {
             NSLog(@"[UYTPipeline] innertube chain empty for %@ — SABR last resort", videoID);
-            [self runSABRDownloadForVideoID:videoID isShorts:isShorts completion:completion];
+            [self runSABRDownloadForVideoID:videoID isShorts:isShorts progress:progress completion:completion];
             return;
         }
         NSLog(@"[UYTPipeline] all innertube clients failed and no matching SABR capture for %@", videoID);
@@ -384,9 +395,89 @@ BOOL UYTIsAudioOnly(NSString *vid) {
     return [entry[@"audioOnly"] boolValue];
 }
 
-@interface DownloadsManager : NSObject
-+ (instancetype)sharedInstance;
-@end
+#pragma mark - Live DownloadItem progress (ported from micky21/uYouEnhanced @06a0a08)
+
+// Drive uYou's OWN DownloadItem UI off SABR's real (fraction, bytes) signal, so
+// the downloads list shows live size/speed/remaining instead of a frozen row.
+// Ported from micky21 commit 06a0a08 and hardened: every access is KVC + @try,
+// so if a key doesn't exist on the running binary it no-ops instead of crashing,
+// and the notification post is harmless even if nothing observes that name.
+// The item may not exist yet during the SABR phase (it is created after formats
+// resolve) — in that case we return and the finalize-time writer below covers it.
+void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double frac, unsigned long long bytesDownloaded) {
+    if (!vid.length) return;
+    @try {
+        id manager = [%c(DownloadsManager) sharedInstance];
+        id item = nil;
+        if (manager && [manager respondsToSelector:@selector(downloadForVideoID:)]) {
+            item = [manager downloadForVideoID:vid];
+        }
+        if (!item) return;
+
+        NSByteCountFormatter *fmt = [NSByteCountFormatter new];
+        fmt.countStyle = NSByteCountFormatterCountStyleFile;
+        NSString *downloadedStr = [fmt stringFromByteCount:(long long)bytesDownloaded];
+        NSString *totalStr = (frac > 0.02) ? [fmt stringFromByteCount:(long long)(bytesDownloaded / frac)] : nil;
+        // micky21 names (downloadProgressChangedNotification + progress/…).
+        @try { [item setValue:@((float)frac) forKey:@"progress"]; } @catch (NSException *e) {}
+        if (downloadedStr) { @try { [item setValue:downloadedStr forKey:@"downloadedSize"]; } @catch (NSException *e) {} }
+        if (totalStr) { @try { [item setValue:totalStr forKey:@"totalSize"]; } @catch (NSException *e) {} }
+        @try { [item setValue:@0 forKey:@"remainingTime"]; } @catch (NSException *e) {}
+        // Vendored-binary shape (uYou 3.0.4 source): numeric updateProgress:….
+        @try {
+            if ([item respondsToSelector:@selector(updateProgress:downloadedSize:totalSize:)]) {
+                [item updateProgress:frac downloadedSize:(int64_t)bytesDownloaded
+                           totalSize:(int64_t)((frac > 0.02) ? (bytesDownloaded / frac) : 0)];
+            } else {
+                [item setValue:@(frac) forKey:@"progress"];
+                [item setValue:@((long long)bytesDownloaded) forKey:@"downloadedSize"];
+            }
+        } @catch (NSException *e) {}
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"downloadProgressChangedNotification" object:item];
+        // Real refresh path in the vendored binary: delegate didUpdateDownload: → reloadData.
+        if (manager && [manager respondsToSelector:@selector(delegate)]) {
+            @try {
+                id del = [manager delegate];
+                if (del && [del respondsToSelector:@selector(downloadsManager:didUpdateDownload:)]) {
+                    [del downloadsManager:manager didUpdateDownload:item];
+                }
+            } @catch (NSException *e) {}
+        }
+    } @catch (NSException *e) {}
+}
+
+// Write accurate final values on the REAL DownloadItem once SABR is done: 100%
+// progress plus true file sizes/remaining-time-zero (micky21 names + numeric
+// fallback). Called from createDownloadTask with an existing file on disk.
+void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
+    if (!item) return;
+    @try {
+        unsigned long long size = 0;
+        NSDictionary *attrs = filePath.length ? [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil] : nil;
+        if (attrs) size = [attrs fileSize];
+        NSByteCountFormatter *fmt = [NSByteCountFormatter new];
+        fmt.countStyle = NSByteCountFormatterCountStyleFile;
+        NSString *sizeStr = [fmt stringFromByteCount:(long long)size];
+        @try { [item setValue:@1.0f forKey:@"progress"]; } @catch (NSException *e) {}
+        if (sizeStr.length) {
+            @try { [item setValue:sizeStr forKey:@"totalSize"]; } @catch (NSException *e) {}
+            @try { [item setValue:sizeStr forKey:@"downloadedSize"]; } @catch (NSException *e) {}
+        }
+        @try { [item setValue:@0 forKey:@"remainingTime"]; } @catch (NSException *e) {}
+        @try { [item setValue:@(size) forKey:@"fileSize"]; } @catch (NSException *e) {}
+        @try { [item setValue:@1.0 forKey:@"progress"]; } @catch (NSException *e) {}
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"downloadProgressChangedNotification" object:item];
+        id manager = [%c(DownloadsManager) sharedInstance];
+        if (manager && [manager respondsToSelector:@selector(delegate)]) {
+            @try {
+                id del = [manager delegate];
+                if (del && [del respondsToSelector:@selector(downloadsManager:didUpdateDownload:)]) {
+                    [del downloadsManager:manager didUpdateDownload:item];
+                }
+            } @catch (NSException *e) {}
+        }
+    } @catch (NSException *e) {}
+}
 
 @interface DownloadItem : NSObject
 @property (nonatomic, strong) NSString *videoID;

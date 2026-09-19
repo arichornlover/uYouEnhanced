@@ -1,6 +1,6 @@
 #import "uYouPlus.h"
 #import "uYouPatches.h"
-#import "UYTMediaKit.h"
+#import "MediaKit/UYTMediaKit.h"
 #import "DownloadPipeline.h"
 #import <YouTubeHeader/YTUIUtils.h>
 #import <sqlite3.h>
@@ -265,6 +265,15 @@ static void refreshUYouAppearance() {
 %end
 %end
 
+// Forward declarations for helpers defined below (used by the reel-header group).
+static BOOL UYTIsShortsOverlay(id overlay);
+static NSString *UYTShortsVideoID(id overlay);
+static id UYTFindShortsPlayerVC(id overlay);
+static NSString *UYTDownloadTypeSetting(void);
+static void UYTPresentActionSheet(id controller);
+static void UYTStartShortsDownload(NSString *videoID, id sourceView, NSString *quality, BOOL audioOnly, BOOL isShorts);
+static void UYTPresentDownloadMenuForVideoID(NSString *videoID, id sourceView, BOOL isShorts);
+
 // Modern Shorts UI (YTReelHeaderView) — ensure uYou download button works.
 // Credit: FLEX debug info — YTReelHeaderView has uYouButton property (YTReelPlayerButton).
 // The button exists but its action isn't wired to call uYou on the overlay view.
@@ -279,14 +288,41 @@ static void refreshUYouAppearance() {
     NSUserDefaults *uytd = [NSUserDefaults standardUserDefaults];
     if ([uytd objectForKey:@"downloadButton_enabled"] && ![uytd boolForKey:@"downloadButton_enabled"]) return;
     
-    // Ensure the existing uYouButton has its action wired to call uYou on the overlay view
+    // Ensure the existing uYouButton has its action wired to our self-contained
+    // handler (no dependence on the overlay being reachable via the responder
+    // chain — on the modern Shorts UI it often is not).
     id btn = [self valueForKey:@"uYouButton"];
     if (btn && [btn isKindOfClass:[UIControl class]]) {
         // Remove any existing targets to avoid duplicates
         [btn removeTarget:nil action:nil forControlEvents:UIControlEventAllEvents];
-        
-        // Set target to the overlay view's uYou method
-        // Find the overlay view (YTMainAppControlsOverlayView) in the view hierarchy
+
+        // Target self -> %new _uytReelHeaderDownloadTapped (set up below).
+        [btn addTarget:self action:@selector(_uytReelHeaderDownloadTapped) forControlEvents:UIControlEventTouchUpInside];
+
+        // Ensure button is visible and enabled
+        if ([btn respondsToSelector:@selector(setHidden:)]) {
+            [btn performSelector:@selector(setHidden:) withObject:@NO];
+        }
+        if ([btn respondsToSelector:@selector(setEnabled:)]) {
+            [btn performSelector:@selector(setEnabled:) withObject:@YES];
+        }
+        if ([btn respondsToSelector:@selector(setAlpha:)]) {
+            [btn performSelector:@selector(setAlpha:) withObject:@(1.0)];
+        }
+    }
+}
+
+%new - (void)_uytReelHeaderDownloadTapped {
+    @try {
+        // 1) Resolve the Shorts video ID directly (responder chain walk).
+        NSString *videoID = UYTShortsVideoID(self);
+        if (videoID.length > 0) {
+            NSLog(@"[uYouEnhanced] New Shorts uYouButton -> download menu for %@", videoID);
+            UYTPresentDownloadMenuForVideoID(videoID, self, YES);
+            return;
+        }
+
+        // 2) Fallback: if no video ID, try the overlay's uYou-based menu.
         id overlay = nil;
         UIView *view = (UIView *)self;
         while (view) {
@@ -301,20 +337,14 @@ static void refreshUYouAppearance() {
             if (overlay) break;
             view = view.superview;
         }
-        
         if (overlay && [overlay respondsToSelector:@selector(uYou)]) {
-            [btn addTarget:overlay action:@selector(uYou) forControlEvents:UIControlEventTouchUpInside];
-            // Ensure button is visible and enabled
-            if ([btn respondsToSelector:@selector(setHidden:)]) {
-                [btn performSelector:@selector(setHidden:) withObject:@NO];
-            }
-            if ([btn respondsToSelector:@selector(setEnabled:)]) {
-                [btn performSelector:@selector(setEnabled:) withObject:@YES];
-            }
-            if ([btn respondsToSelector:@selector(setAlpha:)]) {
-                [btn performSelector:@selector(setAlpha:) withObject:@(1.0)];
-            }
+            [overlay uYou];
+            return;
         }
+
+        NSLog(@"[uYouEnhanced] New Shorts uYouButton: no video ID and no overlay — no-op");
+    } @catch (NSException *e) {
+        NSLog(@"[uYouEnhanced] New Shorts uYouButton handler failed: %@", e);
     }
 }
 %end
@@ -459,10 +489,6 @@ static id UYTFindShortsPlayerVC(id overlay) {
     return nil;
 }
 
-@interface YTMainAppControlsOverlayView (UYTShortsDownload)
-- (void)_uytShowDownloadMenuForVideoID:(NSString *)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts;
-@end
-
 // YTUIUtils is only forward-declared (@class), so we can't add a category.
 // Use respondsToSelector:/performSelector: pattern instead (already done below).
 
@@ -489,7 +515,7 @@ static id UYTFindShortsPlayerVC(id overlay) {
         NSString *videoID = UYTShortsVideoID(self);
         if (videoID.length > 0) {
             NSLog(@"[uYouEnhanced] uYou button -> download menu for %@ (%@)", videoID, shorts ? @"Shorts" : @"video player");
-            [self _uytShowDownloadMenuForVideoID:videoID sourceView:self isShorts:shorts];
+            UYTPresentDownloadMenuForVideoID(videoID, self, shorts);
             return;
         }
 
@@ -561,10 +587,10 @@ static void UYTStartShortsDownload(NSString *videoID, id sourceView, NSString *q
 }
 
 // Build and present the download menu for a video (Shorts or the video player).
-- (void)_uytShowDownloadMenuForVideoID:(NSString *)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
+static void UYTPresentDownloadMenuForVideoID(NSString *videoID, id sourceView, BOOL isShorts) {
     @try {
         // Fetch formats first so we can offer real quality options.
-        [UYTDownloadPipeline fetchFormatsForVideoID:videoID isShorts:isShorts completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
+        [UYTDownloadPipeline fetchFormatsForVideoID:videoID isShorts:isShorts progress:nil completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 @try {
                     Class controllerClass = %c(YTActionSheetController);
@@ -1228,7 +1254,13 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     NSString *requestedQuality = [[NSUserDefaults standardUserDefaults] stringForKey:@"UYTRequestedQuality"];
     BOOL requestedAudioOnly = [[NSUserDefaults standardUserDefaults] boolForKey:@"UYTRequestedAudioOnly"];
 
-    [UYTDownloadPipeline fetchFormatsForVideoID:vid isShorts:isShorts completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
+    // Live-progress driver: during SABR the DownloadItem usually doesn't exist
+    // yet, but if one is locatable uYou's own list row updates in real time.
+    [UYTDownloadPipeline fetchFormatsForVideoID:vid isShorts:isShorts progress:^(double frac, unsigned long long bytes) {
+        @try {
+            UYTDriveDownloadItemProgressForVideoID(vid, frac, bytes);
+        } @catch (NSException *e) {}
+    } completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
         UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
         UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
         UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
@@ -1298,6 +1330,11 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
                 id ui = UYTResolveUYouItem(self);
                 if (ui) {
                     HBLogWarn(@"[uYouPatches] SABR on-device file ready for %@ — finalizing without network task", vid);
+                    // Write accurate final values (100% + real file size) on the
+                    // item so the downloads list doesn't show a zero-byte row.
+                    NSString *filePath = [NSURL URLWithString:resolved].path;
+                    if (!filePath.length) filePath = ui ? (([ui respondsToSelector:@selector(filePath)]) ? [ui filePath] : nil) : nil;
+                    @try { UYTWriteFinalDownloadProgress(self, filePath); } @catch (NSException *e) {}
                     if (UYTFinalizeItem(self, @"SABR on-device")) return;
                 }
             }

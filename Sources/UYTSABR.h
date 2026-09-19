@@ -34,9 +34,14 @@ BOOL UYTSABRHasValidCaptureForVideoID(NSString * _Nullable videoID);
 // then mux with FFmpegKitNext and finalize via uYou's DB. Called when innertube
 // returns -1002 / empty URLs on YouTube 21.29+.
 // If audioOnly is YES, only downloads audio (for audio-only Shorts downloads).
+// progress (optional, may be nil) is called on the main queue as media arrives,
+// with fractionComplete in [0,1] (time-based: SABR has no upfront
+// Content-Length) plus the real running byte total across both tracks — the
+// inputs for uYou's DownloadItem size/speed/remaining UI fields.
 void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
                                       NSString * _Nullable title,
                                       BOOL audioOnly,
+                                      void (^_Nullable progress)(double fractionComplete, unsigned long long bytesDownloaded),
                                       void (^completion)(BOOL success, NSString * _Nullable error));
 
 NS_ASSUME_NONNULL_END

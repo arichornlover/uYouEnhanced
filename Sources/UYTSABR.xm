@@ -24,7 +24,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
-#import "UYTMediaKit.h"
+#import "MediaKit/UYTMediaKit.h"
 #import "UYTSABR.h"
 
 // uYouEnhanced: SABR is always enabled as a fallback for YouTube 21.29+
@@ -842,6 +842,7 @@ BOOL UYTSABRHasValidCaptureForVideoID(NSString *videoID) {
 void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
                                       NSString * _Nullable title,
                                       BOOL audioOnly,
+                                      void (^_Nullable progress)(double fractionComplete, unsigned long long bytesDownloaded),
                                       void (^completion)(BOOL success, NSString * _Nullable error)) {
     // Pick best available itags from captured body's available-format list.
     // We resolve 137 (1080p mp4) + 140 (m4a) as defaults, falling back to
@@ -881,7 +882,7 @@ void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
             // Hand off to YMSABR on main queue (it hops to SABRQueue internally)
             if (videoItag != 0 && audioItag != 0) {
                 [YMSABR downloadVideoItag:videoItag audioItag:audioItag progress:^(float f, unsigned long long bytes, BOOL isAudio) {
-                    // Progress is handled by caller if needed
+                    if (progress) progress((double)f, bytes);
                 } completion:^(NSURL *videoURL, NSURL *audioURL, NSString *err) {
                     if (err || !videoURL || !audioURL) {
                         completion(NO, err ?: @"SABR download failed");
@@ -942,6 +943,7 @@ void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
                 }];
             } else if (audioItag != 0) {
                 [YMSABR downloadAudioItag:audioItag progress:^(float f, unsigned long long bytes) {
+                    if (progress) progress((double)f, bytes);
                 } completion:^(NSURL *audioURL, NSString *err) {
                     if (err || !audioURL) {
                         completion(NO, err ?: @"SABR audio download failed");

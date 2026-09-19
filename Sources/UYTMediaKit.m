@@ -1,4 +1,4 @@
-#import "UYTMediaKit.h"
+#import "MediaKit/UYTMediaKit.h"
 #import <dlfcn.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
