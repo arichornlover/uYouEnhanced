@@ -1,6 +1,6 @@
 #import "uYouPlus.h"
 #import "uYouPatches.h"
-#import "MediaKit/UYTMediaKit.h"
+#import "UYTMediaKit.h"
 #import "DownloadPipeline.h"
 #import <YouTubeHeader/YTUIUtils.h>
 #import <sqlite3.h>
