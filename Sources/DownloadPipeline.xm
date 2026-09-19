@@ -407,10 +407,10 @@ BOOL UYTIsAudioOnly(NSString *vid) {
 void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double frac, unsigned long long bytesDownloaded) {
     if (!vid.length) return;
     @try {
-        id manager = [%c(DownloadsManager) sharedInstance];
+        id manager = (id)[%c(DownloadsManager) sharedInstance];
         id item = nil;
         if (manager && [manager respondsToSelector:@selector(downloadForVideoID:)]) {
-            item = [manager downloadForVideoID:vid];
+            item = [(id)manager downloadForVideoID:vid];
         }
         if (!item) return;
 
@@ -426,8 +426,8 @@ void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double frac, unsigned
         // Vendored-binary shape (uYou 3.0.4 source): numeric updateProgress:….
         @try {
             if ([item respondsToSelector:@selector(updateProgress:downloadedSize:totalSize:)]) {
-                [item updateProgress:frac downloadedSize:(int64_t)bytesDownloaded
-                           totalSize:(int64_t)((frac > 0.02) ? (bytesDownloaded / frac) : 0)];
+                [(id)item updateProgress:frac downloadedSize:(int64_t)bytesDownloaded
+                              totalSize:(int64_t)((frac > 0.02) ? (bytesDownloaded / frac) : 0)];
             } else {
                 [item setValue:@(frac) forKey:@"progress"];
                 [item setValue:@((long long)bytesDownloaded) forKey:@"downloadedSize"];
@@ -437,9 +437,9 @@ void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double frac, unsigned
         // Real refresh path in the vendored binary: delegate didUpdateDownload: → reloadData.
         if (manager && [manager respondsToSelector:@selector(delegate)]) {
             @try {
-                id del = [manager delegate];
+                id del = [(id)manager delegate];
                 if (del && [del respondsToSelector:@selector(downloadsManager:didUpdateDownload:)]) {
-                    [del downloadsManager:manager didUpdateDownload:item];
+                    [(id)del downloadsManager:manager didUpdateDownload:item];
                 }
             } @catch (NSException *e) {}
         }
@@ -467,12 +467,12 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
         @try { [item setValue:@(size) forKey:@"fileSize"]; } @catch (NSException *e) {}
         @try { [item setValue:@1.0 forKey:@"progress"]; } @catch (NSException *e) {}
         [[NSNotificationCenter defaultCenter] postNotificationName:@"downloadProgressChangedNotification" object:item];
-        id manager = [%c(DownloadsManager) sharedInstance];
+        id manager = (id)[%c(DownloadsManager) sharedInstance];
         if (manager && [manager respondsToSelector:@selector(delegate)]) {
             @try {
-                id del = [manager delegate];
+                id del = [(id)manager delegate];
                 if (del && [del respondsToSelector:@selector(downloadsManager:didUpdateDownload:)]) {
-                    [del downloadsManager:manager didUpdateDownload:item];
+                    [(id)del downloadsManager:manager didUpdateDownload:item];
                 }
             } @catch (NSException *e) {}
         }
