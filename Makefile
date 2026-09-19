@@ -15,13 +15,12 @@ ifndef YOUTUBE_VERSION
 YOUTUBE_VERSION = 21.20.4
 endif
 ifndef UYOU_VERSION
-UYOU_VERSION = 3.0.5
+UYOU_VERSION = 3.0.4
 endif
 PACKAGE_NAME = $(TWEAK_NAME)
 PACKAGE_VERSION = $(YOUTUBE_VERSION)-$(UYOU_VERSION)
 
 $(TWEAK_NAME)_FILES := $(wildcard Sources/*.xm) $(wildcard Sources/*.x) $(wildcard Sources/*.m)
-$(info [UYT] compile list: $($(TWEAK_NAME)_FILES))
 $(TWEAK_NAME)_FRAMEWORKS = UIKit Foundation AVFoundation AVKit Photos Accelerate CoreMotion GameController VideoToolbox Security MediaPlayer
 $(TWEAK_NAME)_LIBRARIES = bz2 c++ iconv z sqlite3
 $(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-but-set-variable -DTWEAK_VERSION=\"$(PACKAGE_VERSION)\"
@@ -31,10 +30,7 @@ export libFLEX_ARCHS = arm64
 export Alderis_XCODEOPTS = LD_DYLIB_INSTALL_NAME=@rpath/Alderis.framework/Alderis
 export Alderis_XCODEFLAGS = DYLIB_INSTALL_NAME_BASE=/Library/Frameworks BUILD_LIBRARY_FOR_DISTRIBUTION=YES ARCHS="$(ARCHS)"
 export libcolorpicker_LDFLAGS = -F$(TARGET_PRIVATE_FRAMEWORK_PATH) -install_name @rpath/libcolorpicker.dylib
-
-export ADDITIONAL_CFLAGS = \
-	-I$(THEOS_PROJECT_DIR)/Tweaks/RemoteLog \
-	-I$(THEOS_PROJECT_DIR)/Tweaks
+export ADDITIONAL_CFLAGS = -I$(THEOS_PROJECT_DIR)/Tweaks/RemoteLog -I$(THEOS_PROJECT_DIR)/Tweaks
 
 ifneq ($(JAILBROKEN),1)
 export DEBUGFLAG = -ggdb -Wno-unused-command-line-argument -L$(THEOS_OBJ_DIR) -F$(_THEOS_LOCAL_DATA_DIR)/$(THEOS_OBJ_DIR_NAME)/install/Library/Frameworks
@@ -79,26 +75,27 @@ REMOVE_EXTENSIONS = 1
 CODESIGN_IPA = 0
 FINALPACKAGE = 1
 
+UYOU_PATH = Tweaks/uYou
+UYOU_DEB = $(UYOU_PATH)/com.miro.uyou_$(UYOU_VERSION)_iphoneos-arm.deb
+UYOU_DYLIB = $(UYOU_PATH)/Library/MobileSubstrate/DynamicLibraries/uYou.dylib
+UYOU_BUNDLE = $(UYOU_PATH)/Library/Application\ Support/uYouBundle.bundle
+
 include $(THEOS)/makefiles/common.mk
 
 ifneq ($(JAILBROKEN),1)
 SUBPROJECTS += Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing/libflex Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouPiP Tweaks/YouQuality Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTVideoOverlay Tweaks/YTweaks Tweaks/YouTubeLegacy
-
 ifeq ($(SPONSORBLOCK_ENABLED),1)
 SUBPROJECTS += Tweaks/iSponsorBlock
 endif
-
 ifeq ($(YTUHD_ENABLED),1)
 SUBPROJECTS += Tweaks/YTUHD
 endif
-
 include $(THEOS_MAKE_PATH)/aggregate.mk
 endif
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
 .PHONY: internal-clean before-all before-package
-
 internal-clean::
 	@rm -rf $(UYOU_PATH)/*
 
