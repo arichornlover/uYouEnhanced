@@ -3,6 +3,8 @@
 
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface UYTStreamFormat : NSObject
 @property (nonatomic, copy) NSString *url;
 @property (nonatomic, assign) NSInteger itag;
@@ -17,26 +19,28 @@
 + (void)fetchFormatsForVideoID:(NSString *)videoID
                     isShorts:(BOOL)isShorts
                     progress:(void (^_Nullable)(double fractionComplete, unsigned long long bytesDownloaded))progress
-                    completion:(void (^)(NSArray<UYTStreamFormat *> *formats, NSError *error))completion;
-+ (UYTStreamFormat *)bestMuxedFormat:(NSArray<UYTStreamFormat *> *)formats;
-+ (UYTStreamFormat *)bestAudioFormat:(NSArray<UYTStreamFormat *> *)formats;
-+ (UYTStreamFormat *)bestVideoFormat:(NSArray<UYTStreamFormat *> *)formats;
+                    completion:(void (^)(NSArray<UYTStreamFormat *> * _Nullable formats, NSError * _Nullable error))completion;
++ (nullable UYTStreamFormat *)bestMuxedFormat:(NSArray<UYTStreamFormat *> * _Nullable)formats;
++ (nullable UYTStreamFormat *)bestAudioFormat:(NSArray<UYTStreamFormat *> * _Nullable)formats;
++ (nullable UYTStreamFormat *)bestVideoFormat:(NSArray<UYTStreamFormat *> * _Nullable)formats;
 @end
 
 // Drive uYou's own DownloadItem UI off SABR's live (fraction, bytes) signal.
 // All real uYou key access is KVC + @try-guarded, so unknown names no-op.
-void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double fractionComplete, unsigned long long bytesDownloaded);
+void UYTDriveDownloadItemProgressForVideoID(NSString * _Nullable vid, double fractionComplete, unsigned long long bytesDownloaded);
 // Write accurate final values (100% + real file size) on the item once the
 // file actually exists on disk.
-void UYTWriteFinalDownloadProgress(id item, NSString *filePath);
+void UYTWriteFinalDownloadProgress(id _Nullable item, NSString * _Nullable filePath);
 
 // Shared URL storage functions
-void UYTStoreResolvedURLs(NSString *vid, NSString *muxedURL, NSString *audioURL, NSString *videoURL);
-NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio);
-NSString *UYTResolvedVideoURL(NSString *vid);
+void UYTStoreResolvedURLs(NSString * _Nullable vid, NSString * _Nullable muxedURL, NSString * _Nullable audioURL, NSString * _Nullable videoURL);
+NSString * _Nullable UYTResolvedURLForVideo(NSString * _Nullable vid, BOOL audio);
+NSString * _Nullable UYTResolvedVideoURL(NSString * _Nullable vid);
 
 // Audio-only marker for a video ID (used for Shorts audio-only downloads).
 // Stored alongside the resolved URLs so the DownloadItem swap can force the
 // audio stream even though uYou creates a video (.mp4) item.
-void UYTMarkAudioOnly(NSString *vid, BOOL audioOnly);
-BOOL UYTIsAudioOnly(NSString *vid);
+void UYTMarkAudioOnly(NSString * _Nullable vid, BOOL audioOnly);
+BOOL UYTIsAudioOnly(NSString * _Nullable vid);
+
+NS_ASSUME_NONNULL_END
