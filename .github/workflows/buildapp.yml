@@ -219,7 +219,12 @@ jobs:
           else
             echo "All extensions are under PlugIns/ - OK for SideStore."
           fi
-
+          SC_INFO_MATCHES="$(unzip -Z1 "$OUTNAME" | grep '/SC_Info/' || true)"
+          if [ -n "$SC_INFO_MATCHES" ]; then
+            echo "Removing files under SC_Info/ - OK for AltStore.:"
+            printf '%s\n' "$SC_INFO_MATCHES"
+            zip -q -d "$OUTNAME" "Payload/*/SC_Info/*" "Payload/*/SC_Info" || true
+          fi
           mkdir -p main/packages
           cp -f "$OUTNAME" "main/packages/$OUTNAME"
           find main/packages -maxdepth 1 -name "*.ipa" ! -name "$OUTNAME" -delete || true
