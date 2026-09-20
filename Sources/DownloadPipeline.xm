@@ -10,8 +10,24 @@
 #import "UYTSABR.h"
 #import <UIKit/UIKit.h>
 
+@protocol DownloadsManagerDelegate <NSObject>
+- (void)downloadsManager:(id)manager didAddDownload:(id)download;
+- (void)downloadsManager:(id)manager didUpdateDownload:(id)download;
+- (void)downloadsManager:(id)manager didRemoveDownload:(id)download;
+- (void)downloadsManager:(id)manager didChangeStatus:(id)download;
+@end
+
 @interface DownloadsManager : NSObject
 + (instancetype)sharedInstance;
+- (id)delegate;
+- (id)downloadForVideoID:(NSString *)videoID;
+@end
+
+@interface DownloadItem : NSObject
+@property (nonatomic, strong) NSString *videoID;
+- (void)setRemoteURL:(NSURL *)url;
+- (void)createDownloadTask;
+- (void)updateProgress:(double)progress downloadedSize:(long long)downloadedSize totalSize:(long long)totalSize;
 @end
 
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
@@ -419,7 +435,6 @@ void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double frac, unsigned
         NSString *downloadedStr = [fmt stringFromByteCount:(long long)bytesDownloaded];
         NSString *totalStr = (frac > 0.02) ? [fmt stringFromByteCount:(long long)(bytesDownloaded / frac)] : nil;
         // micky21 names (downloadProgressChangedNotification + progress/…).
-        @try { [item setValue:@((float)frac) forKey:@"progress"]; } @catch (NSException *e) {}
         if (downloadedStr) { @try { [item setValue:downloadedStr forKey:@"downloadedSize"]; } @catch (NSException *e) {} }
         if (totalStr) { @try { [item setValue:totalStr forKey:@"totalSize"]; } @catch (NSException *e) {} }
         @try { [item setValue:@0 forKey:@"remainingTime"]; } @catch (NSException *e) {}
@@ -465,7 +480,6 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
         }
         @try { [item setValue:@0 forKey:@"remainingTime"]; } @catch (NSException *e) {}
         @try { [item setValue:@(size) forKey:@"fileSize"]; } @catch (NSException *e) {}
-        @try { [item setValue:@1.0 forKey:@"progress"]; } @catch (NSException *e) {}
         [[NSNotificationCenter defaultCenter] postNotificationName:@"downloadProgressChangedNotification" object:item];
         id manager = (id)[%c(DownloadsManager) sharedInstance];
         if (manager && [manager respondsToSelector:@selector(delegate)]) {
@@ -478,11 +492,6 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
         }
     } @catch (NSException *e) {}
 }
-
-@interface DownloadItem : NSObject
-@property (nonatomic, strong) NSString *videoID;
-- (void)setRemoteURL:(NSURL *)url;
-@end
 
 // Swap broken extraction URLs with working innertube ones. Audio items get the
 // resolved audio stream — uYou's own audio URLs are often throttled (#161).

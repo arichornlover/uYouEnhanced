@@ -2,6 +2,7 @@
 #import "uYouPatches.h"
 #import "UYTMediaKit.h"
 #import "DownloadPipeline.h"
+#import "UYTSABR.h"
 #import <YouTubeHeader/YTUIUtils.h>
 #import <sqlite3.h>
 #include <string.h>
@@ -1323,6 +1324,10 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 - (void)createDownloadTask {
     @try {
         NSString *vid = [NSString stringWithFormat:@"%@", self.videoID];
+
+        // SABR already finished and stored a file:// URL — finalize the item
+        // end-to-end (no network task, no %orig). This must be checked FIRST:
+        // after SABR completes, remoteURL is still nil but a ready file exists.
         if (vid.length) {
             NSString *resolved = UYTResolvedVideoURL(vid);
             if (!resolved.length) resolved = UYTResolvedURLForVideo(vid, YES);
@@ -1338,6 +1343,19 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
                     if (UYTFinalizeItem(self, @"SABR on-device")) return;
                 }
             }
+        }
+
+        // HOTFIX4: if SABR is ALREADY driving this download but has not finished
+        // (no file:// URL stored yet), uYou's caller still invokes
+        // createDownloadTask right after setRemoteURL:. %orig here would build
+        // an NSURLRequest from uYou's broken extraction URL and fail instantly
+        // with NSURLErrorUnsupportedURL (-1002), RACING our in-progress SABR
+        // download (progress ticks up, then the row shows -1002 anyway and
+        // nothing ever finishes). Skip %orig while the SABR capture is valid
+        // for THIS video and we have nothing to finalize yet.
+        if (vid.length && UYTSABRHasValidCaptureForVideoID(vid)) {
+            HBLogWarn(@"[uYouPatches] skipping uYou's createDownloadTask for %@ - SABR is driving this download", vid);
+            return;
         }
     } @catch (NSException *e) {
         HBLogWarn(@"[uYouPatches] createDownloadTask SABR shortcut failed: %@", e);
