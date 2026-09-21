@@ -71,9 +71,33 @@ static BOOL UYTIsYouTubeVersion2129OrNewer(void) {
 
 // Build an innertube request body for the given client type. IOS is preferred
 // but may get 403'd by PO-token enforcement; IOS_MUSIC is the fallback.
+// Deep-mutable copy: clientContextForClient: returns an all-literal @{...} tree
+// where EVERY level is an immutable __NSDictionaryI. A shallow mutableCopy only
+// makes the top level writable, so chained subscript writes like the WEB fallback's
+// webCtx[@"context"][@"client"][@"hl"] = ... still land on a nested immutable
+// literal and throw -[__NSDictionaryI setObject:forKeyedSubscript:] (the exact
+// unrecognized-selector crash seen in both the 02:02:4x and 02:02:5x .ips).
+static id UYTDeepMutableCopyOfValue(id value) {
+    if ([value isKindOfClass:[NSDictionary class]]) {
+        NSMutableDictionary *copy = [NSMutableDictionary dictionaryWithCapacity:[value count]];
+        for (id key in value) {
+            copy[key] = UYTDeepMutableCopyOfValue(value[key]);
+        }
+        return copy;
+    }
+    if ([value isKindOfClass:[NSArray class]]) {
+        NSMutableArray *copy = [NSMutableArray arrayWithCapacity:[value count]];
+        for (id item in value) {
+            [copy addObject:UYTDeepMutableCopyOfValue(item)];
+        }
+        return copy;
+    }
+    return value;
+}
+
 + (NSDictionary *)clientContextForClient:(NSString *)clientName
                               osVersion:(NSString *)osVer
-                          deviceModel:(NSString *)model {
+                            deviceModel:(NSString *)model {
     // Pick a realistic, downgraded client version per client type.
     NSString *clientVersion = UYTClientVersionIOS;
     if ([clientName isEqualToString:@"IOS_MUSIC"]) clientVersion = UYTClientVersionIOSMusic;
@@ -355,7 +379,7 @@ static NSString *UYTYouTubeCookiesString(void) {
                 
                 // IOS_CREATOR failed — try WEB client as last resort.
                 NSLog(@"[UYTPipeline] IOS_CREATOR failed (%@), trying WEB", err3.localizedDescription);
-                NSMutableDictionary *webCtx = [[self clientContextForClient:@"WEB" osVersion:@"2.20250825.01.00" deviceModel:nil] mutableCopy];
+                NSMutableDictionary *webCtx = UYTDeepMutableCopyOfValue([self clientContextForClient:@"WEB" osVersion:@"2.20250825.01.00" deviceModel:nil]);
                 webCtx[@"context"][@"client"][@"hl"] = @"en";
                 [self fetchWithClient:webCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts4, NSError *err4) {
                     if (fmts4.count > 0) { completion(fmts4, nil); return; }
