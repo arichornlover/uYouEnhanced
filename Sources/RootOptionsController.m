@@ -4,12 +4,6 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 
-// #1010: Liquid Glass (iOS 26.0+) material helper, resolved purely at runtime.
-// This file must compile against ANY SDK between iOS 15 and iOS 26.5 and must
-// no-op safely on iOS 15–25, so we never reference `UIGlassEffect` as a
-// compile-time symbol. Instead we look it up with NSClassFromString and guard
-// the exact factory selector — the same workaround Expo needed because
-// `+effectWithStyle:` was "unrecognized selector" on some iOS 26.0 builds.
 static UIVisualEffect *UYTLiquidGlassEffect(void) {
     Class glassClass = NSClassFromString(@"UIGlassEffect");
     if (glassClass == nil) {
