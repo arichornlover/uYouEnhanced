@@ -1,5 +1,5 @@
 ifndef SDK_VERSION
-SDK_VERSION = 18.6
+SDK_VERSION = 27.0
 endif
 
 export TARGET = iphone:clang:$(SDK_VERSION):15.0
