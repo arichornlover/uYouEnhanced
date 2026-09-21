@@ -199,8 +199,6 @@ static NSString *UYTYouTubeCookiesString(void) {
             if (err || !data || http.statusCode == 403) {
                 NSString *msg = [NSString stringWithFormat:@"client=%@ status=%ld",
                                  clientName, (long)http.statusCode];
-    NSDictionary *errDict = clientName ? @{@"innertubeClient": clientName,
-                                           @"httpStatus": @(http.statusCode)} : nil;
     [UYTDownloadPipeline recordInnertubeClientAttempt:clientName
                                               status:http.statusCode
                                               reason:err.localizedDescription
