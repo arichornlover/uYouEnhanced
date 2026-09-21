@@ -1955,9 +1955,6 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
     %init;
     %init(gAlwaysOn);
     %init(gMisc1);
-    if (IS_ENABLED(kYTMiniPlayer)) {
-        %init(gYTMiniPlayerEnabler);
-    }
     %init(gMisc1b);
     %init(gMisc1c);
     %init(gMisc2);
@@ -1972,6 +1969,9 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
     %init(gSection12);
     %init(gSection13);
 
+    if (IS_ENABLED(kYTMiniPlayer)) {
+        %init(gYTMiniPlayerEnabler);
+    }
     if (IS_ENABLED(kHideYouTubeLogo)) {
         %init(gHideYouTubeLogo);
     }
