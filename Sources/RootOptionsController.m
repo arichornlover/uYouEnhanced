@@ -4,6 +4,12 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 
+// #1010: Liquid Glass (iOS 26.0+) material helper, resolved purely at runtime.
+// This file must compile against ANY SDK between iOS 15 and iOS 26.5 and must
+// no-op safely on iOS 15–25, so we never reference `UIGlassEffect` as a
+// compile-time symbol. Instead we look it up with NSClassFromString and guard
+// the exact factory selector — the same workaround Expo needed because
+// `+effectWithStyle:` was "unrecognized selector" on some iOS 26.0 builds.
 static UIVisualEffect *UYTLiquidGlassEffect(void) {
     Class glassClass = NSClassFromString(@"UIGlassEffect");
     if (glassClass == nil) {
@@ -101,8 +107,25 @@ static UIVisualEffect *UYTLiquidGlassEffect(void) {
 
 // Floating capsule bar (iOS 18+): quick actions without scrolling.
 - (void)setupFloatingTabBar {
-    UIView *pill = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 220, 52)];
-    pill.backgroundColor = [UIColor secondarySystemGroupedBackgroundColor];
+    // #1010: Liquid Glass pill on iOS 26+ — a floating capsule of quick
+    // actions is a navigation-layer element, exactly what Apple's guidance
+    // reserves Glass for. UYTLiquidGlassEffect() is class+selector guarded so
+    // it's nil on iOS 15-25 / non-glass builds and we fall back to the solid
+    // material pill with zero crash risk on any SDK.
+    UIVisualEffect *glass = UYTLiquidGlassEffect();
+
+    UIView *pill = nil;
+    UIView *host = nil;
+    if (glass != nil) {
+        UIVisualEffectView *glassView = [[UIVisualEffectView alloc] initWithEffect:glass];
+        pill = glassView;
+        host = glassView.contentViewerat;
+    } else {
+        pill = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 220, 52)];
+        pill.backgroundColor = [UIColor secondarySystemGroupedBackgroundColor];
+        host = pill;
+    }
+
     pill.layer.cornerRadius = 26;
     pill.layer.cornerCurve = kCACornerCurveContinuous;
     pill.layer.shadowColor = UIColor.blackColor.CGColor;
@@ -110,6 +133,27 @@ static UIVisualEffect *UYTLiquidGlassEffect(void) {
     pill.layer.shadowRadius = 12;
     pill.layer.shadowOffset = CGSizeMake(0, 4);
 
+    NSArray *icons = @[@"slider.horizontal.3", @"drop.fill", @"trash"];
+    NSArray *actions = @[@"openThemeColor", @"openTintColor", @"clearCacheTapped"];
+    CGFloat bw = 220 / icons.count;
+    for (NSUInteger i = 0; i < icons.count; i++) {
+        UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem];
+        b.frame = CGRectMake(bw * i, 0, bw, 52);
+        [b setImage:[UIImage systemImageNamed:icons[i]] forState:UIControlStateNormal];
+        b.tintColor = [UIColor labelColor];
+        [b addTarget:self action:NSSelectorFromString(actions[i]) forControlEvents:UIControlEventTouchUpInside];
+        [host addSubview:b];
+    }
+
+    [self.view addSubview:pill];
+    pill.translatesAutoresizingMaskIntoConstraints = NO;
+    [NSLayoutConstraint activateConstraints:@[
+        [pill.centerXAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.centerXAnchor],
+        [pill.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-16],
+        [pill.widthAnchor constraintEqualToConstant:220],
+        [pill.heightAnchor constraintEqualToConstant:52]
+    ]];
+}
     NSArray *icons = @[@"slider.horizontal.3", @"drop.fill", @"trash"];
     NSArray *actions = @[@"openThemeColor", @"openTintColor", @"clearCacheTapped"];
     CGFloat bw = 220 / icons.count;
