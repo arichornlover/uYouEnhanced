@@ -43,6 +43,16 @@ static NSString * const UYTClientVersionIOSMusic   = @"6.33.1";    // YouTube Mu
 static NSString * const UYTClientVersionIOSCreator = @"19.45.4";   // YouTube Studio iOS
 static NSString * const UYTClientVersionWeb        = @"2.20250825.01.00"; // WEB
 
+// #1010: the IOS client (com.google.ios.youtube/19.45.1) is now answered with
+// HTTP 400 by YouTube, so innertube downloads die with -1002 before any merge
+// can run. taxi333 validated the ANDROID client as the working workaround.
+static NSString * const UYTClientVersionAndroid    = @"19.09.37";  // Android app
+
+// #1010: iOS 19.45.1 identifies as com.google.ios.youtube/19.45.1 which YouTube
+// now answers with HTTP 400 → downloads fail with -1002 before innertube even
+// gets a look in. taxi333 validated the ANDROID client as the working fallback.
+
+
 // YouTube 21.29+ is the version where SABR became mandatory (no direct stream URLs)
 static NSString * const UYTSABRMinimumVersion = @"21.29.0";
 
@@ -69,6 +79,27 @@ static BOOL UYTIsYouTubeVersion2129OrNewer(void) {
     if ([clientName isEqualToString:@"IOS_MUSIC"]) clientVersion = UYTClientVersionIOSMusic;
     else if ([clientName isEqualToString:@"IOS_CREATOR"]) clientVersion = UYTClientVersionIOSCreator;
     else if ([clientName isEqualToString:@"WEB"]) clientVersion = UYTClientVersionWeb;
+    // #1010: IOS/19.45.1 is answered with HTTP 400 by YouTube (taxi333
+    // validated the ANDROID client as the working workaround).
+    else if ([clientName isEqualToString:@"ANDROID"]) clientVersion = UYTClientVersionAndroid;
+
+    if ([clientName isEqualToString:@"ANDROID"]) {
+        // Realistic Android app fields so the innertube request passes
+        // PO-token / bot checks that now 400 the iOS client.
+        return @{@"context": @{@"client": @{
+            @"clientName": clientName,
+            @"clientVersion": clientVersion,
+            @"deviceMake": @"samsung",
+            @"deviceModel": model ?: @"SM-S928B",
+            @"osName": @"Android",
+            @"osVersion": osVer ?: @"14",
+            @"hl": @"en",
+            @"timeZone": @"UTC",
+            @"utcOffsetMinutes": @0
+        }},
+        @"contentCheckOk": @YES,
+        @"racyCheckOk": @YES};
+    }
 
     return @{@"context": @{@"client": @{
         @"clientName": clientName,
@@ -113,8 +144,19 @@ static NSString *UYTYouTubeCookiesString(void) {
     NSString *clientName = clientCtx[@"context"][@"client"][@"clientName"] ?: @"IOS";
     NSString *clientVersion = clientCtx[@"context"][@"client"][@"clientVersion"] ?: UYTClientVersionIOS;
     NSString *sysVer = [[UIDevice currentDevice].systemVersion stringByReplacingOccurrencesOfString:@"." withString:@"_"] ?: @"18_5_0";
-    NSString *ua = [NSString stringWithFormat:@"com.google.ios.youtube/%@ (iPhone16,2; U; CPU iOS %@ like Mac OS X; en_US)",
-                     clientVersion, sysVer];
+    NSString *ua;
+    // #1010: ANDROID client → send a real Android UA, otherwise the iOS UA on
+    // an Android-identified body is itself a 400 / PO-token trigger.
+    if ([clientName isEqualToString:@"ANDROID"]) {
+        NSString *androidOsVer = clientCtx[@"context"][@"client"][@"osVersion"] ?: @"14";
+        ua = [NSString stringWithFormat:
+            @"com.google.android.youtube/%@ (Linux; U; Android %@; %@ Build/UP1A; en_US)",
+            clientVersion, androidOsVer,
+            clientCtx[@"context"][@"client"][@"deviceModel"] ?: @"SM-S928B"];
+    } else {
+        ua = [NSString stringWithFormat:@"com.google.ios.youtube/%@ (iPhone16,2; U; CPU iOS %@ like Mac OS X; en_US)",
+              clientVersion, sysVer];
+    }
 
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:UYTInnertubeURL]];
     req.HTTPMethod = @"POST";
@@ -287,17 +329,20 @@ static NSString *UYTYouTubeCookiesString(void) {
     }];
 }
 
-// Innertube fallback chain: IOS -> IOS_MUSIC -> IOS_CREATOR -> WEB.
-// Extracted so both the 21.29+ SABR-failure path and the older-version path
-// share one implementation and guarantee exactly ONE completion call.
+// Innertube fallback chain: ANDROID -> IOS_MUSIC -> IOS_CREATOR -> WEB.
+// #1010: IOS/19.45.1 is answered with HTTP 400 by YouTube, so the chain now
+// leads with the ANDROID client that taxi333 validated as the working
+// workaround. Extracted so both the 21.29+ SABR-failure path and the
+// older-version path share one implementation and guarantee exactly ONE
+// completion call.
 + (void)runInnertubeFallbackChainForVideoID:(NSString *)videoID
                                 completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
-    NSDictionary *iosCtx = [self clientContextForClient:@"IOS" osVersion:nil deviceModel:nil];
-    [self fetchWithClient:iosCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts, NSError *err) {
+    NSDictionary *androidCtx = [self clientContextForClient:@"ANDROID" osVersion:@"14" deviceModel:@"SM-S928B"];
+    [self fetchWithClient:androidCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts, NSError *err) {
         if (fmts.count > 0) { completion(fmts, nil); return; }
         
-        // IOS failed — try IOS_MUSIC as fallback.
-        NSLog(@"[UYTPipeline] IOS client failed (%@), trying IOS_MUSIC", err.localizedDescription);
+        // ANDROID failed — try IOS_MUSIC as fallback.
+        NSLog(@"[UYTPipeline] ANDROID client failed (%@), trying IOS_MUSIC", err.localizedDescription);
         NSDictionary *musicCtx = [self clientContextForClient:@"IOS_MUSIC" osVersion:@"18.5.0" deviceModel:@"iPhone16,2"];
         [self fetchWithClient:musicCtx videoID:videoID completion:^(NSArray<UYTStreamFormat *> *fmts2, NSError *err2) {
             if (fmts2.count > 0) { completion(fmts2, nil); return; }

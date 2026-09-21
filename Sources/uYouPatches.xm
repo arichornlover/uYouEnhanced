@@ -243,442 +243,6 @@ static void refreshUYouAppearance() {
 
 %end // gYouFixes
 
-// Shorts uYou Button Crash Fix (#995)
-// YouTube 21.xx.x+ changed the Shorts player hierarchy. The uYou overlay
-// button's target doesn't respond on Shorts → crash. Detect version and
-// Shorts context, then route the download through the native path directly.
-
-// Global safety net for any button with a broken target-action.
-%group gShortsButtonGuard
-%hook UIControl
-- (void)sendAction:(SEL)action to:(id)target forEvent:(UIEvent *)event {
-    if (target && action && ![target respondsToSelector:action]) {
-        NSLog(@"[uYouEnhanced] Blocked sendAction:%s to non-responding target %@ (class: %@)",
-              sel_getName(action), target, NSStringFromClass([target class]));
-        return;
-    }
-    @try {
-        %orig;
-    } @catch (NSException *e) {
-        NSLog(@"[uYouEnhanced] Caught sendAction crash: %@", e);
-    }
-}
-%end
-%end
-
-// Forward declarations for helpers defined below (used by the reel-header group).
-static BOOL UYTIsShortsOverlay(id overlay);
-static NSString *UYTShortsVideoID(id overlay);
-static id UYTFindShortsPlayerVC(id overlay);
-static NSString *UYTDownloadTypeSetting(void);
-static void UYTPresentActionSheet(id controller);
-static void UYTStartShortsDownload(NSString *videoID, id sourceView, NSString *quality, BOOL audioOnly, BOOL isShorts);
-static void UYTPresentDownloadMenuForVideoID(NSString *videoID, id sourceView, BOOL isShorts);
-
-// Modern Shorts UI (YTReelHeaderView) — ensure uYou download button works.
-// Credit: FLEX debug info — YTReelHeaderView has uYouButton property (YTReelPlayerButton).
-// The button exists but its action isn't wired to call uYou on the overlay view.
-%group gModernShortsUIButton
-%hook YTReelHeaderView
-- (void)layoutSubviews {
-    %orig;
-    
-    // Default ON: only skip when the key is explicitly set to NO.
-    // (The key is never registered anywhere, so a plain IS_ENABLED() check
-    // makes this whole group dead code by default.)
-    NSUserDefaults *uytd = [NSUserDefaults standardUserDefaults];
-    if ([uytd objectForKey:@"downloadButton_enabled"] && ![uytd boolForKey:@"downloadButton_enabled"]) return;
-    
-    // Ensure the existing uYouButton has its action wired to our self-contained
-    // handler (no dependence on the overlay being reachable via the responder
-    // chain — on the modern Shorts UI it often is not).
-    id btn = [self valueForKey:@"uYouButton"];
-    if (btn && [btn isKindOfClass:[UIControl class]]) {
-        // Remove any existing targets to avoid duplicates
-        [btn removeTarget:nil action:nil forControlEvents:UIControlEventAllEvents];
-
-        // Target self -> %new _uytReelHeaderDownloadTapped (set up below).
-        [btn addTarget:self action:@selector(_uytReelHeaderDownloadTapped) forControlEvents:UIControlEventTouchUpInside];
-
-        // Ensure button is visible and enabled
-        if ([btn respondsToSelector:@selector(setHidden:)]) {
-            [btn performSelector:@selector(setHidden:) withObject:@NO];
-        }
-        if ([btn respondsToSelector:@selector(setEnabled:)]) {
-            [btn performSelector:@selector(setEnabled:) withObject:@YES];
-        }
-        if ([btn respondsToSelector:@selector(setAlpha:)]) {
-            [btn performSelector:@selector(setAlpha:) withObject:@(1.0)];
-        }
-    }
-}
-
-%new - (void)_uytReelHeaderDownloadTapped {
-    @try {
-        // 1) Resolve the Shorts video ID directly (responder chain walk).
-        NSString *videoID = UYTShortsVideoID(self);
-        if (videoID.length > 0) {
-            NSLog(@"[uYouEnhanced] New Shorts uYouButton -> download menu for %@", videoID);
-            UYTPresentDownloadMenuForVideoID(videoID, self, YES);
-            return;
-        }
-
-        // 2) Fallback: if no video ID, try the overlay's uYou-based menu.
-        id overlay = nil;
-        UIView *view = (UIView *)self;
-        while (view) {
-            UIResponder *next = [view nextResponder];
-            while (next) {
-                if ([next isKindOfClass:%c(YTMainAppControlsOverlayView)]) {
-                    overlay = next;
-                    break;
-                }
-                next = [next nextResponder];
-            }
-            if (overlay) break;
-            view = view.superview;
-        }
-        if (overlay && [overlay respondsToSelector:@selector(uYou)]) {
-            [overlay uYou];
-            return;
-        }
-
-        NSLog(@"[uYouEnhanced] New Shorts uYouButton: no video ID and no overlay — no-op");
-    } @catch (NSException *e) {
-        NSLog(@"[uYouEnhanced] New Shorts uYouButton handler failed: %@", e);
-    }
-}
-%end
-%end
-
-// Make the uYou button actually work on Shorts instead of crashing.
-// Hooks uYou on the overlay view — on Shorts, wires up the playerViewController
-// so uYou's native menu can find the video ID, then calls %orig to show the
-// download menu (quality picker, etc.) instead of bypassing it.
-%group gShortsUYouDownload
-static BOOL UYTIsShortsOverlay(id overlay) {
-    @try {
-        NSString *ident = [overlay accessibilityIdentifier] ?: @"";
-        if ([ident containsString:@"reel"] || [ident containsString:@"shorts"])
-            return YES;
-
-        UIResponder *responder = [overlay nextResponder];
-        while (responder) {
-            NSString *cls = NSStringFromClass([responder class]);
-            if ([cls containsString:@"ReelWatch"] ||
-                [cls containsString:@"ShortsPlayer"] ||
-                [cls containsString:@"ReelPlayer"] ||
-                [cls containsString:@"YTShorts"] ||
-                [cls containsString:@"YTReel"] ||
-                [cls containsString:@"ShortsViewController"] ||
-                [cls containsString:@"ReelsViewController"] ||
-                [cls containsString:@"YTReelHeaderView"])
-                return YES;
-            responder = [responder nextResponder];
-        }
-
-        UIView *view = [overlay superview];
-        while (view) {
-            NSString *cls = NSStringFromClass([view class]);
-            if ([cls containsString:@"Reel"] || [cls containsString:@"Shorts"] ||
-                [cls containsString:@"YTShorts"] || [cls containsString:@"YTReel"] ||
-                [cls containsString:@"YTReelHeaderView"])
-                return YES;
-            view = view.superview;
-        }
-    } @catch (NSException *e) {}
-    return NO;
-}
-
-static NSString *UYTShortsVideoID(id overlay) {
-    @try {
-        // 1) Try the playerViewController property on the overlay itself.
-        if ([overlay respondsToSelector:@selector(playerViewController)]) {
-            id pvc = [(id)overlay playerViewController];
-            if ([pvc respondsToSelector:@selector(currentVideoID)]) {
-                NSString *v = [pvc performSelector:@selector(currentVideoID)];
-                if (v.length > 0) return v;
-            }
-        }
-        // 2) Walk responder chain for a video ID
-        UIResponder *r = [overlay nextResponder];
-        while (r) {
-            if ([r respondsToSelector:@selector(activeReelPlaybackVideoID)]) {
-                NSString *v = [r performSelector:@selector(activeReelPlaybackVideoID)];
-                if (v.length > 0) return v;
-            }
-            if ([r respondsToSelector:@selector(currentVideoID)]) {
-                NSString *v = [r performSelector:@selector(currentVideoID)];
-                if (v.length > 0) return v;
-            }
-            // YTReelPlayerViewController exposes .videoId (lowercase 'd')
-            @try {
-                NSString *v = [r valueForKey:@"videoId"];
-                if ([v isKindOfClass:[NSString class]] && v.length > 0) return v;
-            } @catch (NSException *e2) {}
-            @try {
-                NSString *v = [r valueForKey:@"videoID"];
-                if ([v isKindOfClass:[NSString class]] && v.length > 0) return v;
-            } @catch (NSException *e3) {}
-            // Also try reelID / reelId on the reel player
-            @try {
-                NSString *v = [r valueForKey:@"reelID"];
-                if ([v isKindOfClass:[NSString class]] && v.length > 0) return v;
-            } @catch (NSException *e4) {}
-            @try {
-                NSString *v = [r valueForKey:@"reelId"];
-                if ([v isKindOfClass:[NSString class]] && v.length > 0) return v;
-            } @catch (NSException *e5) {}
-            r = [r nextResponder];
-        }
-        // 3) Fallback: PlayerManager
-        if ([%c(PlayerManager) respondsToSelector:@selector(sharedInstance)]) {
-            id pm = [%c(PlayerManager) sharedInstance];
-            if ([pm respondsToSelector:@selector(videoID)]) {
-                NSString *v = [pm performSelector:@selector(videoID)];
-                if (v.length > 0) return v;
-            }
-        }
-        // 4) Fallback: NSUserDefaults (uYou stores last-played video ID)
-        NSString *lastVid = [[NSUserDefaults standardUserDefaults] stringForKey:@"playerVideoID"];
-        if (lastVid.length > 0) return lastVid;
-        // 5) Fallback: extract from current navigation URL
-        @try {
-            UIWindow *keyWindow = nil;
-            for (UIWindow *w in [UIApplication sharedApplication].windows) {
-                if (w.isKeyWindow) { keyWindow = w; break; }
-            }
-            if (keyWindow.rootViewController) {
-                // Walk presented VCs to find a YTNavigationController
-                UIViewController *top = keyWindow.rootViewController;
-                while (top.presentedViewController) top = top.presentedViewController;
-                if ([top respondsToSelector:@selector(URL)]) {
-                    NSURL *url = [top performSelector:@selector(URL)];
-                    NSString *urlStr = url.absoluteString;
-                    NSRange shortsRange = [urlStr rangeOfString:@"/shorts/"];
-                    if (shortsRange.location != NSNotFound) {
-                        NSString *vid = [urlStr substringFromIndex:shortsRange.location + shortsRange.length];
-                        vid = [vid componentsSeparatedByString:@"?"].firstObject;
-                        vid = [vid componentsSeparatedByString:@"&"].firstObject;
-                        if (vid.length > 0 && vid.length <= 20) return vid;
-                    }
-                }
-            }
-        } @catch (NSException *e) {}
-    } @catch (NSException *e) {}
-    return nil;
-}
-
-// Find the Shorts player view controller in the responder chain
-static id UYTFindShortsPlayerVC(id overlay) {
-    @try {
-        UIResponder *r = [overlay nextResponder];
-        while (r) {
-            NSString *cls = NSStringFromClass([r class]);
-            if ([cls containsString:@"ReelWatch"] ||
-                [cls containsString:@"ShortsPlayer"] ||
-                [cls containsString:@"ReelPlayer"] ||
-                [cls containsString:@"YTShorts"] ||
-                [cls containsString:@"YTReel"] ||
-                [cls containsString:@"ShortsViewController"] ||
-                [cls containsString:@"ReelsViewController"]) {
-                return r;
-            }
-            r = [r nextResponder];
-        }
-    } @catch (NSException *e) {}
-    return nil;
-}
-
-// YTUIUtils is only forward-declared (@class), so we can't add a category.
-// Use respondsToSelector:/performSelector: pattern instead (already done below).
-
-%hook YTMainAppControlsOverlayView
-- (void)uYou {
-    // No %orig here: - (void)uYou has NO native original on YTMainAppControlsOverlayView
-    // (uYou's own menu was stripped from the uYouUnofficial rebuild), so %orig would
-    // jump to a NULL IMP and crash. Both Shorts AND the video player get the modern
-    // UYTDownloadPipeline menu instead.
-    @try {
-        BOOL shorts = UYTIsShortsOverlay(self);
-        if (shorts) {
-            // Wire up the playerViewController so uYou's native menu logic can
-            // find the video ID. On Shorts the overlay's playerViewController
-            // is often nil — grab it from the responder chain (YTReelPlayerVC.player).
-            if (self.playerViewController == nil) {
-                id player = UYTFindShortsPlayerVC(self);
-                if (player) {
-                    self.playerViewController = player;
-                }
-            }
-        }
-
-        NSString *videoID = UYTShortsVideoID(self);
-        if (videoID.length > 0) {
-            NSLog(@"[uYouEnhanced] uYou button -> download menu for %@ (%@)", videoID, shorts ? @"Shorts" : @"video player");
-            UYTPresentDownloadMenuForVideoID(videoID, self, shorts);
-            return;
-        }
-
-        NSLog(@"[uYouEnhanced] uYou button but no video ID found — no-op (no crash)");
-    } @catch (NSException *e) {
-        NSLog(@"[uYouEnhanced] uYou hook failed: %@", e);
-    }
-}
-
-// --- Shorts Download Menu (1:1 remake of uYou's menu using modern classes) ---
-// uYou's native getLinksLocallyPlayerItem: builds its YTActionSheetController
-// menu ONLY when its internal stream extraction succeeds (video+audio arrays
-// non-empty). On the modern Shorts UI (YT 21.xx.x+) that extraction fails, so
-// the menu never appears. We rebuild the menu here from formats fetched via
-// UYTDownloadPipeline, then hand the chosen quality to uYou's native flow.
-
-// Read uYou's download-type setting (default "both"). Values: "both"/"audio"/"video".
-static NSString *UYTDownloadTypeSetting(void) {
-    NSString *t = [[NSUserDefaults standardUserDefaults] stringForKey:@"downloadType"];
-    if (!t.length) t = @"both";
-    return t;
-}
-
-// Present a YTActionSheetController from the top-most view controller.
-static void UYTPresentActionSheet(id controller) {
-    @try {
-        id topVC = nil;
-        if ([%c(YTUIUtils) respondsToSelector:@selector(topViewControllerForPresenting)]) {
-            topVC = [%c(YTUIUtils) performSelector:@selector(topViewControllerForPresenting)];
-        }
-        if (!topVC) {
-            // Fallback: walk the key window's root VC.
-            UIWindow *keyWindow = nil;
-            for (UIWindow *w in [UIApplication sharedApplication].windows) {
-                if (w.isKeyWindow) { keyWindow = w; break; }
-            }
-            topVC = keyWindow.rootViewController;
-            while ([topVC respondsToSelector:@selector(presentedViewController)] && [topVC presentedViewController])
-                topVC = [topVC presentedViewController];
-        }
-        if (topVC && [controller respondsToSelector:@selector(presentFromViewController:animated:completion:)]) {
-            [controller presentFromViewController:topVC animated:YES completion:nil];
-        }
-    } @catch (NSException *e) {
-        NSLog(@"[uYouEnhanced] present action sheet failed: %@", e);
-    }
-}
-
-// Kick off the actual download at the chosen quality via uYou's native flow.
-static void UYTStartShortsDownload(NSString *videoID, id sourceView, NSString *quality, BOOL audioOnly, BOOL isShorts) {
-    @try {
-        id dlManager = [%c(DownloadsManager) sharedInstance];
-        if (!dlManager) return;
-        if ([dlManager respondsToSelector:@selector(getLinksLocallyPlayerItem:videoID:sourceView:isShorts:)]) {
-            // Stash the requested quality so the pipeline can honor it.
-            if (quality.length) {
-                [[NSUserDefaults standardUserDefaults] setObject:quality forKey:@"UYTRequestedQuality"];
-            }
-            if (audioOnly) {
-                [[NSUserDefaults standardUserDefaults] setObject:@"audio" forKey:@"UYTRequestedAudioOnly"];
-            } else {
-                [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedAudioOnly"];
-            }
-            [dlManager getLinksLocallyPlayerItem:nil videoID:videoID sourceView:sourceView isShorts:isShorts];
-        }
-    } @catch (NSException *e) {
-        NSLog(@"[uYouEnhanced] start shorts download failed: %@", e);
-    }
-}
-
-// Build and present the download menu for a video (Shorts or the video player).
-static void UYTPresentDownloadMenuForVideoID(NSString *videoID, id sourceView, BOOL isShorts) {
-    @try {
-        // Fetch formats first so we can offer real quality options.
-        [UYTDownloadPipeline fetchFormatsForVideoID:videoID isShorts:isShorts progress:nil completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                @try {
-                    Class controllerClass = %c(YTActionSheetController);
-                    Class actionClass = %c(YTActionSheetAction);
-                    if (!controllerClass || !actionClass) {
-                        NSLog(@"[uYouEnhanced] YTActionSheet classes unavailable — falling back to direct download");
-                        UYTStartShortsDownload(videoID, sourceView, nil, NO, isShorts);
-                        return;
-                    }
-
-                    id controller = [controllerClass actionSheetController];
-                    if (!controller) {
-                        UYTStartShortsDownload(videoID, sourceView, nil, NO, isShorts);
-                        return;
-                    }
-
-                    NSString *downloadType = UYTDownloadTypeSetting();
-                    BOOL wantAudio = [downloadType isEqualToString:@"audio"];
-
-                    // Collect distinct quality labels from video formats (highest first).
-                    NSMutableArray<NSString *> *qualities = [NSMutableArray array];
-                    NSMutableDictionary<NSString *, UYTStreamFormat *> *byQuality = [NSMutableDictionary dictionary];
-                    UYTStreamFormat *bestAudio = [UYTDownloadPipeline bestAudioFormat:formats];
-                    UYTStreamFormat *bestMuxed = [UYTDownloadPipeline bestMuxedFormat:formats];
-
-                    // Prefer muxed (video+audio) for the quality list; fall back to video-only.
-                    NSArray *videoFormats = formats;
-                    for (UYTStreamFormat *f in videoFormats) {
-                        if (!f.hasVideo) continue;
-                        NSString *ql = f.qualityLabel.length ? f.qualityLabel : [NSString stringWithFormat:@"%ldp", (long)f.itag];
-                        if (![qualities containsObject:ql]) {
-                            [qualities addObject:ql];
-                            byQuality[ql] = f;
-                        }
-                    }
-                    // Sort by resolution descending (parse leading number).
-                    [qualities sortUsingComparator:^NSComparisonResult(NSString *a, NSString *b) {
-                        NSInteger na = [a integerValue], nb = [b integerValue];
-                        if (na == nb) return [a compare:b];
-                        return na > nb ? NSOrderedAscending : NSOrderedDescending;
-                    }];
-
-                    // If we have no video formats but do have a muxed stream, offer it.
-                    if (qualities.count == 0 && bestMuxed) {
-                        NSString *ql = bestMuxed.qualityLabel.length ? bestMuxed.qualityLabel : @"Best";
-                        [qualities addObject:ql];
-                        byQuality[ql] = bestMuxed;
-                    }
-
-                    // Add a quality action for each distinct quality.
-                    for (NSString *ql in qualities) {
-                        id action = [actionClass actionWithTitle:ql style:0 handler:^(YTActionSheetAction *a) {
-                            UYTStartShortsDownload(videoID, sourceView, ql, NO, isShorts);
-                        }];
-                        if (action && [controller respondsToSelector:@selector(addAction:)]) {
-                            [controller addAction:action];
-                        }
-                    }
-
-                    // Audio-only action (if an audio stream exists).
-                    if (bestAudio && wantAudio) {
-                        id audioAction = [actionClass actionWithTitle:@"Audio only" style:0 handler:^(YTActionSheetAction *a) {
-                            UYTStartShortsDownload(videoID, sourceView, nil, YES, isShorts);
-                        }];
-                        if (audioAction && [controller respondsToSelector:@selector(addAction:)]) {
-                            [controller addAction:audioAction];
-                        }
-                    }
-
-                    // If nothing was added, fall back to a direct download.
-                    if ([controller respondsToSelector:@selector(addCancelActionIfNeeded)]) {
-                        [controller addCancelActionIfNeeded];
-                    }
-                    UYTPresentActionSheet(controller);
-                } @catch (NSException *e) {
-                    NSLog(@"[uYouEnhanced] build shorts menu failed: %@", e);
-                    UYTStartShortsDownload(videoID, sourceView, nil, NO, isShorts);
-                }
-            });
-        }];
-    } @catch (NSException *e) {
-        NSLog(@"[uYouEnhanced] shorts menu exception: %@", e);
-        UYTStartShortsDownload(videoID, sourceView, nil, NO, isShorts);
-    }
-}
-%end
-%end // gShortsUYouDownload
 
 // Fix uYou varispeed controller fallback.
 %group gVarispeedFallbackFix
@@ -865,9 +429,33 @@ static BOOL UYTItemIsAudioOnly(id item) {
     }
 }
 
-// Convert webm audio to m4a before merging.
-static BOOL UYTEnsureMergeableAudio(id item, NSString *phase) {
+// #1010: uYouItem DERIVES tmpAudioPath from audioFormat + downloadIdentifier
+// and has NO tmpAudioPath setter, so KVC on that key throws NSUnknownKeyException.
+// The hooks below used to swallow it and then bail out (audio still read as
+// .webm → merge skipped → download hung forever). Point the item at the
+// converted file by switching audioFormat instead, then verify that tmpAudioPath
+// now resolves to the m4a we just wrote. Returns YES on success. Also reclaims
+// the stale .webm since nothing references it any more.
+static BOOL UYTPointItemAtConvertedAudio(id uyouItem, NSString *webmPath, NSString *m4aPath) {
     @try {
+        [uyouItem setValue:@"m4a" forKey:@"audioFormat"];
+        NSString *now = [uyouItem valueForKey:@"tmpAudioPath"];
+        if (![now isEqualToString:m4aPath]) {
+            HBLogWarn(@"[uYouPatches] tmpAudioPath is %@ after conversion, expected %@", now, m4aPath);
+            return NO;
+        }
+        // Nothing references the .webm source any more; reclaim the space.
+        [[NSFileManager defaultManager] removeItemAtPath:webmPath error:nil];
+        HBLogInfo(@"[uYouPatches] item now points at converted audio %@", m4aPath);
+        return YES;
+    } @catch (NSException *e) {
+        HBLogWarn(@"[uYouPatches] could not point item at converted audio: %@", e);
+        return NO;
+    }
+}
+
+// Convert webm audio to m4a before merging.
+static BOOL UYTEnsureMergeableAudio(id item, NSString *phase) {    @try {
         id ui = UYTResolveUYouItem(item);
         NSString *audioPath = UYTAudioPathForItem(ui);
         if (!audioPath.length) return YES;
@@ -876,8 +464,18 @@ static BOOL UYTEnsureMergeableAudio(id item, NSString *phase) {
 
         NSString *m4aPath = [[audioPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
         if (uYouConvertWebmAudioToM4a(audioPath, m4aPath)) {
-            @try { [ui setValue:m4aPath forKey:@"tmpAudioPath"]; } @catch (NSException *e) {}
-            HBLogInfo(@"[uYouPatches] %@: webmâ†’m4a conversion done", phase);
+            // #1010: uYouItem DERIVES tmpAudioPath from audioFormat +
+            // downloadIdentifier and has no tmpAudioPath setter, so KVC
+            // on that key throws NSUnknownKeyException. We used to swallow
+            // it and then bail out (audio still read as .webm → merge
+            // skipped → download hung forever). Point the item at the
+            // converted file by switching audioFormat instead, then verify
+            // tmpAudioPath now resolves to the m4a we just wrote.
+            if (!UYTPointItemAtConvertedAudio(ui, audioPath, m4aPath)) {
+                HBLogWarn(@"[uYouPatches] %@: conversion done but could not point item at m4a — merge may hang", phase);
+                return NO;
+            }
+            HBLogInfo(@"[uYouPatches] %@: webm→m4a conversion done", phase);
             return YES;
         }
         HBLogWarn(@"[uYouPatches] %@: webm→m4a conversion FAILED — merge would hang", phase);
@@ -1945,14 +1543,7 @@ static float uYouSavedPlaybackRate = 0.0f;
 
     // Initialize fullscreen fixes (always active when noSuggestedVideo is used)
     %init(gYouFullscreenFixes);
-
-    // Shorts uYou button fix (#995) — only needed on 21.xx.x+ where the
-    // Shorts player hierarchy changed. Uses YTVersionUtils so the version
-    // spoofer is respected.
-    NSString *appVersion = [%c(YTVersionUtils) performSelector:@selector(appVersion)];
-    if (appVersion && [appVersion compare:@"21.10.2" options:NSNumericSearch] != NSOrderedAscending) {
-        %init(gModernShortsUIButton);
-        %init(gShortsButtonGuard);
-        %init(gShortsUYouDownload);
-    }
 }
+
+
+
