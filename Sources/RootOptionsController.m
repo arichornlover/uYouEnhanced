@@ -98,7 +98,7 @@ static UIVisualEffect *UYTLiquidGlassEffect(void) {
     if (glass != nil) {
         UIVisualEffectView *glassView = [[UIVisualEffectView alloc] initWithEffect:glass];
         pill = glassView;
-        host = glassView.contentViewerat;
+        host = glassView.contentView;
     } else {
         pill = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 220, 52)];
         pill.backgroundColor = [UIColor secondarySystemGroupedBackgroundColor];
@@ -122,27 +122,6 @@ static UIVisualEffect *UYTLiquidGlassEffect(void) {
         b.tintColor = [UIColor labelColor];
         [b addTarget:self action:NSSelectorFromString(actions[i]) forControlEvents:UIControlEventTouchUpInside];
         [host addSubview:b];
-    }
-
-    [self.view addSubview:pill];
-    pill.translatesAutoresizingMaskIntoConstraints = NO;
-    [NSLayoutConstraint activateConstraints:@[
-        [pill.centerXAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.centerXAnchor],
-        [pill.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-16],
-        [pill.widthAnchor constraintEqualToConstant:220],
-        [pill.heightAnchor constraintEqualToConstant:52]
-    ]];
-}
-    NSArray *icons = @[@"slider.horizontal.3", @"drop.fill", @"trash"];
-    NSArray *actions = @[@"openThemeColor", @"openTintColor", @"clearCacheTapped"];
-    CGFloat bw = 220 / icons.count;
-    for (NSUInteger i = 0; i < icons.count; i++) {
-        UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem];
-        b.frame = CGRectMake(bw * i, 0, bw, 52);
-        [b setImage:[UIImage systemImageNamed:icons[i]] forState:UIControlStateNormal];
-        b.tintColor = [UIColor labelColor];
-        [b addTarget:self action:NSSelectorFromString(actions[i]) forControlEvents:UIControlEventTouchUpInside];
-        [pill addSubview:b];
     }
 
     [self.view addSubview:pill];
