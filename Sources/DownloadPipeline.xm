@@ -199,8 +199,16 @@ static NSString *UYTYouTubeCookiesString(void) {
             if (err || !data || http.statusCode == 403) {
                 NSString *msg = [NSString stringWithFormat:@"client=%@ status=%ld",
                                  clientName, (long)http.statusCode];
-                completion(@[], [NSError errorWithDomain:@"UYTDownload" code:http.statusCode
-                        userInfo:@{NSLocalizedDescriptionKey: msg}]);
+    NSDictionary *errDict = clientName ? @{@"innertubeClient": clientName,
+                                           @"httpStatus": @(http.statusCode)} : nil;
+    [UYTDownloadPipeline recordInnertubeClientAttempt:clientName
+                                              status:http.statusCode
+                                              reason:err.localizedDescription
+                                              videoID:videoID];
+    completion(@[], [NSError errorWithDomain:@"UYTDownload" code:http.statusCode
+            userInfo:@{NSLocalizedDescriptionKey: msg,
+                       NSUnderlyingErrorKey: err ?: [NSNull null],
+                       @"innertubeClient": clientName}]);
                 return;
             }
             NSError *jsonErr = nil;
@@ -428,6 +436,54 @@ static NSString *UYTYouTubeCookiesString(void) {
         }
     }
     return bestM4a ?: bestOther;
+}
+
+// ---------------------------------------------------------------------------
+// Innertube attempt recorder (04:52 Shorts "Zero KB | Zero KB" rebuild).
+//
+// The Shorts .ips are THIN: exception context, abort, empty backtrace — no
+// console capture. On-device, the innertube chain (ANDROID -> IOS_MUSIC ->
+// IOS_CREATOR -> WEB) has already been repeatedly validated in the syslog, but
+// the "Zero KB | Zero KB  (null) | %1  Waiting… / Not Started" readout is the
+// first sentence of the report — it can't tell you WHICH client returned 403
+// vs 400 vs PO-token. This mirrors EVERY innertube attempt's status code +
+// client name + PO/device-hint into the same on-disk file family as the
+// selector log, so the real reason survives without a debugger.
+static NSString *UYTPAuditFilePath(void) {
+    NSArray *dirs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    return [dirs.firstObject stringByAppendingPathComponent:@"uYouInnertubeAttempts.log"];
+}
+
+static void UYTPAppendAuditLine(NSString *line) {
+    NSString *path = UYTPAuditFilePath();
+    NSFileHandle *fh = [NSFileHandle fileHandleForWritingToURL:[NSURL fileURLWithPath:path] error:nil];
+    if (!fh) {
+        [[NSFileManager defaultManager] createFileAtPath:path contents:nil attributes:nil];
+        fh = [NSFileHandle fileHandleForWritingToURL:[NSURL fileURLWithPath:path] error:nil];
+    }
+    if (fh) {
+        @try {
+            [fh seekToEndOfFile];
+            [fh writeData:[[line stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding]];
+            [fh closeFile];
+        } @catch (NSException *e) {}
+    }
+}
+
+// Record one innertube client attempt result. Call from every client's
+// completion failure path so the file reads like an audit trail:
+//   client=ANDROID status=403 reason="..." videoID=...
+//   client=IOS_MUSIC status=200 poll/PO-token rejected at nhop? ...
++ (void)recordInnertubeClientAttempt:(NSString *)clientName
+                             status:(NSInteger)statusCode
+                             reason:(NSString *)reason
+                            videoID:(NSString *)videoID {
+    NSString *line = [NSString stringWithFormat:
+        @"client=%@ status=%ld reason=\"%@\" videoID=%@",
+        clientName ?: @"<nil>", (long)statusCode,
+        reason ?: @"<no-reason>", videoID ?: @"<nil>"];
+    NSLog(@"[uYouPlusAudit] %@", line);
+    UYTPAppendAuditLine(line);
 }
 
 @end

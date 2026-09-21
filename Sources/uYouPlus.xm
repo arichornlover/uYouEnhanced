@@ -162,7 +162,53 @@ static BOOL UYTActivateRealSaveChip(void) {
 }
 @end
 
-#pragma mark - [2] Always-On Hooks
+#pragma mark - uYou Button forward diagnostics (12.20.7+ / Shorts rebuild)
+
+// The vendored uYou button wires its action via -sendAction:to:forEvent:.
+// When the target doesn't implement the action, UIKit's forwarding machinery
+// bounces to -[UIResponder doesNotRecognizeSelector:] — and THAT method receives
+// the real SEL as its argument (aSelector). The 04:52 Shorts .ips prints the
+// selector as literal "%s %s" because uYou registered it at runtime with
+// sel_registerName, so symbolication can never resolve it; this is the only
+// place the actual selector name survives. We log it to syslog AND append it
+// to an on-disk file so it can be recovered without a debugger.
+static NSString *UYTDNSLogFilePath(void) {
+    NSArray *dirs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    return [dirs.firstObject stringByAppendingPathComponent:@"uYouUnrecognizedSelector.log"];
+}
+
+static void UYTAppendSelectorLog(NSString *line) {
+    NSString *path = UYTDNSLogFilePath();
+    NSFileHandle *fh = [NSFileHandle fileHandleForWritingToURL:[NSURL fileURLWithPath:path] error:nil];
+    if (!fh) {
+        [[NSFileManager defaultManager] createFileAtPath:path contents:nil attributes:nil];
+        fh = [NSFileHandle fileHandleForWritingToURL:[NSURL fileURLWithPath:path] error:nil];
+    }
+    if (fh) {
+        @try {
+            [fh seekToEndOfFile];
+            [fh writeData:[[line stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding]];
+            [fh closeFile];
+        } @catch (NSException *e) {}
+    }
+}
+
+%hook UIResponder
+- (void)doesNotRecognizeSelector:(SEL)aSelector {
+    NSString *selName = NSStringFromSelector(aSelector) ?: @"<nil-sel>";
+    NSString *clsName = NSStringFromClass([self class]) ?: @"<nil-class>";
+    NSString *line = [NSString stringWithFormat:
+        @"[uYouButtonForward] UNRECOGNIZED SELECTOR target=%@ (%@) SEL=[%@] inst=%p",
+        clsName, self, selName, self];
+    NSLog(@"%@", line);
+    UYTAppendSelectorLog(line);
+    // Keep the original abort so the crash report still captures the frame;
+    // the selector is now safe in both syslog and the on-disk file.
+    %orig;
+}
+%end
+
+// Hide Player Buttons - moved to Sources/HidePlayerButtons.xm
 
 %group gAlwaysOn
 
