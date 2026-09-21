@@ -4,29 +4,17 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 
-// #1010: Liquid Glass (iOS 26.0+) material helper, resolved purely at runtime.
-// This file must compile against ANY SDK between iOS 15 and iOS 26.5 and must
-// no-op safely on iOS 15–25, so we never reference `UIGlassEffect` as a
-// compile-time symbol. Instead we look it up with NSClassFromString and guard
-// the exact factory selector — the same workaround Expo needed because
-// `+effectWithStyle:` was "unrecognized selector" on some iOS 26.0 builds.
 static UIVisualEffect *UYTLiquidGlassEffect(void) {
     Class glassClass = NSClassFromString(@"UIGlassEffect");
     if (glassClass == nil) {
-        return nil; // iOS < 26.0 — no Liquid Glass.
+        return nil;
     }
-
-    // Preferred factory. Guard the selector: it was missing/renamed across
-    // early iOS 26.0 seeds, mirroring the Expo crash
-    // (`+[UIGlassEffect effectWithStyle:]: unrecognized selector`).
     UIVisualEffect *glass = nil;
     SEL factory = NSSelectorFromString(@"effectWithStyle:");
     if ([glassClass respondsToSelector:factory]) {
         glass = ((UIVisualEffect *(*)(id, SEL, NSInteger))objc_msgSend)(glassClass, factory, 0); // UIGlassEffectStyleRegular
     }
 
-    // Fallback designated initializer (default material) if the factory is
-    // unavailable on the running iOS build.
     if (glass == nil) {
         glass = [[glassClass alloc] init];
     }
@@ -34,9 +22,6 @@ static UIVisualEffect *UYTLiquidGlassEffect(void) {
         return nil;
     }
 
-    // Interactive Liquid Glass (isInteractive:YES): touch-point illumination,
-    // press bounce, adaptive refraction. Boxed via KVC since the real setter is
-    // an iOS 26-only symbol we won't reference at compile time.
     if ([glass respondsToSelector:NSSelectorFromString(@"setIsInteractive:")]) {
         [glass setValue:@YES forKey:@"isInteractive"];
     }
@@ -105,13 +90,7 @@ static UIVisualEffect *UYTLiquidGlassEffect(void) {
     }
 }
 
-// Floating capsule bar (iOS 18+): quick actions without scrolling.
 - (void)setupFloatingTabBar {
-    // #1010: Liquid Glass pill on iOS 26+ — a floating capsule of quick
-    // actions is a navigation-layer element, exactly what Apple's guidance
-    // reserves Glass for. UYTLiquidGlassEffect() is class+selector guarded so
-    // it's nil on iOS 15-25 / non-glass builds and we fall back to the solid
-    // material pill with zero crash risk on any SDK.
     UIVisualEffect *glass = UYTLiquidGlassEffect();
 
     UIView *pill = nil;
