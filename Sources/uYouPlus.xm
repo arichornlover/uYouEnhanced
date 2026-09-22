@@ -1474,7 +1474,81 @@ static BOOL YouSliderIsEnabled(void) {
 - (BOOL)shouldEnablePlayerBarOnlyOnPause { return NO; }
 %end
 
-// Hide Shorts Cells - YTUnShorts v1.3.1 - for uYou 3.0.4+ (PoomSmart)
+// Reels Download Button - #995 - modernized from MiRO92's uYou (uYou-3.0.4-src
+// Tweak.xm L127-143, hook on YTReelWatchPlaybackOverlayView; in modern YouTube
+// the header/button moved to YTReelHeaderView / YTReelPlayerButton *uYouButton).
+// Modernized fetch: resolve the current Reel's currentVideoID (responder-chain
+// walk, same as MiRO92), then drive UYTDownloadPipeline with isShorts:YES so
+// Reels video data uses the identical modern innertube/ANDROID path normal
+// Shorts do — no unrecognized-selector crash on tap (#995).
+%group gReelHeaderDownloadButton
+
+%hook YTReelHeaderView
+- (void)layoutSubviews {
+    %orig;
+    @try {
+        UIButton *button = (UIButton *)[self viewWithTag:UYouDownloadButtonTag];
+        if (!button) {
+            button = [UIButton buttonWithType:UIButtonTypeSystem];
+            button.tag = UYouDownloadButtonTag;
+            button.accessibilityIdentifier = @"uYouButton";
+            button.accessibilityLabel = @"Download";
+            button.tintColor = UIColor.whiteColor;
+            button.backgroundColor = UIColor.clearColor;
+            button.exclusiveTouch = YES;
+            [button setImage:[UIImage systemImageNamed:@"arrow.down.circle"] forState:UIControlStateNormal];
+            [button addTarget:self action:@selector(uYouDownloadButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+            [self addSubview:button];
+        }
+        CGFloat side = 44.0;
+        button.frame = CGRectMake(CGRectGetWidth(self.bounds) - side - 10.0, CGRectGetHeight(self.bounds) * 0.5 - side * 0.5, side, side);
+        [self bringSubviewToFront:button];
+    } @catch (NSException *e) {}
+}
+
+%new - (void)uYouDownloadButtonTapped:(UIButton *)sender {
+    // MiRO92's exact responder-chain walk: the current Reel's videoID lives on
+    // whichever player in the chain answers currentVideoID.
+    id player = [self nextResponder];
+    while (player && ![player respondsToSelector:@selector(currentVideoID)]) {
+        player = [player nextResponder];
+    }
+    NSString *videoID = [player respondsToSelector:@selector(currentVideoID)] ? [player performSelector:@selector(currentVideoID)] : nil;
+    if (![videoID isKindOfClass:[NSString class]] || !videoID.length) {
+        HBLogWarn(@"[uYouPlus] Reels download tap with no currentVideoID");
+        return;
+    }
+    HBLogInfo(@"[uYouPlus] Reels download requested (vid: %@, shorts: YES)", videoID);
+
+    // Modernized innertube fetch — exactly the ANDROID/innertube path normal
+    // Shorts downloads use, so Reels data actually resolves and presents.
+    [UYTDownloadPipeline fetchFormatsForVideoID:videoID isShorts:YES progress:^(double frac, unsigned long long bytes) {
+        @try { UYTDriveDownloadItemProgressForVideoID(videoID, frac, bytes); } @catch (NSException *e) {}
+    } completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
+        UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
+        UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
+        UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
+
+        // 'do the normal stuff' — exactly what MiRO92's reel button ended on
+        // (uYou-3.0.4-src Tweak.xm L82-90): cache the resolved innertube URLs,
+        // then confirm the save on the main thread. Cache first so uYou's own
+        // download item list shows this Reel immediately.
+        UYTStoreResolvedURLs(videoID, muxed.url, audio.url, video.url);
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSString *message = error ? [error localizedDescription] : @"Saved to the uYouDownloads folder.";
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:error ? @"Download failed" : @"Download complete" message:message preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+            UIViewController *presenter = nil;
+            id chain = self;
+            while (chain && ![chain isKindOfClass:[UIViewController class]]) { chain = [chain nextResponder]; }
+            if ([chain isKindOfClass:[UIViewController class]]) presenter = (UIViewController *)chain;
+            if (presenter) [presenter presentViewController:alert animated:YES completion:nil];
+        });
+    }];
+}
+%end
+%end
 static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <YTIItemSectionRenderer *> *array) {
     if (![[NSUserDefaults standardUserDefaults] boolForKey:@"hideShortsCells"] || !array) {
         return [array mutableCopy];
@@ -2013,6 +2087,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
     %init(gSection10);
     %init(gSection11);
     %init(gSection12);
+    %init(gReelHeaderDownloadButton);
     %init(gSection13);
 
     if (IS_ENABLED(kYTMiniPlayer)) {
