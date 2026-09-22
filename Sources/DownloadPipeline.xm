@@ -56,7 +56,7 @@ static NSString * const UYTClientVersion = @"19.45.1";
         @"hl": @"en",
         @"timeZone": @"UTC",
         @"utcOffsetMinutes": @0
-    }}},
+    }},
     @"contentCheckOk": @YES,
     @"racyCheckOk": @YES};
 }
