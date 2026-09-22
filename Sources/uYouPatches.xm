@@ -4,6 +4,7 @@
 #import "DownloadPipeline.h"
 #import "UYTSABR.h"
 #import <YouTubeHeader/YTUIUtils.h>
+#import <objc/runtime.h>
 #import <sqlite3.h>
 #include <string.h>
 
@@ -1494,62 +1495,129 @@ static float uYouSavedPlaybackRate = 0.0f;
 #pragma mark - Reels Download Button
 
 static const NSInteger UYouDownloadButtonTag = 9842;
+static const char UYTReelsShortsKey = 0;
+
+static void UYTReelsPresentAlertFromView(UIView *host, NSString *title, NSString *message) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIResponder *chain = host;
+        while (chain && ![chain isKindOfClass:[UIViewController class]]) { chain = [chain nextResponder]; }
+        if (![chain isKindOfClass:[UIViewController class]]) {
+            NSLog(@"[uYouPatches] Reels download: no presenter for alert");
+            return;
+        }
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [(UIViewController *)chain presentViewController:alert animated:YES completion:nil];
+    });
+}
+
+static NSString *UYTReelsCurrentVideoIDFromView(UIView *host) {
+    UIResponder *chain = host;
+    while (chain) {
+        @try {
+            if ([chain respondsToSelector:@selector(currentVideoID)]) {
+                id value = [chain performSelector:@selector(currentVideoID)];
+                if ([value isKindOfClass:[NSString class]] && [(NSString *)value length]) return value;
+            }
+        } @catch (NSException *e) {}
+        chain = [chain nextResponder];
+    }
+    return nil;
+}
+
+static void UYTReelsSetupDownloadButton(UIView *host, BOOL isShorts) {
+    UIButton *button = (UIButton *)[host viewWithTag:UYouDownloadButtonTag];
+    if (!button || ![button isKindOfClass:[UIButton class]]) {
+        button = [UIButton buttonWithType:UIButtonTypeSystem];
+        button.tag = UYouDownloadButtonTag;
+        button.accessibilityLabel = @"Download";
+        button.tintColor = UIColor.whiteColor;
+        button.backgroundColor = UIColor.clearColor;
+        [button setImage:[UIImage systemImageNamed:@"arrow.down.circle"] forState:UIControlStateNormal];
+        [host addSubview:button];
+    }
+    // Rebinding strips the broken vendored target/action (the unrecognized
+    // selector crash, #995) and re-pipes the tap into the new pipeline.
+    [button removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
+    [button addTarget:host action:@selector(uYouDownloadButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+    objc_setAssociatedObject(host, &UYTReelsShortsKey, @(isShorts), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    CGFloat side = 44.0;
+    button.frame = CGRectMake(CGRectGetWidth(host.bounds) - side - 10.0, CGRectGetHeight(host.bounds) * 0.5 - side * 0.5, side, side);
+    [host bringSubviewToFront:button];
+}
+
+static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
+    (void)sender;
+    NSString *videoID = UYTReelsCurrentVideoIDFromView(host);
+    if (!videoID.length) {
+        NSLog(@"[uYouPatches] Reels download tap with no currentVideoID");
+        UYTReelsPresentAlertFromView(host, @"uYou Download", @"Open a video before downloading.");
+        return;
+    }
+    NSNumber *shortsBox = objc_getAssociatedObject(host, &UYTReelsShortsKey);
+    BOOL isShorts = shortsBox ? shortsBox.boolValue : YES;
+    NSLog(@"[uYouPatches] Reels download requested (vid: %@, shorts: %@)", videoID, isShorts ? @"YES" : @"NO");
+
+    // New pipeline (#1010 ANDROID client): resolve working innertube URLs and
+    // cache them for uYou's DownloadItem swap (plus any concurrent flow), then
+    // finish the download via the SABR capture path uYou's own reel button
+    // always used — which handles Shorts natively.
+    [UYTDownloadPipeline fetchFormatsForVideoID:videoID isShorts:isShorts progress:nil completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
+        if (formats.count) {
+            UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
+            UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
+            UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
+            UYTStoreResolvedURLs(videoID, muxed.url, audio.url, video.url);
+            NSLog(@"[uYouPatches] cached innertube URLs for %@ (muxed=%ld, audio=%ld, video=%ld)",
+                  videoID, (long)muxed.itag, (long)audio.itag, (long)video.itag);
+        } else {
+            NSLog(@"[uYouPatches] new pipeline had no formats for %@, falling back to SABR capture (%@)",
+                  videoID, error.localizedDescription ?: @"none");
+        }
+    }];
+
+    UYTSABRFallbackDownloadForVideoID(videoID, nil, NO, ^(double frac, unsigned long long bytes) {
+        @try { UYTDriveDownloadItemProgressForVideoID(videoID, frac, bytes); } @catch (NSException *e) {}
+    }, ^(BOOL ok, NSString *err) {
+        if (ok) {
+            UYTReelsPresentAlertFromView(host, @"Download complete", @"Saved to the uYouDownloads folder.");
+        } else {
+            UYTReelsPresentAlertFromView(host, @"Download failed", err.length ? err : @"SABR capture unavailable - play the video for a few seconds first.");
+        }
+    });
+}
 
 %group gReelHeaderDownloadButton
+
+%hook YTMainAppControlsOverlayView
+- (void)layoutSubviews {
+    %orig;
+    @try { UYTReelsSetupDownloadButton(self, NO); } @catch (NSException *e) {}
+}
+%new - (void)uYouDownloadButtonTapped:(UIButton *)sender {
+    @try { UYTReelsHandleDownloadTapFromView(self, sender); } @catch (NSException *e) {}
+}
+%end
+
+%hook YTReelWatchPlaybackOverlayView
+- (void)layoutSubviews {
+    %orig;
+    @try { UYTReelsSetupDownloadButton(self, YES); } @catch (NSException *e) {}
+}
+%new - (void)uYouDownloadButtonTapped:(UIButton *)sender {
+    @try { UYTReelsHandleDownloadTapFromView(self, sender); } @catch (NSException *e) {}
+}
+%end
 
 %hook YTReelHeaderView
 - (void)layoutSubviews {
     %orig;
-    @try {
-        UIButton *button = (UIButton *)[self viewWithTag:UYouDownloadButtonTag];
-        if (!button) {
-            button = [UIButton buttonWithType:UIButtonTypeSystem];
-            button.tag = UYouDownloadButtonTag;
-            button.accessibilityLabel = @"Download";
-            button.tintColor = UIColor.whiteColor;
-            button.backgroundColor = UIColor.clearColor;
-            [button setImage:[UIImage systemImageNamed:@"arrow.down.circle"] forState:UIControlStateNormal];
-            [button addTarget:self action:@selector(uYouDownloadButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-            [self addSubview:button];
-        }
-        CGFloat side = 44.0;
-        button.frame = CGRectMake(CGRectGetWidth(self.bounds) - side - 10.0, CGRectGetHeight(self.bounds) * 0.5 - side * 0.5, side, side);
-        [self bringSubviewToFront:button];
-    } @catch (NSException *e) {}
+    UIView *host = (UIView *)self;
+    @try { UYTReelsSetupDownloadButton(host, YES); } @catch (NSException *e) {}
 }
-
 %new - (void)uYouDownloadButtonTapped:(UIButton *)sender {
-    id player = self;
-    while (player && ![player respondsToSelector:@selector(currentVideoID)]) {
-        player = [player nextResponder];
-    }
-    NSString *videoID = [player respondsToSelector:@selector(currentVideoID)] ? [player performSelector:@selector(currentVideoID)] : nil;
-    if (![videoID isKindOfClass:[NSString class]] || !videoID.length) {
-        HBLogWarn(@"[uYouPatches] Reels download tap with no currentVideoID");
-        return;
-    }
-    HBLogInfo(@"[uYouPatches] Reels download requested (vid: %@, shorts: YES)", videoID);
-
-    [UYTDownloadPipeline fetchFormatsForVideoID:videoID isShorts:YES progress:^(double frac, unsigned long long bytes) {
-        @try { UYTDriveDownloadItemProgressForVideoID(videoID, frac, bytes); } @catch (NSException *e) {}
-    } completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
-        UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
-        UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
-        UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
-
-        UYTStoreResolvedURLs(videoID, muxed.url, audio.url, video.url);
-
-        dispatch_async(dispatch_get_main_queue(), ^{
-            NSString *message = error ? [error localizedDescription] : @"Saved to the uYouDownloads folder.";
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:error ? @"Download failed" : @"Download complete" message:message preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-            UIViewController *presenter = nil;
-            id chain = self;
-            while (chain && ![chain isKindOfClass:[UIViewController class]]) { chain = [chain nextResponder]; }
-            if ([chain isKindOfClass:[UIViewController class]]) presenter = (UIViewController *)chain;
-            if (presenter) [presenter presentViewController:alert animated:YES completion:nil];
-        });
-    }];
+    UIView *host = (UIView *)self;
+    @try { UYTReelsHandleDownloadTapFromView(host, sender); } @catch (NSException *e) {}
 }
 %end
 %end

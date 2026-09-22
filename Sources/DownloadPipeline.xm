@@ -38,9 +38,14 @@ static NSString * const UYTClientVersion = @"19.45.1";
 
 @interface UYTDownloadPipeline : NSObject
 + (void)fetchFormatsForVideoID:(NSString *)videoID
+                     isShorts:(BOOL)isShorts
+                     progress:(void (^)(double frac, unsigned long long bytes))progress
+                   completion:(void (^)(NSArray<UYTStreamFormat *> *formats, NSError *error))completion;
++ (void)fetchFormatsForVideoID:(NSString *)videoID
                     completion:(void (^)(NSArray<UYTStreamFormat *> *formats, NSError *error))completion;
 + (UYTStreamFormat *)bestMuxedFormat:(NSArray<UYTStreamFormat *> *)formats;
 + (UYTStreamFormat *)bestAudioFormat:(NSArray<UYTStreamFormat *> *)formats;
++ (UYTStreamFormat *)bestVideoFormat:(NSArray<UYTStreamFormat *> *)formats;
 @end
 
 @implementation UYTDownloadPipeline
@@ -62,7 +67,14 @@ static NSString * const UYTClientVersion = @"19.45.1";
 }
 
 + (void)fetchFormatsForVideoID:(NSString *)videoID
-                    completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
+                     isShorts:(BOOL)isShorts
+                     progress:(void (^)(double frac, unsigned long long bytes))progress
+                   completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
+    // isShorts: shorts share the ANDROID innertube client below (#1010:
+    // IOS/19.45.1 → HTTP 400 for 21.29+), so shorts quality/video-data fetch
+    // natively without uYou's broken legacy fallback. Included for parity with
+    // the public header API; the request itself is identical either way.
+    (void)isShorts;
     // ANDROID innertube client (#1010: IOS/19.45.1 → HTTP 400 for 21.29+).
     // Body and UA must be a matching pair or innertube 400s the request.
     NSMutableDictionary *body = [[self clientContext] mutableCopy];
@@ -77,8 +89,10 @@ static NSString * const UYTClientVersion = @"19.45.1";
          forHTTPHeaderField:@"User-Agent"];
     req.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
 
+    if (progress) progress(0.0, 0);
     NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:req
         completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
+            if (progress) progress(1.0, (unsigned long long)data.length);
             if (err || !data) {
                 completion(@[], err ?: [NSError errorWithDomain:@"UYTDownload" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"empty response"}]);
                 return;
@@ -112,6 +126,11 @@ static NSString * const UYTClientVersion = @"19.45.1";
     [task resume];
 }
 
++ (void)fetchFormatsForVideoID:(NSString *)videoID
+                    completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
+    [self fetchFormatsForVideoID:videoID isShorts:NO progress:nil completion:completion];
+}
+
 + (UYTStreamFormat *)bestMuxedFormat:(NSArray<UYTStreamFormat *> *)formats {
     UYTStreamFormat *best = nil;
     for (UYTStreamFormat *f in formats)
@@ -124,6 +143,13 @@ static NSString * const UYTClientVersion = @"19.45.1";
     for (UYTStreamFormat *f in formats)
         if (f.hasAudio && !f.hasVideo && [f.mimeType containsString:@"mp4"]
             && (!best || f.bitrate > best.bitrate)) best = f;
+    return best;
+}
+
++ (UYTStreamFormat *)bestVideoFormat:(NSArray<UYTStreamFormat *> *)formats {
+    UYTStreamFormat *best = nil;
+    for (UYTStreamFormat *f in formats)
+        if (f.hasVideo && !f.hasAudio && (!best || f.bitrate > best.bitrate)) best = f;
     return best;
 }
 
