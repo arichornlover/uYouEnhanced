@@ -47,22 +47,24 @@ static NSString * const UYTClientVersion = @"19.45.1";
 
 + (NSDictionary *)clientContext {
     return @{@"context": @{@"client": @{
-        @"clientName": @"IOS",
-        @"clientVersion": UYTClientVersion,
-        @"deviceMake": @"Apple",
-        @"deviceModel": @"iPhone16,2",
-        @"osName": @"iOS",
-        @"osVersion": @"18.5.0.22F76",
+        @"clientName": @"ANDROID",
+        @"clientVersion": @"19.45.1",
+        @"deviceMake": @"samsung",
+        @"deviceModel": @"SM-S928B",
+        @"osName": @"Android",
+        @"osVersion": @"15",
         @"hl": @"en",
         @"timeZone": @"UTC",
         @"utcOffsetMinutes": @0
-    }},
+    }}},
     @"contentCheckOk": @YES,
     @"racyCheckOk": @YES};
 }
 
 + (void)fetchFormatsForVideoID:(NSString *)videoID
                     completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
+    // ANDROID innertube client (#1010: IOS/19.45.1 → HTTP 400 for 21.29+).
+    // Body and UA must be a matching pair or innertube 400s the request.
     NSMutableDictionary *body = [[self clientContext] mutableCopy];
     body[@"videoId"] = videoID;
     body[@"playbackContext"] = @{@"contentPlaybackContext": @{@"html5Preference": @"HTML5_PREF_WANTS"}};
@@ -71,7 +73,8 @@ static NSString * const UYTClientVersion = @"19.45.1";
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
     req.HTTPMethod = @"POST";
     [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-    [req setValue:@"com.google.ios.youtube/19.45.1 (iPhone16,2; U; CPU iOS 18_5_0 like Mac OS X;)" forHTTPHeaderField:@"User-Agent"];
+    [req setValue:@"com.google.android.youtube/19.09.39 (Linux; U; Android 14; SM-S928B Build/UP1A.231005.007; en_US)"
+         forHTTPHeaderField:@"User-Agent"];
     req.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
 
     NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:req
