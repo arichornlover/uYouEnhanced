@@ -859,14 +859,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
                 SPOOFER_VERSION(@"v20.05.4 (Deprecated)", 90),
                 SPOOFER_VERSION(@"v20.03.1 (Deprecated)", 91),
                 SPOOFER_VERSION(@"v20.03.02 (Deprecated)", 92),
-                SPOOFER_VERSION(@"v20.02.3 (Deprecated)", 93),
-                SPOOFER_VERSION(@"v19.45.1 (YouTubeLegacy)", 94),
-                SPOOFER_VERSION(@"v19.16.3 (YouTubeLegacy)", 95),
-                SPOOFER_VERSION(@"v19.14.2 (YouTubeLegacy)", 96),
-                SPOOFER_VERSION(@"v18.46.3 (YouTubeLegacy)", 97),
-                SPOOFER_VERSION(@"v18.33.3 (YouTubeLegacy)", 98),
-                SPOOFER_VERSION(@"v17.40.5 (YouTubeLegacy)", 99),
-                SPOOFER_VERSION(@"v16.46.5 (YouTubeLegacy)", 100)
+                SPOOFER_VERSION(@"v20.02.3 (Deprecated)", 93)
             ];
             YTSettingsPickerViewController *picker = [[%c(YTSettingsPickerViewController) alloc] initWithNavTitle:LOC(@"VERSION_SPOOFER_SELECTOR") pickerSectionTitle:nil rows:rows selectedItemIndex:appVersionSpoofer() parentResponder:[self parentResponder]];
             [settingsViewController pushViewController:picker];

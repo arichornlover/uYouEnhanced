@@ -1491,6 +1491,69 @@ static float uYouSavedPlaybackRate = 0.0f;
 %end
 %end
 
+#pragma mark - Reels Download Button
+
+static const NSInteger UYouDownloadButtonTag = 9842;
+
+%group gReelHeaderDownloadButton
+
+%hook YTReelHeaderView
+- (void)layoutSubviews {
+    %orig;
+    @try {
+        UIButton *button = (UIButton *)[self viewWithTag:UYouDownloadButtonTag];
+        if (!button) {
+            button = [UIButton buttonWithType:UIButtonTypeSystem];
+            button.tag = UYouDownloadButtonTag;
+            button.accessibilityLabel = @"Download";
+            button.tintColor = UIColor.whiteColor;
+            button.backgroundColor = UIColor.clearColor;
+            [button setImage:[UIImage systemImageNamed:@"arrow.down.circle"] forState:UIControlStateNormal];
+            [button addTarget:self action:@selector(uYouDownloadButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+            [self addSubview:button];
+        }
+        CGFloat side = 44.0;
+        button.frame = CGRectMake(CGRectGetWidth(self.bounds) - side - 10.0, CGRectGetHeight(self.bounds) * 0.5 - side * 0.5, side, side);
+        [self bringSubviewToFront:button];
+    } @catch (NSException *e) {}
+}
+
+%new - (void)uYouDownloadButtonTapped:(UIButton *)sender {
+    id player = self;
+    while (player && ![player respondsToSelector:@selector(currentVideoID)]) {
+        player = [player nextResponder];
+    }
+    NSString *videoID = [player respondsToSelector:@selector(currentVideoID)] ? [player performSelector:@selector(currentVideoID)] : nil;
+    if (![videoID isKindOfClass:[NSString class]] || !videoID.length) {
+        HBLogWarn(@"[uYouPatches] Reels download tap with no currentVideoID");
+        return;
+    }
+    HBLogInfo(@"[uYouPatches] Reels download requested (vid: %@, shorts: YES)", videoID);
+
+    [UYTDownloadPipeline fetchFormatsForVideoID:videoID isShorts:YES progress:^(double frac, unsigned long long bytes) {
+        @try { UYTDriveDownloadItemProgressForVideoID(videoID, frac, bytes); } @catch (NSException *e) {}
+    } completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
+        UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
+        UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
+        UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
+
+        UYTStoreResolvedURLs(videoID, muxed.url, audio.url, video.url);
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSString *message = error ? [error localizedDescription] : @"Saved to the uYouDownloads folder.";
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:error ? @"Download failed" : @"Download complete" message:message preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+            UIViewController *presenter = nil;
+            id chain = self;
+            while (chain && ![chain isKindOfClass:[UIViewController class]]) { chain = [chain nextResponder]; }
+            if ([chain isKindOfClass:[UIViewController class]]) presenter = (UIViewController *)chain;
+            if (presenter) [presenter presentViewController:alert animated:YES completion:nil];
+        });
+    }];
+}
+%end
+%end
+
 #pragma mark - Constructor
 
 %ctor {
@@ -1502,6 +1565,9 @@ static float uYouSavedPlaybackRate = 0.0f;
 
     // Always initialize core uYou fixes
     %init(gYouFixes);
+
+    // Reels download button
+    %init(gReelHeaderDownloadButton);
 
     // Notifications row in uYou's Reorder Tabs table
     if (%c(settingsReorderTable)) {
