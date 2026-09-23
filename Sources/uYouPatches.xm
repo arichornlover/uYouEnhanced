@@ -304,6 +304,86 @@ static BOOL UYTTaskWroteEverything(NSURLSessionTask *task) {
     return expected > 0 && written >= (long long)(expected * 0.98);
 }
 
+// --- SABR 403/URL-error recovery --------------------------------------------
+// When a stream URL fails (ANDROID innertube URLs can 403, or uYou's extractor
+// produced a broken URL), finish the download from the SABR capture for this
+// video instead of showing the error. Registration maps task URLs back to their
+// videoID since the DownloadItem is not the session delegate.
+
+static BOOL UYTFinalizeItem(id item, NSString *reason);
+
+static NSMutableDictionary<NSString *, NSString *> *UYTURLVideoIDs;
+
+static void UYTRegisterVideoIDForURL(NSString *vid, NSString *url) {
+    if (!vid.length || !url.length) return;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        UYTURLVideoIDs = [NSMutableDictionary dictionary];
+    });
+    @synchronized(UYTURLVideoIDs) {
+        UYTURLVideoIDs[url] = vid;
+    }
+}
+
+static NSString *UYTVideoIDForRequestURL(NSURL *url) {
+    if (!url.absoluteString.length) return nil;
+    @synchronized(UYTURLVideoIDs) {
+        return UYTURLVideoIDs[url.absoluteString] ?: nil;
+    }
+    return nil;
+}
+
+static id UYTDownloadItemForVideoID(NSString *vid) {
+    if (!vid.length) return nil;
+    @try {
+        Class managerClass = %c(DownloadsManager);
+        id manager = [managerClass sharedInstance];
+        if (!manager) return nil;
+        for (NSString *key in @[@"downloadItemsArray", @"allDownloadItems", @"activeDownloadItems", @"downloads", @"downloadList"]) {
+            id queue = nil;
+            @try { queue = [manager valueForKey:key]; if (queue) break; } @catch (NSException *e) {}
+            if ([queue isKindOfClass:[NSArray class]]) {
+                for (id item in (NSArray *)queue) {
+                    NSString *iv = nil;
+                    @try { iv = [item respondsToSelector:@selector(videoID)] ? [item videoID] : [item valueForKey:@"videoID"]; } @catch (NSException *e) {}
+                    if ([iv isKindOfClass:[NSString class]] && [iv isEqualToString:vid]) return item;
+                }
+            }
+        }
+    } @catch (NSException *e) {}
+    return nil;
+}
+
+// Start SABR for the video and complete whatever item owns it once it lands.
+static void UYTSABRRecoverItemForVideo(NSString *vid, BOOL audioOnly) {
+    if (!vid.length) return;
+    BOOL active = NO;
+    @try { active = UYTSABRIsDownloadActive(vid); } @catch (NSException *e) {}
+    if (active) return;
+    HBLogWarn(@"[uYouPatches] rerouting %@ to SABR capture (audioOnly=%d)", vid, audioOnly);
+    UYTSABRFallbackDownloadForVideoID(vid, nil, audioOnly, ^(double frac, unsigned long long bytes) {
+        @try { UYTDriveDownloadItemProgressForVideoID(vid, frac, bytes); } @catch (NSException *e) {}
+    }, ^(BOOL ok, NSString *err) {
+        id item = UYTDownloadItemForVideoID(vid);
+        if (ok) {
+            @try {
+                NSString *resolved = UYTResolvedVideoURL(vid);
+                if (!resolved.length) resolved = UYTResolvedURLForVideo(vid, YES);
+                NSString *fp = resolved.length ? [NSURL URLWithString:resolved].path : nil;
+                if (!fp.length && item) {
+                    id ui = [item respondsToSelector:@selector(uYouItem)] ? [item uYouItem] : item;
+                    if ([ui respondsToSelector:@selector(filePath)]) fp = [ui filePath];
+                }
+                if (fp.length) @try { UYTWriteFinalDownloadProgress(item, fp); } @catch (NSException *e) {}
+            } @catch (NSException *e) {}
+            if (item) UYTFinalizeItem(item, @"SABR 403/URL recovery");
+        } else {
+            HBLogWarn(@"[uYouPatches] SABR recovery failed for %@ (%@)", vid, err ?: @"?");
+            if (item) UYTFinalizeItem(item, @"sabr-fail best-effort");
+        }
+    });
+}
+
 %hook AFURLSessionManager
 - (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didWriteData:(int64_t)bytesWritten totalBytesWritten:(int64_t)totalBytesWritten totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
     UYTRecordTaskBytes(@(downloadTask.taskIdentifier), totalBytesWritten, totalBytesExpectedToWrite);
@@ -316,6 +396,23 @@ static BOOL UYTTaskWroteEverything(NSURLSessionTask *task) {
         [UYTTaskByteCounts removeObjectForKey:@(task.taskIdentifier)];
         %orig(session, task, nil);
         return;
+    }
+    // 403/URL-error reroute: the task's stream URL 403'd (-1011) or was a
+    // broken extraction URL (-1002/-1100/-1004). If we registered the URL and
+    // a SABR capture exists, suppress the error and finish via SABR.
+    @try {
+        if (error) {
+            NSString *vid = UYTVideoIDForRequestURL(task.currentRequest.URL ?: task.originalRequest.URL);
+            long code = (long)error.code;
+            if (vid.length && (code == -1011 || code == -1100 || code == -1002 || code == -1004) && UYTSABRHasValidCaptureForVideoID(vid)) {
+                HBLogWarn(@"[uYouPatches] task %ld errored (%ld) for %@ - SABR reroute", (long)task.taskIdentifier, code, vid);
+                UYTSABRRecoverItemForVideo(vid, UYTIsAudioOnly(vid));
+                [UYTTaskByteCounts removeObjectForKey:@(task.taskIdentifier)];
+                return;
+            }
+        }
+    } @catch (NSException *e) {
+        HBLogWarn(@"[uYouPatches] SABR reroute check failed: %@", e);
     }
     if (!error && task) [UYTTaskByteCounts removeObjectForKey:@(task.taskIdentifier)];
     %orig;
@@ -900,6 +997,19 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
         NSLog(@"[UYTPipeline] cached URLs for %@ (muxed=%ld, audio=%ld, video=%ld, audioOnly=%d)",
               vid, (long)muxed.itag, (long)audio.itag, (long)video.itag, requestedAudioOnly);
 
+        // Register every resolved URL so a failed task (403/broken URL) can be
+        // mapped back to this video and rerouted to SABR.
+        UYTRegisterVideoIDForURL(vid, video.url);
+        UYTRegisterVideoIDForURL(vid, audio.url);
+        UYTRegisterVideoIDForURL(vid, muxed.url);
+        // Also the URL uYou already recorded on the item — if the swap never
+        // applied, the failing task carries this original URL instead.
+        @try {
+            NSString *original = [item respondsToSelector:@selector(remoteURL)] ?
+                [item remoteURL] : [item valueForKey:@"remoteURL"];
+            if ([original isKindOfClass:[NSString class]]) UYTRegisterVideoIDForURL(vid, original);
+        } @catch (NSException *e) {}
+
         // Consume the one-shot menu choices so they don't leak into later downloads.
         [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedQuality"];
         [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedAudioOnly"];
@@ -975,9 +1085,6 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     %orig;
 }
 
-// 403/URL-error recovery: when uYou's task dies on a bad stream URL (the
-// swapped innertube URL 403'd, or the extraction URL was broken -1002/-1100),
-// reroute the item to the SABR capture for this video instead of erroring out.
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
     @try {
         if (error) {
@@ -985,33 +1092,11 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
             // -1011 bad server response (403), -1100 unsupported URL,
             // -1004 cannot connect, -1002 unsupported scheme.
             long code = (long)error.code;
-            if (vid.length && !UYTSABRIsDownloadActive(vid) &&
-                (code == -1011 || code == -1100 || code == -1002 || code == -1004) &&
+            if (vid.length && (code == -1011 || code == -1100 || code == -1002 || code == -1004) &&
                 UYTSABRHasValidCaptureForVideoID(vid)) {
                 HBLogWarn(@"[uYouPatches] task error (%ld) for %@ - rerouting to SABR capture", code, vid);
-                BOOL audioOnly = UYTIsAudioOnly(vid);
-                __block BOOL origSent = NO;
-                UYTSABRFallbackDownloadForVideoID(vid, nil, audioOnly, ^(double frac, unsigned long long bytes) {
-                    @try { UYTDriveDownloadItemProgressForVideoID(vid, frac, bytes); } @catch (NSException *e) {}
-                }, ^(BOOL ok, NSString *sabrErr) {
-                    @try {
-                        if (ok) {
-                            NSString *resolved = UYTResolvedVideoURL(vid);
-                            if (!resolved.length) resolved = UYTResolvedURLForVideo(vid, YES);
-                            NSString *fp = resolved.length ? [NSURL URLWithString:resolved].path : nil;
-                            if (!fp.length) {
-                                id ui = UYTResolveUYouItem(self);
-                                if ([ui respondsToSelector:@selector(filePath)]) fp = [ui filePath];
-                            }
-                            if (fp.length) @try { UYTWriteFinalDownloadProgress(self, fp); } @catch (NSException *e) {}
-                            UYTFinalizeItem(self, @"SABR 403 recovery");
-                        } else if (!origSent) {
-                            origSent = YES;
-                            %orig(session, task, error);
-                        }
-                    } @catch (NSException *e) {}
-                });
-                return; // suppress the error state; SABR completes the item
+                UYTSABRRecoverItemForVideo(vid, UYTIsAudioOnly(vid));
+                return; // SABR completes the item (or best-effort finalizes)
             }
         }
     } @catch (NSException *e) {
@@ -1178,49 +1263,27 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
         return;
     }
 
-    // Prefer an ffmpeg remux over the legacy merge.
+    // Modern pipeline first: ffmpeg remux (stream-copy mp4, transcode webm).
     id ui = UYTResolveUYouItem(item);
     if (UYTRemuxWithFFmpeg(ui, @"mergeMP4")) {
         UYTFinalizeItem(item, @"ffmpeg remux");
         return;
     }
 
-    // Anti-hang fallback (#452/#520/#830 family): if the audio is still WebM
-    // the legacy merge would sit at "Converting 0%" forever.
-    if (UYTAudioStillWebm(item)) {
-        HBLogWarn(@"[uYouPatches] Audio still WebM after conversion â€” skipping merge to avoid infinite hang");
-        UYTFinalizeItem(item, @"still-webm skip");
-        return;
-    }
-
-    // Legacy AVAssetExportSession path as last resort, with stall watchdog.
-    UYTArmStallWatchdog(item, 45.0);
-
+    // No legacy AVAssetExportSession here — uYou's own merge can sit at
+    // "Conversion 0%" forever with no exception (stuck-at-100% #1015). Finish
+    // via the modern pipeline instead: SABR muxes on-device from the capture,
+    // else best-effort finalize whatever streams already landed.
+    NSString *vid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
     @try {
-        %orig;
-    } @catch (NSException *e) {
-        HBLogWarn(@"[uYouPatches] mergeAudioWithMP4Video failed: %@ for item: %@", e, item);
-        UYTFinalizeItem(item, @"merge exception recovery");
-        return;
-    }
-
-    // Verify the merge actually produced output — AVAssetExportSession can
-    // fail silently (no exception, but no file either), leaving the item stuck.
-    @try {
-        id ui = UYTResolveUYouItem(item);
-        if (ui) {
-            NSString *finalPath = [ui respondsToSelector:@selector(filePath)] ? [ui filePath] : nil;
-            if (finalPath.length) {
-                NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:finalPath error:nil];
-                if (!attrs || [attrs fileSize] == 0) {
-                    HBLogWarn(@"[uYouPatches] mergeAudioWithMP4Video: AVAssetExportSession produced no output - recovering");
-                    if (!UYTFinalizeItem(item, @"post-merge recovery")) {
-                        UYTFinalizeItem(item, @"merge no-output fallback");
-                    }
-                }
-            }
+        if (vid.length && UYTSABRHasValidCaptureForVideoID(vid)) {
+            UYTSABRRecoverItemForVideo(vid, UYTIsAudioOnly(vid));
+            return;
         }
     } @catch (NSException *e) {}
+
+    if (UYTFinalizeItem(item, @"no-merge fallback")) return;
+    UYTArmStallWatchdog(item, 45.0);
 }
 
 - (void)mergeAudioWithVideoForDownloadItem:(id)item {
@@ -1242,47 +1305,25 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
         return;
     }
 
-    // Prefer an ffmpeg remux over the legacy merge.
+    // Modern pipeline first: ffmpeg remux (stream-copy mp4, transcode webm).
     id ui = UYTResolveUYouItem(item);
     if (UYTRemuxWithFFmpeg(ui, @"mergeAudio")) {
         UYTFinalizeItem(item, @"ffmpeg remux");
         return;
     }
 
-    // Anti-hang guard (same as above) for the generic audio+video merge path.
-    if (UYTAudioStillWebm(item)) {
-        HBLogWarn(@"[uYouPatches] Audio still WebM after conversion â€” skipping merge to avoid infinite hang");
-        UYTFinalizeItem(item, @"still-webm skip");
-        return;
-    }
-
-    // Generic stall watchdog + legacy path.
-    UYTArmStallWatchdog(item, 45.0);
-
+    // Same as mergeAudioWithMP4VideoForDownloadItem: skip uYou's hang-prone
+    // AVAssetExportSession merge and finish via SABR or best-effort finalize.
+    NSString *vid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
     @try {
-        %orig;
-    } @catch (NSException *e) {
-        HBLogWarn(@"[uYouPatches] mergeAudioWithVideo failed: %@ for item: %@", e, item);
-        UYTFinalizeItem(item, @"merge exception recovery");
-        return;
-    }
-
-    // Verify the merge actually produced output.
-    @try {
-        id ui = UYTResolveUYouItem(item);
-        if (ui) {
-            NSString *finalPath = [ui respondsToSelector:@selector(filePath)] ? [ui filePath] : nil;
-            if (finalPath.length) {
-                NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:finalPath error:nil];
-                if (!attrs || [attrs fileSize] == 0) {
-                    HBLogWarn(@"[uYouPatches] mergeAudioWithVideo: AVAssetExportSession produced no output - recovering");
-                    if (!UYTFinalizeItem(item, @"post-merge recovery")) {
-                        UYTFinalizeItem(item, @"merge no-output fallback");
-                    }
-                }
-            }
+        if (vid.length && UYTSABRHasValidCaptureForVideoID(vid)) {
+            UYTSABRRecoverItemForVideo(vid, UYTIsAudioOnly(vid));
+            return;
         }
     } @catch (NSException *e) {}
+
+    if (UYTFinalizeItem(item, @"no-merge fallback")) return;
+    UYTArmStallWatchdog(item, 45.0);
 }
 %end
 
@@ -1599,28 +1640,43 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
     // finish the download via the SABR capture path uYou's own reel button
     // always used — which handles Shorts natively.
     [UYTDownloadPipeline fetchFormatsForVideoID:videoID isShorts:isShorts progress:nil completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
-        if (formats.count) {
-            UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
-            UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
-            UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
-            UYTStoreResolvedURLs(videoID, muxed.url, audio.url, video.url);
-            NSLog(@"[uYouPatches] cached innertube URLs for %@ (muxed=%ld, audio=%ld, video=%ld)",
-                  videoID, (long)muxed.itag, (long)audio.itag, (long)video.itag);
-        } else {
-            NSLog(@"[uYouPatches] new pipeline had no formats for %@, falling back to SABR capture (%@)",
-                  videoID, error.localizedDescription ?: @"none");
+        @try {
+            if (formats.count) {
+                UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
+                UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
+                UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
+                UYTStoreResolvedURLs(videoID, muxed.url, audio.url, video.url);
+                UYTRegisterVideoIDForURL(videoID, video.url);
+                UYTRegisterVideoIDForURL(videoID, audio.url);
+                UYTRegisterVideoIDForURL(videoID, muxed.url);
+                NSLog(@"[uYouPatches] cached innertube URLs for %@ (muxed=%ld, audio=%ld, video=%ld)",
+                      videoID, (long)muxed.itag, (long)audio.itag, (long)video.itag);
+            } else {
+                NSLog(@"[uYouPatches] new pipeline had no formats for %@, falling back to SABR capture (%@)",
+                      videoID, error.localizedDescription ?: @"none");
+            }
+        } @catch (NSException *e) {
+            NSLog(@"[uYouPatches] reel pipeliner blocked: %@", e);
         }
     }];
 
-    UYTSABRFallbackDownloadForVideoID(videoID, nil, NO, ^(double frac, unsigned long long bytes) {
-        @try { UYTDriveDownloadItemProgressForVideoID(videoID, frac, bytes); } @catch (NSException *e) {}
-    }, ^(BOOL ok, NSString *err) {
-        if (ok) {
-            UYTReelsPresentAlertFromView(host, @"Download complete", @"Saved to the uYouDownloads folder.");
-        } else {
-            UYTReelsPresentAlertFromView(host, @"Download failed", err.length ? err : @"SABR capture unavailable - play the video for a few seconds first.");
-        }
-    });
+    @try {
+        UYTSABRFallbackDownloadForVideoID(videoID, nil, NO, ^(double frac, unsigned long long bytes) {
+            @try { UYTDriveDownloadItemProgressForVideoID(videoID, frac, bytes); } @catch (NSException *e) {}
+        }, ^(BOOL ok, NSString *err) {
+            @try {
+                if (ok) {
+                    UYTReelsPresentAlertFromView(host, @"Download complete", @"Saved to the uYouDownloads folder.");
+                } else {
+                    UYTReelsPresentAlertFromView(host, @"Download failed", err.length ? err : @"SABR capture unavailable - play the video for a few seconds first.");
+                }
+            } @catch (NSException *e) {
+                NSLog(@"[uYouPatches] reel completion alert failed: %@", e);
+            }
+        });
+    } @catch (NSException *e) {
+        NSLog(@"[uYouPatches] reel SABR start failed: %@", e);
+    }
 }
 
 // YTReelHeaderView is uYou's real Shorts download surface: it vends the button
