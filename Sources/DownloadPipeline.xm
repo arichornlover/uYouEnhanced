@@ -273,15 +273,6 @@ BOOL UYTIsAudioOnly(NSString *vid) {
     }
 }
 
-// Single-URL variants kept for the in-file DownloadsManager pre-fetch path.
-static void UYTStoreResolvedURL(NSString *vid, NSString *url) {
-    @try {
-        if (!vid.length || !url.length) return;
-        NSMutableDictionary *entry = UYTResolvedEntryFor(vid);
-        if (entry) entry[@"muxed"] = url;
-    } @catch (NSException *e) {}
-}
-
 static NSString *UYTGetResolvedURL(NSString *vid) {
     return UYTResolvedVideoURL(vid);
 }
@@ -362,33 +353,6 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
 //   lyrics TEXT, timestamp DATETIME)
 //   DB path: Documents/uyoudb.sqlite (or AppGroup/uyoudb.sqlite)
 
-%hook DownloadsManager
-- (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
-    NSString *vid = [NSString stringWithFormat:@"%@", videoID];
-
-    // Pre-fetch working stream URLs via innertube BEFORE %orig runs.
-    [UYTDownloadPipeline fetchFormatsForVideoID:vid completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
-        if (error || formats.count == 0) {
-            NSLog(@"[UYTPipeline] no formats for %@ (%@)", vid, error.localizedDescription);
-            return;
-        }
-        UYTStreamFormat *best = [UYTDownloadPipeline bestMuxedFormat:formats];
-        if (best.url.length) {
-            UYTStoreResolvedURL(vid, best.url);
-            NSLog(@"[UYTPipeline] cached working URL for %@ (itag=%ld)", vid, (long)best.itag);
-        }
-    }];
-
-    // Give the async fetch a moment, then let %orig proceed — the DownloadItem
-    // hook below will swap any broken URL with our cached working one.
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        %orig;
-    });
-}
-%end
-
-// Intercept DownloadItem URL assignment — swap broken extraction URLs with
-// our working innertube-fetched ones so uYou's native download flow functions.
 %hook DownloadItem
 
 - (id)initWithVideoID:(id)videoID

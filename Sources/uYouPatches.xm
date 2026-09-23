@@ -608,13 +608,24 @@ static BOOL UYTForceCompleteItem(id ui, NSString *reason) {
         NSString *filePath = [ui filePath];
         if (!filePath.length) return NO;
 
+        NSFileManager *fm = [NSFileManager defaultManager];
+
+        // A nonzero final file already exists (ffmpeg remux, metadata write, or
+        // muxed download wrote it). Never delete a good merged file and replace
+        // it with a single elementary stream — keep it as the completed result.
+        NSDictionary *finalAttrs = [fm attributesOfItemAtPath:filePath error:nil];
+        if (finalAttrs && [finalAttrs fileSize] > 0) {
+            HBLogWarn(@"[uYouPatches] force-complete (%@): final file already exists (%llu bytes) - keeping",
+                      reason, [finalAttrs fileSize]);
+            return YES;
+        }
+
         NSDictionary *best = UYTBestAvailableSource(ui);
         if (!best) {
             HBLogWarn(@"[uYouPatches] force-complete (%@): no usable source file yet", reason);
             return NO;
         }
 
-        NSFileManager *fm = [NSFileManager defaultManager];
         if ([fm fileExistsAtPath:filePath]) [fm removeItemAtPath:filePath error:nil];
         NSError *err = nil;
         BOOL ok = [fm moveItemAtPath:best[@"path"] toPath:filePath error:&err];
@@ -960,6 +971,51 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
         }
     } @catch (NSException *e) {
         HBLogWarn(@"[uYouPatches] createDownloadTask SABR shortcut failed: %@", e);
+    }
+    %orig;
+}
+
+// 403/URL-error recovery: when uYou's task dies on a bad stream URL (the
+// swapped innertube URL 403'd, or the extraction URL was broken -1002/-1100),
+// reroute the item to the SABR capture for this video instead of erroring out.
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
+    @try {
+        if (error) {
+            NSString *vid = self.videoID ?: @"";
+            // -1011 bad server response (403), -1100 unsupported URL,
+            // -1004 cannot connect, -1002 unsupported scheme.
+            long code = (long)error.code;
+            if (vid.length && !UYTSABRIsDownloadActive(vid) &&
+                (code == -1011 || code == -1100 || code == -1002 || code == -1004) &&
+                UYTSABRHasValidCaptureForVideoID(vid)) {
+                HBLogWarn(@"[uYouPatches] task error (%ld) for %@ - rerouting to SABR capture", code, vid);
+                BOOL audioOnly = UYTIsAudioOnly(vid);
+                __block BOOL origSent = NO;
+                UYTSABRFallbackDownloadForVideoID(vid, nil, audioOnly, ^(double frac, unsigned long long bytes) {
+                    @try { UYTDriveDownloadItemProgressForVideoID(vid, frac, bytes); } @catch (NSException *e) {}
+                }, ^(BOOL ok, NSString *sabrErr) {
+                    @try {
+                        if (ok) {
+                            NSString *resolved = UYTResolvedVideoURL(vid);
+                            if (!resolved.length) resolved = UYTResolvedURLForVideo(vid, YES);
+                            NSString *fp = resolved.length ? [NSURL URLWithString:resolved].path : nil;
+                            if (!fp.length) {
+                                id ui = UYTResolveUYouItem(self);
+                                if ([ui respondsToSelector:@selector(filePath)]) fp = [ui filePath];
+                            }
+                            if (fp.length) @try { UYTWriteFinalDownloadProgress(self, fp); } @catch (NSException *e) {}
+                            UYTFinalizeItem(self, @"SABR 403 recovery");
+                        } else if (!origSent) {
+                            origSent = YES;
+                            %orig(session, task, error);
+                        }
+                    } @catch (NSException *e) {}
+                });
+                return; // suppress the error state; SABR completes the item
+            }
+        }
+    } @catch (NSException *e) {
+        HBLogWarn(@"[uYouPatches] URLSession didComplete SABR reroute failed: %@", e);
     }
     %orig;
 }
@@ -1609,6 +1665,7 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
 %new - (void)uytReelsBindVendedButton {
     UIView *header = (UIView *)self;
     id<UYTReelHeaderDownloadAPI> api = (id<UYTReelHeaderDownloadAPI>)self;
+    if (![self respondsToSelector:@selector(uYouButton)]) return;
     id button = [api uYouButton];
     if (![button isKindOfClass:[UIView class]]) return;
     objc_setAssociatedObject(header, &UYTReelsShortsKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
