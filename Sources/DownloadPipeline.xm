@@ -157,19 +157,198 @@ static NSString * const UYTClientVersion = @"19.45.1";
 
 // --- Wiring: fix uYou's stream URLs at the DownloadItem level ---------------
 
-// Store resolved URLs keyed by videoID so the DownloadItem hook can swap them.
-static NSMutableDictionary<NSString *, NSString *> *UYTResolvedURLs;
+// Shared store: per-videoID muxed/audio/video working URLs + audio-only flag.
+// Backs the public API declared in DownloadPipeline.h and consumed by
+// uYouPatches.xm (DownloadsManager + DownloadItem hooks, Reels button).
+static NSMutableDictionary<NSString *, NSMutableDictionary *> *UYTResolvedStore;
 
-static void UYTStoreResolvedURL(NSString *vid, NSString *url) {
+static NSMutableDictionary *UYTResolvedEntryFor(NSString *vid) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        UYTResolvedURLs = [NSMutableDictionary dictionary];
+        UYTResolvedStore = [NSMutableDictionary dictionary];
     });
-    if (vid.length && url.length) UYTResolvedURLs[vid] = url;
+    if (!vid.length) return nil;
+    NSMutableDictionary *entry = UYTResolvedStore[vid];
+    if (!entry) {
+        entry = [NSMutableDictionary dictionary];
+        UYTResolvedStore[vid] = entry;
+    }
+    return entry;
+}
+
+// A locally staged SABR file (Downloaded/<vid>.mp4 or .m4a) is the source of
+// truth once a download finished on-device — the innertube http(s) URL becomes
+// irrelevant then. createDownloadTask (uYouPatches) finalizes from file://.
+static NSString *UYTStagedCanonicalPathFor(NSString *vid, NSString *ext) {
+    @try {
+        if (!vid.length || !ext.length) return nil;
+        NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+        NSString *path = [docs stringByAppendingPathComponent:[NSString stringWithFormat:@"Downloaded/%@.%@", vid, ext]];
+        return [[NSFileManager defaultManager] fileExistsAtPath:path] ? path : nil;
+    } @catch (NSException *e) {
+        return nil;
+    }
+}
+
+static NSString *UYTFileURLString(NSString *path) {
+    return path.length ? [NSURL fileURLWithPath:path].absoluteString : nil;
+}
+
+void UYTStoreResolvedURLs(NSString *vid, NSString *muxedURL, NSString *audioURL, NSString *videoURL) {
+    @try {
+        NSMutableDictionary *entry = UYTResolvedEntryFor(vid);
+        if (!entry) return;
+        // Overwrite as given — nil intentionally clears (e.g. audio-only drops
+        // the video stream entirely).
+        entry[@"muxed"] = muxedURL ?: [NSNull null];
+        entry[@"audio"] = audioURL ?: [NSNull null];
+        entry[@"video"] = videoURL ?: [NSNull null];
+    } @catch (NSException *e) {}
+}
+
+NSString *UYTResolvedVideoURL(NSString *vid) {
+    @try {
+        if (!vid.length) return nil;
+        NSString *staged = UYTStagedCanonicalPathFor(vid, @"mp4");
+        if (staged.length) return UYTFileURLString(staged);
+        NSDictionary *entry = UYTResolvedStore[vid];
+        if (!entry) return nil;
+        NSString *muxed = entry[@"muxed"];
+        if ([muxed isKindOfClass:[NSString class]] && [muxed length]) return muxed;
+        NSString *video = entry[@"video"];
+        if ([video isKindOfClass:[NSString class]] && [video length]) return video;
+        return nil;
+    } @catch (NSException *e) {
+        return nil;
+    }
+}
+
+NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
+    @try {
+        if (!vid.length) return nil;
+        if (audio) {
+            NSString *stagedAudio = UYTStagedCanonicalPathFor(vid, @"m4a");
+            if (stagedAudio.length) return UYTFileURLString(stagedAudio);
+            NSDictionary *entry = UYTResolvedStore[vid];
+            if (entry) {
+                NSString *audioURL = entry[@"audio"];
+                if ([audioURL isKindOfClass:[NSString class]] && [audioURL length]) return audioURL;
+            }
+        }
+        NSString *videoURL = UYTResolvedVideoURL(vid);
+        if (videoURL.length) return videoURL;
+        NSDictionary *entry = UYTResolvedStore[vid];
+        if (entry) {
+            NSString *audioURL = entry[@"audio"];
+            if ([audioURL isKindOfClass:[NSString class]] && [audioURL length]) return audioURL;
+        }
+        return nil;
+    } @catch (NSException *e) {
+        return nil;
+    }
+}
+
+void UYTMarkAudioOnly(NSString *vid, BOOL audioOnly) {
+    @try {
+        NSMutableDictionary *entry = UYTResolvedEntryFor(vid);
+        if (entry) entry[@"audioOnly"] = @(audioOnly);
+    } @catch (NSException *e) {}
+}
+
+BOOL UYTIsAudioOnly(NSString *vid) {
+    @try {
+        NSDictionary *entry = UYTResolvedStore[vid];
+        if (!entry) return NO;
+        NSNumber *flag = entry[@"audioOnly"];
+        if ([flag isKindOfClass:[NSNumber class]]) return flag.boolValue;
+        NSString *audio = entry[@"audio"];
+        NSString *video = entry[@"video"];
+        NSString *muxed = entry[@"muxed"];
+        BOOL onlyAudioInfo = ([audio isKindOfClass:[NSString class]] && [audio length])
+                          && !([video isKindOfClass:[NSString class]] && [video length])
+                          && !([muxed isKindOfClass:[NSString class]] && [muxed length]);
+        return onlyAudioInfo;
+    } @catch (NSException *e) {
+        return NO;
+    }
+}
+
+// Single-URL variants kept for the in-file DownloadsManager pre-fetch path.
+static void UYTStoreResolvedURL(NSString *vid, NSString *url) {
+    @try {
+        if (!vid.length || !url.length) return;
+        NSMutableDictionary *entry = UYTResolvedEntryFor(vid);
+        if (entry) entry[@"muxed"] = url;
+    } @catch (NSException *e) {}
 }
 
 static NSString *UYTGetResolvedURL(NSString *vid) {
-    return UYTResolvedURLs[vid] ?: nil;
+    return UYTResolvedVideoURL(vid);
+}
+
+// KVC helpers — real uYou item keys change across versions, so every write is
+// individually guarded and unknown keys simply no-op.
+static void UYTSafeSetValue(id obj, NSString *key, id value) {
+    if (!obj || !key.length) return;
+    @try { [obj setValue:value forKey:key]; } @catch (NSException *e) {}
+}
+
+// Drive uYou's own DownloadItem list-row UI off the live (fraction, bytes)
+// signal from the new pipeline / SABR.
+void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double fractionComplete, unsigned long long bytesDownloaded) {
+    @try {
+        if (!vid.length) return;
+        NSNumber *frac = @(fractionComplete);
+        NSNumber *bytes = @((unsigned long long)bytesDownloaded);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            @try {
+                id manager = [%c(DownloadsManager) sharedInstance];
+                if (!manager) return;
+                id queue = nil;
+                for (NSString *key in @[@"activeDownloadItems", @"allDownloadItems", @"downloads", @"downloadList", @"downloadingItems"]) {
+                    @try { queue = [manager valueForKey:key]; if (queue) break; } @catch (NSException *e) {}
+                }
+                if (![queue isKindOfClass:[NSArray class]]) return;
+                for (id item in (NSArray *)queue) {
+                    NSString *iv = nil;
+                    @try { iv = [item respondsToSelector:@selector(videoID)] ? [item videoID] : [item valueForKey:@"videoID"]; } @catch (NSException *e) {}
+                    if (![iv isKindOfClass:[NSString class]] || ![iv isEqualToString:vid]) continue;
+                    UYTSafeSetValue(item, @"progress", frac);
+                    UYTSafeSetValue(item, @"progressValue", frac);
+                    UYTSafeSetValue(item, @"downloadProgress", frac);
+                    UYTSafeSetValue(item, @"bytesDownloaded", bytes);
+                    UYTSafeSetValue(item, @"downloadedBytes", bytes);
+                    break;
+                }
+            } @catch (NSException *e) {}
+        });
+    } @catch (NSException *e) {}
+}
+
+// Write accurate final values (100% + real file size) on a completed item.
+void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
+    @try {
+        if (!item) return;
+        NSNumber *size = @0;
+        if (filePath.length) {
+            NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil];
+            if (attrs) size = @([attrs fileSize]);
+        }
+        UYTSafeSetValue(item, @"progress", @1.0);
+        UYTSafeSetValue(item, @"progressValue", @1.0);
+        UYTSafeSetValue(item, @"downloadProgress", @1.0);
+        UYTSafeSetValue(item, @"bytesDownloaded", size);
+        UYTSafeSetValue(item, @"downloadedBytes", size);
+        UYTSafeSetValue(item, @"size", size);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            @try {
+                id manager = [%c(DownloadsManager) sharedInstance];
+                if (!manager) return;
+                UYTSafeSetValue(manager, @"bytesDownloaded", size);
+                UYTSafeSetValue(manager, @"totalBytesDownloaded", size);
+            } @catch (NSException *e) {}
+        });
+    } @catch (NSException *e) {}
 }
 
 // --- DB integration (reserved for future use) --------------------------------
