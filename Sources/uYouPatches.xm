@@ -1577,6 +1577,7 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
 - (void)setUYOUButton:(id)button;
 - (id)uYouButton;
 - (void)uYouDownloadButtonTapped:(id)sender;
+- (void)uytReelsBindVendedButton;
 @end
 
 %group gReelHeaderDownloadButton
@@ -1585,20 +1586,20 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
 
 - (void)uYou {
     %orig;
-    @try { [self uytReelsBindVendedButton]; } @catch (NSException *e) {}
+    @try { [(id<UYTReelHeaderDownloadAPI>)self uytReelsBindVendedButton]; } @catch (NSException *e) {}
 }
 
 - (void)setUYOUButton:(id)button {
     %orig(button);
     // uYou just assigned our download button — modify it immediately.
-    @try { [self uytReelsBindVendedButton]; } @catch (NSException *e) {}
+    @try { [(id<UYTReelHeaderDownloadAPI>)self uytReelsBindVendedButton]; } @catch (NSException *e) {}
 }
 
 - (void)layoutSubviews {
     %orig;
     // Button may be (re)created/relaid after uYou/setUYOUButton: ran; re-verify
     // on every layout pass so the modification always survives.
-    @try { [self uytReelsBindVendedButton]; } @catch (NSException *e) {}
+    @try { [(id<UYTReelHeaderDownloadAPI>)self uytReelsBindVendedButton]; } @catch (NSException *e) {}
 }
 
 // Modify the VENDED YTReelPlayerButton *uYouButton (getter uYouButton) — NO
