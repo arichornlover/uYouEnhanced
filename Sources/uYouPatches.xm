@@ -1626,47 +1626,23 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
 // YTReelHeaderView is uYou's real Shorts download surface: it vends the button
 // as its `uYouButton` property and ALREADY implements uYouDownloadButtonTapped:
 // (so that selector is %hook'd, never %new — Logos %new asserts if the method
-// exists). We only modify the vended button — never create one — and reroute
-// its tap into the new innertube pipeline.
-@protocol UYTReelHeaderDownloadAPI <NSObject>
+// exists). Declared here so the compiler has a concrete receiver type; the
+// class is never reimplemented, only hooked.
+@interface YTReelHeaderView : NSObject
 - (void)uYou;
 - (void)setUYOUButton:(id)button;
 - (id)uYouButton;
 - (void)uYouDownloadButtonTapped:(id)sender;
-- (void)uytReelsBindVendedButton;
 @end
 
-%group gReelHeaderDownloadButton
-
-%hook YTReelHeaderView
-
-- (void)uYou {
-    %orig;
-    @try { [(id<UYTReelHeaderDownloadAPI>)self uytReelsBindVendedButton]; } @catch (NSException *e) {}
-}
-
-- (void)setUYOUButton:(id)button {
-    %orig(button);
-    // uYou just assigned our download button — modify it immediately.
-    @try { [(id<UYTReelHeaderDownloadAPI>)self uytReelsBindVendedButton]; } @catch (NSException *e) {}
-}
-
-- (void)layoutSubviews {
-    %orig;
-    // Button may be (re)created/relaid after uYou/setUYOUButton: ran; re-verify
-    // on every layout pass so the modification always survives.
-    @try { [(id<UYTReelHeaderDownloadAPI>)self uytReelsBindVendedButton]; } @catch (NSException *e) {}
-}
-
-// Modify the VENDED YTReelPlayerButton *uYouButton (getter uYouButton) — NO
-// custom button is ever created. Strips the broken vendored target/action (the
-// #995 press crash), routes the tap to the hooked uYouDownloadButtonTapped:
-// below, and keeps the button visible/tappable.
-%new - (void)uytReelsBindVendedButton {
-    UIView *header = (UIView *)self;
-    id<UYTReelHeaderDownloadAPI> api = (id<UYTReelHeaderDownloadAPI>)self;
-    if (![self respondsToSelector:@selector(uYouButton)]) return;
-    id button = [api uYouButton];
+// Modify the VENDED YTReelPlayerButton *uYouButton — NO custom button is ever
+// created. Strips the broken vendored target/action (the #995 press crash),
+// routes the tap to the hooked uYouDownloadButtonTapped: below, and keeps the
+// button visible/tappable.
+static void UYTReelsBindVendedButton(YTReelHeaderView *headerView) {
+    UIView *header = (UIView *)headerView;
+    if (!headerView || ![headerView respondsToSelector:@selector(uYouButton)]) return;
+    id button = [headerView uYouButton];
     if (![button isKindOfClass:[UIView class]]) return;
     objc_setAssociatedObject(header, &UYTReelsShortsKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     if ([button isKindOfClass:[UIButton class]]) {
@@ -1675,6 +1651,28 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
         [b addTarget:header action:@selector(uYouDownloadButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
     }
     [header bringSubviewToFront:button];
+}
+
+%group gReelHeaderDownloadButton
+
+%hook YTReelHeaderView
+
+- (void)uYou {
+    %orig;
+    @try { UYTReelsBindVendedButton(self); } @catch (NSException *e) {}
+}
+
+- (void)setUYOUButton:(id)button {
+    %orig(button);
+    // uYou just assigned our download button — modify it immediately.
+    @try { UYTReelsBindVendedButton(self); } @catch (NSException *e) {}
+}
+
+- (void)layoutSubviews {
+    %orig;
+    // Button may be (re)created/relaid after uYou/setUYOUButton: ran; re-verify
+    // on every layout pass so the modification always survives.
+    @try { UYTReelsBindVendedButton(self); } @catch (NSException *e) {}
 }
 
 - (void)uYouDownloadButtonTapped:(id)sender {
