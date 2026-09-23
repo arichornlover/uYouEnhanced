@@ -1525,24 +1525,15 @@ static NSString *UYTReelsCurrentVideoIDFromView(UIView *host) {
     return nil;
 }
 
-static void UYTReelsSetupDownloadButton(UIView *host, BOOL isShorts) {
+// Only ever modifies the uYou vended download button (tag UYouDownloadButtonTag).
+// NO custom button creation. Rebinding strips the broken vendored target/action
+// (the unrecognized selector crash, #995) and re-pipes the tap into the new pipeline.
+static void UYTReelsRebindDownloadButton(UIView *host, BOOL isShorts) {
     UIButton *button = (UIButton *)[host viewWithTag:UYouDownloadButtonTag];
-    if (!button || ![button isKindOfClass:[UIButton class]]) {
-        button = [UIButton buttonWithType:UIButtonTypeSystem];
-        button.tag = UYouDownloadButtonTag;
-        button.accessibilityLabel = @"Download";
-        button.tintColor = UIColor.whiteColor;
-        button.backgroundColor = UIColor.clearColor;
-        [button setImage:[UIImage systemImageNamed:@"arrow.down.circle"] forState:UIControlStateNormal];
-        [host addSubview:button];
-    }
-    // Rebinding strips the broken vendored target/action (the unrecognized
-    // selector crash, #995) and re-pipes the tap into the new pipeline.
+    if (![button isKindOfClass:[UIButton class]]) return;
+    objc_setAssociatedObject(host, &UYTReelsShortsKey, @(isShorts), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [button removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
     [button addTarget:host action:@selector(uYouDownloadButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-    objc_setAssociatedObject(host, &UYTReelsShortsKey, @(isShorts), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    CGFloat side = 44.0;
-    button.frame = CGRectMake(CGRectGetWidth(host.bounds) - side - 10.0, CGRectGetHeight(host.bounds) * 0.5 - side * 0.5, side, side);
     [host bringSubviewToFront:button];
 }
 
@@ -1592,7 +1583,7 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
 %hook YTMainAppControlsOverlayView
 - (void)layoutSubviews {
     %orig;
-    @try { UYTReelsSetupDownloadButton(self, NO); } @catch (NSException *e) {}
+    @try { UYTReelsRebindDownloadButton(self, NO); } @catch (NSException *e) {}
 }
 %new - (void)uYouDownloadButtonTapped:(UIButton *)sender {
     @try { UYTReelsHandleDownloadTapFromView(self, sender); } @catch (NSException *e) {}
@@ -1602,7 +1593,7 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
 %hook YTReelWatchPlaybackOverlayView
 - (void)layoutSubviews {
     %orig;
-    @try { UYTReelsSetupDownloadButton(self, YES); } @catch (NSException *e) {}
+    @try { UYTReelsRebindDownloadButton(self, YES); } @catch (NSException *e) {}
 }
 %new - (void)uYouDownloadButtonTapped:(UIButton *)sender {
     @try { UYTReelsHandleDownloadTapFromView(self, sender); } @catch (NSException *e) {}
@@ -1613,7 +1604,7 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
 - (void)layoutSubviews {
     %orig;
     UIView *host = (UIView *)self;
-    @try { UYTReelsSetupDownloadButton(host, YES); } @catch (NSException *e) {}
+    @try { UYTReelsRebindDownloadButton(host, YES); } @catch (NSException *e) {}
 }
 %new - (void)uYouDownloadButtonTapped:(UIButton *)sender {
     UIView *host = (UIView *)self;

@@ -390,6 +390,31 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
 // Intercept DownloadItem URL assignment — swap broken extraction URLs with
 // our working innertube-fetched ones so uYou's native download flow functions.
 %hook DownloadItem
+
+- (id)initWithVideoID:(id)videoID
+             uYouItem:(id)uYouItem
+           downloadID:(id)downloadID
+                  url:(id)url
+             filePath:(id)filePath
+           cachedPath:(id)cachedPath
+                 type:(int)type {
+
+    NSLog(@"[UYTPipeline] DownloadItem init:");
+    NSLog(@"[UYTPipeline] videoID = %@", videoID);
+    NSLog(@"[UYTPipeline] downloadID = %@", downloadID);
+    NSLog(@"[UYTPipeline] filePath = %@", filePath);
+    NSLog(@"[UYTPipeline] cachedPath = %@", cachedPath);
+
+    @try {
+        NSLog(@"[UYTPipeline] title = %@", [uYouItem valueForKey:@"title"]);
+        NSLog(@"[UYTPipeline] uYouItem.filePath = %@", [uYouItem filePath]);
+    } @catch (NSException *e) {
+        NSLog(@"[UYTPipeline] diagnostic failed: %@", e);
+    }
+
+    return %orig(videoID, uYouItem, downloadID, url, filePath, cachedPath, type);
+}
+
 - (void)setRemoteURL:(NSURL *)url {
     NSString *vid = self.videoID ?: @"";
     NSString *working = UYTGetResolvedURL(vid);
