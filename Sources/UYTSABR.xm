@@ -835,6 +835,25 @@ BOOL UYTSABRHasValidCaptureForVideoID(NSString *videoID) {
     return valid;
 }
 
+static NSMutableSet *gSABRInFlightVideoIDs; // guarded by SABRQueue
+
+// True only while an actual UYTSABRFallbackDownloadForVideoID job for videoID
+// is in flight. This is the discriminator createDownloadTask uses — NOT bare
+// capture validity, which lingers after any playback and would starve %orig.
+BOOL UYTSABRIsDownloadActive(NSString *videoID) {
+    if (!videoID.length) return NO;
+    __block BOOL active = NO;
+    void (^check)(void) = ^{
+        if (gSABRInFlightVideoIDs) active = [gSABRInFlightVideoIDs containsObject:videoID];
+    };
+    if (SABROnQueue()) {
+        check();
+    } else {
+        dispatch_sync(SABRQueue(), check);
+    }
+    return active;
+}
+
 // Fallback entry for uYou pipeline: download best mp4+m4a for videoID via SABR,
 // then mux with FFmpegKitNext and finalize via uYou's DB. Called when innertube
 // returns -1002 / empty URLs on YouTube 21.29+.
@@ -843,11 +862,22 @@ void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
                                       NSString * _Nullable title,
                                       BOOL audioOnly,
                                       void (^_Nullable progress)(double fractionComplete, unsigned long long bytesDownloaded),
-                                      void (^completion)(BOOL success, NSString * _Nullable error)) {
+                                      void (^done)(BOOL success, NSString * _Nullable error)) {
     // Pick best available itags from captured body's available-format list.
     // We resolve 137 (1080p mp4) + 140 (m4a) as defaults, falling back to
     // whatever the capture actually advertises.
     dispatch_async(SABRQueue(), ^{
+        if (!gSABRInFlightVideoIDs) gSABRInFlightVideoIDs = [NSMutableSet set];
+        [gSABRInFlightVideoIDs addObject:videoID];
+        // Every exit path resolves through this wrapper so the in-flight marker
+        // is cleared exactly once when the job finishes/fails, releasing the
+        // createDownloadTask gating (UYTSABRIsDownloadActive) back to %orig.
+        void (^completion)(BOOL success, NSString * _Nullable error) = ^(BOOL success, NSString * _Nullable error) {
+            dispatch_async(SABRQueue(), ^{
+                if (gSABRInFlightVideoIDs) [gSABRInFlightVideoIDs removeObject:videoID];
+            });
+            if (done) done(success, error);
+        };
         if (!gCapURL || !gCapPlainBody.length) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 completion(NO, @"No SABR capture yet — play the video for a few seconds first.");

@@ -950,9 +950,11 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
         // an NSURLRequest from uYou's broken extraction URL and fail instantly
         // with NSURLErrorUnsupportedURL (-1002), RACING our in-progress SABR
         // download (progress ticks up, then the row shows -1002 anyway and
-        // nothing ever finishes). Skip %orig while the SABR capture is valid
-        // for THIS video and we have nothing to finalize yet.
-        if (vid.length && UYTSABRHasValidCaptureForVideoID(vid)) {
+        // nothing ever finishes). Skip %orig only while SABR has an ACTUAL job
+        // in flight for this video — bare capture validity is NOT sufficient
+        // (it persists after any playback, which starved every normal download
+        // into "Not Started" because %orig never got to create the task).
+        if (vid.length && UYTSABRIsDownloadActive(vid)) {
             HBLogWarn(@"[uYouPatches] skipping uYou's createDownloadTask for %@ - SABR is driving this download", vid);
             return;
         }
@@ -1494,7 +1496,6 @@ static float uYouSavedPlaybackRate = 0.0f;
 
 #pragma mark - Reels Download Button
 
-static const NSInteger UYouDownloadButtonTag = 9842;
 static const char UYTReelsShortsKey = 0;
 
 static void UYTReelsPresentAlertFromView(UIView *host, NSString *title, NSString *message) {
@@ -1523,18 +1524,6 @@ static NSString *UYTReelsCurrentVideoIDFromView(UIView *host) {
         chain = [chain nextResponder];
     }
     return nil;
-}
-
-// Only ever modifies the uYou vended download button (tag UYouDownloadButtonTag).
-// NO custom button creation. Rebinding strips the broken vendored target/action
-// (the unrecognized selector crash, #995) and re-pipes the tap into the new pipeline.
-static void UYTReelsRebindDownloadButton(UIView *host, BOOL isShorts) {
-    UIButton *button = (UIButton *)[host viewWithTag:UYouDownloadButtonTag];
-    if (![button isKindOfClass:[UIButton class]]) return;
-    objc_setAssociatedObject(host, &UYTReelsShortsKey, @(isShorts), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    [button removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
-    [button addTarget:host action:@selector(uYouDownloadButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-    [host bringSubviewToFront:button];
 }
 
 static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
@@ -1578,37 +1567,62 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
     });
 }
 
+// YTReelHeaderView is uYou's real Shorts download surface: it vends the button
+// as its `uYouButton` property and ALREADY implements uYouDownloadButtonTapped:
+// (so that selector is %hook'd, never %new — Logos %new asserts if the method
+// exists). We only modify the vended button — never create one — and reroute
+// its tap into the new innertube pipeline.
+@protocol UYTReelHeaderDownloadAPI <NSObject>
+- (void)uYou;
+- (void)setUYOUButton:(id)button;
+- (id)uYouButton;
+- (void)uYouDownloadButtonTapped:(id)sender;
+@end
+
 %group gReelHeaderDownloadButton
 
-%hook YTMainAppControlsOverlayView
-- (void)layoutSubviews {
-    %orig;
-    @try { UYTReelsRebindDownloadButton(self, NO); } @catch (NSException *e) {}
-}
-%new - (void)uYouDownloadButtonTapped:(UIButton *)sender {
-    @try { UYTReelsHandleDownloadTapFromView(self, sender); } @catch (NSException *e) {}
-}
-%end
-
-%hook YTReelWatchPlaybackOverlayView
-- (void)layoutSubviews {
-    %orig;
-    @try { UYTReelsRebindDownloadButton(self, YES); } @catch (NSException *e) {}
-}
-%new - (void)uYouDownloadButtonTapped:(UIButton *)sender {
-    @try { UYTReelsHandleDownloadTapFromView(self, sender); } @catch (NSException *e) {}
-}
-%end
-
 %hook YTReelHeaderView
+
+- (void)uYou {
+    %orig;
+    @try { [self uytReelsBindVendedButton]; } @catch (NSException *e) {}
+}
+
+- (void)setUYOUButton:(id)button {
+    %orig(button);
+    // uYou just assigned our download button — modify it immediately.
+    @try { [self uytReelsBindVendedButton]; } @catch (NSException *e) {}
+}
+
 - (void)layoutSubviews {
     %orig;
-    UIView *host = (UIView *)self;
-    @try { UYTReelsRebindDownloadButton(host, YES); } @catch (NSException *e) {}
+    // Button may be (re)created/relaid after uYou/setUYOUButton: ran; re-verify
+    // on every layout pass so the modification always survives.
+    @try { [self uytReelsBindVendedButton]; } @catch (NSException *e) {}
 }
-%new - (void)uYouDownloadButtonTapped:(UIButton *)sender {
-    UIView *host = (UIView *)self;
-    @try { UYTReelsHandleDownloadTapFromView(host, sender); } @catch (NSException *e) {}
+
+// Modify the VENDED YTReelPlayerButton *uYouButton (getter uYouButton) — NO
+// custom button is ever created. Strips the broken vendored target/action (the
+// #995 press crash), routes the tap to the hooked uYouDownloadButtonTapped:
+// below, and keeps the button visible/tappable.
+%new - (void)uytReelsBindVendedButton {
+    UIView *header = (UIView *)self;
+    id<UYTReelHeaderDownloadAPI> api = (id<UYTReelHeaderDownloadAPI>)self;
+    id button = [api uYouButton];
+    if (![button isKindOfClass:[UIView class]]) return;
+    objc_setAssociatedObject(header, &UYTReelsShortsKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if ([button isKindOfClass:[UIButton class]]) {
+        UIButton *b = (UIButton *)button;
+        [b removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
+        [b addTarget:header action:@selector(uYouDownloadButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+    }
+    [header bringSubviewToFront:button];
+}
+
+- (void)uYouDownloadButtonTapped:(id)sender {
+    // Real selector on YTReelHeaderView — %hook, never %new. No %orig: the
+    // legacy flow is exactly what crashed when pressed (#995).
+    @try { UYTReelsHandleDownloadTapFromView((UIView *)self, (UIButton *)sender); } @catch (NSException *e) {}
 }
 %end
 %end

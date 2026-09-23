@@ -30,6 +30,13 @@ BOOL UYTSABRHasValidCapture(void);
 // is nil/empty or the captured videoID is unknown (backwards compatible).
 BOOL UYTSABRHasValidCaptureForVideoID(NSString * _Nullable videoID);
 
+// True only while UYTSABRFallbackDownloadForVideoID has an actual SABR job in
+// flight for `videoID` (cleared when that job finishes or fails). Capture
+// validity merely means the player streamed the video at some point; gating
+// logic must use THIS to decide "SABR is driving this download" so normal
+// native downloads are never starved of their createDownloadTask (%orig).
+BOOL UYTSABRIsDownloadActive(NSString * _Nullable videoID);
+
 // Fallback entry for uYou pipeline: download best mp4+m4a for videoID via SABR,
 // then mux with FFmpegKitNext and finalize via uYou's DB. Called when innertube
 // returns -1002 / empty URLs on YouTube 21.29+.
