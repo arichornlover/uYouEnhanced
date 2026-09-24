@@ -1054,7 +1054,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
         NSError *error = nil;
         NSString *settingsString = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:&error];
         if (error) {
-            NSLog(@"Error reading file: %@", error.localizedDescription);
+            UYTDebugErr(@"uYouPlusSettings error reading file: %@", error.localizedDescription);
             UIAlertController *errorAlert = [UIAlertController alertControllerWithTitle:@"Error" message:@"Failed to read the settings file." preferredStyle:UIAlertControllerStyleAlert];
             [errorAlert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
             return;
@@ -1073,7 +1073,7 @@ NSString *cacheDescription = [NSString stringWithFormat:@"%@", GetCacheSize()];
 }
 
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
-    NSLog(@"Document picker was cancelled");
+    UYTDebugInfo(@"uYouPlusSettings document picker was cancelled");
 }
 
 //

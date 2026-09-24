@@ -1,5 +1,6 @@
 #import "AppIconOptionsController.h"
 #import "uYouPlus.h"
+#import "UYTLog.h"
 #import <notify.h>
 
 static NSString *const kPrefDomain = @"com.arichornlover.uYouEnhanced";
@@ -79,7 +80,7 @@ static UIImage *YTDefaultAppIcon(void) {
         for (NSString *f in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:iconsDir error:nil])
             if ([f.pathExtension.lowercaseString isEqualToString:@"png"]) [merged addObject:[f stringByDeletingPathExtension]];
     }
-    NSLog(@"[uYouEnhanced] AppIcon picker: %lu registered, %lu total", (unsigned long)alternate.count, (unsigned long)merged.count);
+    UYTDebugInfo(@"[uYouEnhanced] AppIcon picker: %lu registered, %lu total", (unsigned long)alternate.count, (unsigned long)merged.count);
     NSArray *alternateAll = [merged allObjects];
     self.appIcons = [alternateAll sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
 
@@ -206,7 +207,7 @@ static UIImage *YTDefaultAppIcon(void) {
             [[UIApplication sharedApplication] setAlternateIconName:isDefault ? nil : iconName completionHandler:^(NSError * _Nullable error) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     if (error) {
-                        NSLog(@"[uYouEnhanced] Icon '%@' rejected: %@", iconName, error.localizedDescription);
+                        UYTDebugWarn(@"[uYouEnhanced] Icon '%@' rejected: %@", iconName, error.localizedDescription);
                         [self showAlertWithTitle:LOC(@"FAILED") message:error.localizedDescription];
                     }
                 });

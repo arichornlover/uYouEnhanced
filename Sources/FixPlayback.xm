@@ -25,6 +25,7 @@
 //      FixPlaybackIssues.x / Mark02-2012 YTPlaybackFix), with a loop guard.
 
 #import "uYouPlus.h"
+#import "UYTLog.h"
 
 #import <YouTubeHeader/YTIHamplayerConfig.h>
 #import <YouTubeHeader/YTIHamplayerHotConfig.h>
@@ -254,7 +255,7 @@ static NSTimeInterval uytLastPlaybackReload = 0;
         YTWatchController *watchController = (YTWatchController *)playerViewController.UIDelegate;
         NSTimeInterval now = [[NSProcessInfo processInfo] systemUptime];
         if (now - uytLastPlaybackReload < 10.0) {
-            HBLogDebug(@"[uYouPlus] FixPlayback: playback error 14 repeated — suppressing reload loop");
+            UYTDebugWarn(@"FixPlayback: playback error 14 repeated — suppressing reload loop");
             return;
         }
         uytLastPlaybackReload = now;
@@ -274,5 +275,5 @@ static NSTimeInterval uytLastPlaybackReload = 0;
     %init(gFixPlaybackNetwork);
     %init(gFixPlaybackRenderer);
     %init(gFixPlayback);
-    HBLogInfo(@"[uYouPlus] FixPlayback: root-cause playback fix installed (client=%s)", UYTFixVRClientName.UTF8String);
+    UYTDebugInfo(@"[uYouPlus] FixPlayback: root-cause playback fix installed (client=%s)", UYTFixVRClientName.UTF8String);
 }

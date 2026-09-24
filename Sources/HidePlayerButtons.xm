@@ -1,4 +1,5 @@
 #import "uYouPlus.h"
+#import "UYTLog.h"
 
 // YTHidePlayerButtons 1.1.0 - v20.02.3+ - made by @aricloverEXTRA
 // Updated for modern YouTube v20+ with renderer-based identifiers
@@ -62,7 +63,7 @@ static void safeHideView(id view) {
                 return;
             }
         } @catch (NSException *ex) {
-            NSLog(@"[HidePlayerButtons] safeHideView exception: %@", ex);
+            UYTDebugErr(@"HidePlayerButtons safeHideView exception: %@", ex);
         }
     });
 }
@@ -96,7 +97,7 @@ static BOOL inspectAndHideIfMatch(id view) {
             }
         }
     } @catch (NSException *ex) {
-        NSLog(@"[HidePlayerButtons] inspectAndHideIfMatch exception: %@", ex);
+        UYTDebugErr(@"HidePlayerButtons inspectAndHideIfMatch exception: %@", ex);
     }
     return NO;
 }
@@ -114,7 +115,7 @@ static void traverseAndHideViews(UIView *root) {
             }
         }
     } @catch (NSException *ex) {
-        NSLog(@"[HidePlayerButtons] traverseAndHideViews exception: %@", ex);
+        UYTDebugErr(@"HidePlayerButtons traverseAndHideViews exception: %@", ex);
     }
 }
 static void hideButtonsInActionBarIfNeeded(id collectionView) {
@@ -153,12 +154,12 @@ static void hideButtonsInActionBarIfNeeded(id collectionView) {
                         }
                     }
                 } @catch (NSException *ex) {
-                    NSLog(@"[HidePlayerButtons] Exception handling non-UIView cell: %@", ex);
+                    UYTDebugErr(@"HidePlayerButtons Exception handling non-UIView cell: %@", ex);
                 }
             }
         }
     } @catch (NSException *exception) {
-        NSLog(@"[HidePlayerButtons] hideButtonsInActionBarIfNeeded exception: %@", exception);
+        UYTDebugErr(@"HidePlayerButtons hideButtonsInActionBarIfNeeded exception: %@", exception);
     }
 }
 %hook ASCollectionView
@@ -169,7 +170,7 @@ static void hideButtonsInActionBarIfNeeded(id collectionView) {
         @try {
             hideButtonsInActionBarIfNeeded(weakSelf);
         } @catch (NSException *e) {
-            NSLog(@"[HidePlayerButtons] async hide exception: %@", e);
+            UYTDebugErr(@"HidePlayerButtons async hide exception: %@", e);
         }
     });
     return node;
@@ -181,7 +182,7 @@ static void hideButtonsInActionBarIfNeeded(id collectionView) {
         @try {
             hideButtonsInActionBarIfNeeded(weakSelf);
         } @catch (NSException *e) {
-            NSLog(@"[HidePlayerButtons] relayout hide exception: %@", e);
+            UYTDebugErr(@"HidePlayerButtons relayout hide exception: %@", e);
         }
     });
 }

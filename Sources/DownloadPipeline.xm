@@ -261,7 +261,7 @@ void UYTRefreshResolvedURLsForVideo(NSString *vid) {
             UYTRegisterRemoteURLForVideoID(vid, video.url);
             UYTRegisterRemoteURLForVideoID(vid, audio.url);
             UYTRegisterRemoteURLForVideoID(vid, muxed.url);
-            NSLog(@"[UYTPipeline] refreshed resolved URLs for %@", vid);
+            UYTDebugInfo(@"[UYTPipeline] refreshed resolved URLs for %@", vid);
         } @catch (NSException *e) {}
     }];
 }
@@ -479,17 +479,17 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
            cachedPath:(id)cachedPath
                  type:(int)type {
 
-    NSLog(@"[UYTPipeline] DownloadItem init:");
-    NSLog(@"[UYTPipeline] videoID = %@", videoID);
-    NSLog(@"[UYTPipeline] downloadID = %@", downloadID);
-    NSLog(@"[UYTPipeline] filePath = %@", filePath);
-    NSLog(@"[UYTPipeline] cachedPath = %@", cachedPath);
+    UYTDebugInfo(@"[UYTPipeline] DownloadItem init:");
+    UYTDebugInfo(@"[UYTPipeline] videoID = %@", videoID);
+    UYTDebugInfo(@"[UYTPipeline] downloadID = %@", downloadID);
+    UYTDebugInfo(@"[UYTPipeline] filePath = %@", filePath);
+    UYTDebugInfo(@"[UYTPipeline] cachedPath = %@", cachedPath);
 
     @try {
-        NSLog(@"[UYTPipeline] title = %@", [uYouItem valueForKey:@"title"]);
-        NSLog(@"[UYTPipeline] uYouItem.filePath = %@", [uYouItem valueForKey:@"filePath"]);
+        UYTDebugInfo(@"[UYTPipeline] title = %@", [uYouItem valueForKey:@"title"]);
+        UYTDebugInfo(@"[UYTPipeline] uYouItem.filePath = %@", [uYouItem valueForKey:@"filePath"]);
     } @catch (NSException *e) {
-        NSLog(@"[UYTPipeline] diagnostic failed: %@", e);
+        UYTDebugErr(@"[UYTPipeline] diagnostic failed: %@", e);
     }
 
     return %orig(videoID, uYouItem, downloadID, url, filePath, cachedPath, type);
@@ -507,7 +507,7 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
         NSURL *fixed = [NSURL URLWithString:working];
         if (fixed) {
             UYTDebugInfo(@"URL swap for %@ (task URL -> cached resolved URL)", vid);
-            NSLog(@"[UYTPipeline] swapped broken URL -> working innertube URL for %@", vid);
+            UYTDebugInfo(@"[UYTPipeline] swapped broken URL -> working innertube URL for %@", vid);
             %orig(fixed);
             return;
         }

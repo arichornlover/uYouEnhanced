@@ -82,7 +82,7 @@ BOOL UYTFFRun(NSArray<NSString *> *arguments) {
             kitClass, @selector(executeWithArguments:), arguments);
         return rc == 0;
     } @catch (NSException *e) {
-        NSLog(@"[UYTMediaKit] command failed (%@): %@", arguments.firstObject ?: @"", e);
+        UYTDebugErr(@"UYTMediaKit command failed (%@): %@", arguments.firstObject ?: @"", e);
         return NO;
     }
 }

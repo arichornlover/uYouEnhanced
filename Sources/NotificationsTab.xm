@@ -1,4 +1,5 @@
 #import "uYouPlus.h"
+#import "UYTLog.h"
 
 // Notifications Tab appearance - @arichornlover & @dayanch96
 
@@ -115,7 +116,7 @@ static NSInteger _notificationsBadgeCount = 0;
         }
         [renderer.itemsArray insertObject:barSupport atIndex:insertIndex];
     } @catch (NSException *exception) {
-        NSLog(@"Error setting renderer: %@", exception.reason);
+        UYTDebugErr(@"NotificationsTab error setting renderer: %@", exception.reason);
     }
     %orig(
         renderer
@@ -146,7 +147,7 @@ static NSInteger _notificationsBadgeCount = 0;
             [self.view endEditing:YES];
             [notificationsViewController didMoveToParentViewController:self];
         } @catch (NSException *exception) {
-            NSLog(@"Cannot show notifications view controller: %@", exception.reason);
+            UYTDebugErr(@"NotificationsTab cannot show notifications view controller: %@", exception.reason);
         }
     }
 }
@@ -223,7 +224,7 @@ static NSInteger _notificationsBadgeCount = 0;
         );
         badgeLabel.layer.cornerRadius = badgeHeight / 2;
     } @catch (NSException *e) {
-        NSLog(@"[uYouEnhanced] Badge error: %@", e);
+        UYTDebugErr(@"NotificationsTab badge error: %@", e);
     }
 }
 %end

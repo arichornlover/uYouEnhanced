@@ -1,6 +1,7 @@
 // @PoomSmart - YouTube-X v1.7.23
 
 #import "uYouPlus.h"
+#import "UYTLog.h"
 
 // uYou AdBlock Workaround LITE (This Version will only remove ads from only Videos/Shorts!) - @PoomSmart
 %group uYouAdBlockingWorkaroundLite
@@ -177,13 +178,13 @@ NSString *getAdString(NSString *description) {
 }
 static BOOL isAdRenderer(YTIElementRenderer *elementRenderer, int kind) {
     if ([elementRenderer respondsToSelector:@selector(hasCompatibilityOptions)] && elementRenderer.hasCompatibilityOptions && elementRenderer.compatibilityOptions.hasAdLoggingData) {
-        HBLogDebug(@"YTX adLogging %d %@", kind, elementRenderer);
+        UYTDebugInfo(@"YTX adLogging %d %@", kind, elementRenderer);
         return YES;
     }
     NSString *description = [elementRenderer description];
     NSString *adString = getAdString(description);
     if (adString) {
-        HBLogDebug(@"YTX getAdString %d %@ %@", kind, adString, elementRenderer);
+        UYTDebugInfo(@"YTX getAdString %d %@ %@", kind, adString, elementRenderer);
         return YES;
     }
     return NO;

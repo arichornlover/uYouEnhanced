@@ -3,6 +3,7 @@
 //  NOTE: every %group below needs a matching %init() in %ctor to load.
 //
 #import "uYouPlus.h"
+#import "UYTLog.h"
 #import "uYouPlusPatches.h"
 
 #pragma mark - Localization Bundle
@@ -82,7 +83,7 @@ static BOOL UYTFireGestureTargets(UIView *view) {
                     [invocation setArgument:&arg atIndex:2];
                 }
                 [invocation invoke];
-                NSLog(@"[uYouPlus] Save reroute: fired gesture target %@", actionName);
+                UYTDebugInfo(@"[uYouPlus] Save reroute: fired gesture target %@", actionName);
                 return YES;
             }
         } @catch (NSException *e) {}
@@ -97,7 +98,7 @@ static BOOL UYTActivateRealSaveChip(void) {
         if (chip) break;
     }
     if (!chip) {
-        NSLog(@"[uYouPlus] Save reroute: real save chip not visible on screen");
+        UYTDebugWarn(@"[uYouPlus] Save reroute: real save chip not visible on screen");
         return NO;
     }
 
@@ -105,14 +106,14 @@ static BOOL UYTActivateRealSaveChip(void) {
     if ([chip isKindOfClass:[UIControl class]]) {
         UIControl *control = (UIControl *)chip;
         [control sendActionsForControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
-        NSLog(@"[uYouPlus] Save reroute: sent control actions to %@", NSStringFromClass([chip class]));
+        UYTDebugInfo(@"[uYouPlus] Save reroute: sent control actions to %@", NSStringFromClass([chip class]));
         return YES;
     }
     if ([chip respondsToSelector:@selector(accessibilityActivate)]) {
         @try {
             BOOL ok = [(id)chip accessibilityActivate];
             if (ok) {
-                NSLog(@"[uYouPlus] Save reroute: activated via accessibilityActivate");
+                UYTDebugInfo(@"[uYouPlus] Save reroute: activated via accessibilityActivate");
                 return YES;
             }
         } @catch (NSException *e) {}
@@ -123,13 +124,13 @@ static BOOL UYTActivateRealSaveChip(void) {
         SEL tap = @selector(didTapButton:fromRect:inView:);
         if (delegate && [delegate respondsToSelector:tap]) {
             [(id<UYTSlimTapDelegate>)delegate didTapButton:chip fromRect:chip.bounds inView:chip];
-            NSLog(@"[uYouPlus] Save reroute: invoked slim action delegate");
+            UYTDebugInfo(@"[uYouPlus] Save reroute: invoked slim action delegate");
             return YES;
         }
     }
     if (UYTFireGestureTargets(chip)) return YES;
 
-    NSLog(@"[uYouPlus] Save reroute: chip found (%@) but no activation path matched", NSStringFromClass([chip class]));
+        UYTDebugWarn(@"[uYouPlus] Save reroute: chip found (%@) but no activation path matched", NSStringFromClass([chip class]));
     return NO;
 }
 
@@ -152,12 +153,12 @@ static BOOL UYTActivateRealSaveChip(void) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)),
                            dispatch_get_main_queue(), ^{
                 if (!UYTActivateRealSaveChip()) {
-                    NSLog(@"[uYouPlus] Save reroute: real save chip unavailable");
+                    UYTDebugInfo(@"[uYouPlus] Save reroute: real save chip unavailable");
                 }
             });
         }
     } @catch (NSException *e) {
-        NSLog(@"[uYouPlus] Save reroute exception: %@", e);
+        UYTDebugErr(@"uYouPlus Save reroute exception: %@", e);
     }
 }
 @end
@@ -207,7 +208,7 @@ static void UYTAppendSelectorLog(NSString *line) {
     NSString *line = [NSString stringWithFormat:
         @"[uYouButtonForward] UNRECOGNIZED SELECTOR target=%@ (%@) SEL=[%@] inst=%p",
         clsName, self, selName, self];
-    NSLog(@"%@", line);
+    UYTDebugInfo(@"%@", line);
     UYTAppendSelectorLog(line);
     // Keep the original abort so the crash report still captures the frame;
     // the selector is now safe in both syslog and the on-disk file.
@@ -239,7 +240,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
         NSString *sheetId = showCommand.sheetId;
         BOOL isOfflineUpsell = (sheetId.length > 0 && [sheetId containsString:@"offline_upsell"]);
         if (isOfflineUpsell) {
-            HBLogInfo(@"[uYouPlus] offline upsell detected via sheetId: %@", sheetId);
+            UYTDebugInfo(@"[uYouPlus] offline upsell detected via sheetId: %@", sheetId);
         }
 
         for (ELMPBElement *element in isOfflineUpsell ? @[] : listOptions) {
@@ -275,18 +276,18 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 
             if (isOfflineUpsell) {
                 if (overlayAvailable) {
-                    HBLogInfo(@"[uYouPlus] intercepted offline upsell sheet — launching uYou download");
+                    UYTDebugInfo(@"[uYouPlus] intercepted offline upsell sheet — launching uYou download");
                     [controlsOverlayView uYou];
                     return;
                 }
-                HBLogWarn(@"[uYouPlus] offline upsell detected but YTMainAppControlsOverlayView was never "
+                UYTDebugWarn(@"[uYouPlus] offline upsell detected but YTMainAppControlsOverlayView was never "
                           "captured (iPad layout?) — showing original sheet");
                 break;
             }
         }
 
         if (!overlayAvailable) {
-            HBLogInfo(@"[uYouEnhanced] action sheet with %lu option(s); overlay view not captured",
+            UYTDebugInfo(@"[uYouEnhanced] action sheet with %lu option(s); overlay view not captured",
                       (unsigned long)listOptions.count);
         }
     }
@@ -442,7 +443,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
         }
     }
     @catch (NSException *exception) {
-        NSLog(@"[CenterYouTubeLogo] Exception: %@", exception);
+        UYTDebugInfo(@"[uYouEnhanced] CenterYouTubeLogo Exception: %@", exception);
     }
 }
 
@@ -1168,7 +1169,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
                 if (![existing containsObject:NSStringFromSelector(reroute)]) {
                     [(UIControl *)sub addTarget:router action:reroute
                                  forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
-                    NSLog(@"[uYouPlus] Save reroute attached via overlay scan (%@ / %@)", ident, lbl);
+        UYTDebugInfo(@"[uYouPlus] Save reroute attached via overlay scan (%@ / %@)", ident, lbl);
                 }
             }
         }
@@ -1189,7 +1190,7 @@ YTMainAppControlsOverlayView *controlsOverlayView;
             if (![existing containsObject:NSStringFromSelector(reroute)]) {
                 [button addTarget:router action:reroute
                            forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
-                NSLog(@"[uYouPlus] Save reroute attached to overlay button (%@)", accessibilityLabel);
+                UYTDebugInfo(@"[uYouPlus] Save reroute attached to overlay button (%@)", accessibilityLabel);
             }
         }
     }
@@ -1753,19 +1754,19 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 %hook YTPivotBarView
 - (void)setRenderer:(YTIPivotBarRenderer *)renderer {
     // Iterate over each renderer item
-    NSLog(@"bhackel: setting renderer");
+    UYTDebugInfo(@"bhackel: setting renderer");
     NSUInteger indexToRemove = -1;
     NSMutableArray <YTIPivotBarSupportedRenderers *> *itemsArray = renderer.itemsArray;
-    NSLog(@"bhackel: starting loop");
+    UYTDebugInfo(@"bhackel: starting loop");
     for (NSUInteger i = 0; i < itemsArray.count; i++) {
-        NSLog(@"bhackel: iterating index %lu", (unsigned long)i);
+        UYTDebugInfo(@"bhackel: iterating index %lu", (unsigned long)i);
         YTIPivotBarSupportedRenderers *item = itemsArray[i];
         // Check if this is the home tab button
-        NSLog(@"bhackel: checking identifier");
+        UYTDebugInfo(@"bhackel: checking identifier");
         YTIPivotBarItemRenderer *pivotBarItemRenderer = item.pivotBarItemRenderer;
         NSString *pivotIdentifier = pivotBarItemRenderer.pivotIdentifier;
         if ([pivotIdentifier isEqualToString:@"FEwhat_to_watch"]) {
-            NSLog(@"bhackel: removing home tab button");
+            UYTDebugInfo(@"bhackel: removing home tab button");
             // Remove the home tab button
             indexToRemove = i;
             break;
@@ -2015,7 +2016,7 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
             frostedView.frame = settingsView.bounds;
             [settingsView insertSubview:frostedView atIndex:0];
         } @catch (NSException *e) {
-            HBLogWarn(@"[BlurrySettingsUI] Failed to apply frosted glass: %@", e);
+            UYTDebugWarn(@"uYouPlus frosted glass failed: %@", e);
         }
     }
 }
