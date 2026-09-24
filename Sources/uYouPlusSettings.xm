@@ -292,31 +292,19 @@ extern NSBundle *uYouPlusBundle();
 
     SWITCH(LOC(@"REPLACE_COPY_AND_PASTE_BUTTONS"), LOC(@"REPLACE_COPY_AND_PASTE_BUTTONS_DESC"), kReplaceCopyandPasteButtons);
 
-    // Debug: in-app view/copy of uYouEnhanced + DownloadPipeline logs (dev)
+    // Debug: export the uYouEnhanced + DownloadPipeline log file (dev)
     YTSettingsSectionItem *debugLogs = [%c(YTSettingsSectionItem)
         itemWithTitle:@"uYouEnhanced Debug Logs"
-        titleDescription:[NSString stringWithFormat:@"Download/pipe errors tracked: %lu — tap to view + copy", (unsigned long)UYTDebugErrorCount()]
+        titleDescription:[NSString stringWithFormat:@"Pipeline errors tracked: %lu — tap to export the log file", (unsigned long)UYTDebugErrorCount()]
         accessibilityIdentifier:nil
         detailTextBlock:nil
         selectBlock:^BOOL (YTSettingsCell *cell, NSUInteger arg1) {
-            UYTDebugErr(@"debug logs opened from settings (subscriber requested)");
-            UITextView *logView = [[UITextView alloc] initWithFrame:CGRectMake(0, 0, 250, 300)];
-            logView.editable = NO;
-            logView.selectable = YES;
-            logView.font = [UIFont fontWithName:@"Menlo" size:9];
-            logView.text = UYTDebugFullReport();
-            UIAlertController *logAlert = [UIAlertController alertControllerWithTitle:@"uYouEnhanced Debug Logs" message:nil preferredStyle:UIAlertControllerStyleAlert];
-            [logAlert setValue:logView forKey:@"accessoryView"];
-            [logAlert addAction:[UIAlertAction actionWithTitle:@"Copy Full Log" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-                [[UIPasteboard generalPasteboard] setString:UYTDebugFullReport()];
-                [[%c(GOOHUDManagerInternal) sharedInstance] showMessageMainThread:[%c(YTHUDMessage) messageWithText:@"Log copied — send it over"]];
-            }]];
-            [logAlert addAction:[UIAlertAction actionWithTitle:@"Copy Errors Only" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-                [[UIPasteboard generalPasteboard] setString:UYTDebugErrorsText()];
-                [[%c(GOOHUDManagerInternal) sharedInstance] showMessageMainThread:[%c(YTHUDMessage) messageWithText:@"Errors copied"]];
-            }]];
-            [logAlert addAction:[UIAlertAction actionWithTitle:@"Close" style:UIAlertActionStyleCancel handler:nil]];
-            [settingsViewController presentViewController:logAlert animated:YES completion:nil];
+            UYTDebugErr(@"debug logs exported from settings");
+            NSURL *logFileURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:@"uYouEnhancedDebugReport.txt"]];
+            [UYTDebugFullReport() writeToURL:logFileURL atomically:YES encoding:NSUTF8StringEncoding error:nil];
+            UIDocumentPickerViewController *logPicker = [[UIDocumentPickerViewController alloc] initWithURL:logFileURL inMode:UIDocumentPickerModeExportToService];
+            logPicker.allowsMultipleSelection = NO;
+            [settingsViewController presentViewController:logPicker animated:YES completion:nil];
             return YES;
         }
     ];

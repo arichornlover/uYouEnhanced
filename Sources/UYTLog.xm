@@ -76,9 +76,11 @@ static void UYTDebugWriteLine(NSString *line) {
     }
 }
 
+// Raw stderr line captured by the NSLog/HBLog tee. Tagged with capture time
+// so the report reads like a proper log.
 void UYTDebugCaptureLine(NSString *raw) {
     if (!raw.length) return;
-    UYTDebugWriteLine([@"[LOG] " stringByAppendingString:raw]);
+    UYTDebugWriteLine([NSString stringWithFormat:@"[LOG] %@ %@", UYTNowStamp(), raw]);
     if (UYTOrigStderr >= 0) {
         @try { dprintf(UYTOrigStderr, "%s\n", raw.UTF8String); } @catch (NSException *e) {}
     }
@@ -119,24 +121,23 @@ static BOOL UYTLineIsFailure(NSString *line) {
     return NO;
 }
 
-NSUInteger UYTDebugErrorCount(void) {
+static NSArray<NSString *> *UYTFailureLines(void) {
+    NSMutableArray *a = [NSMutableArray array];
     @synchronized (UYTLogLock) {
-        NSUInteger c = 0;
         for (NSString *l in UYTLogRing) {
-            if (UYTLineIsFailure(l)) c++;
+            if (UYTLineIsFailure(l)) [a addObject:l];
         }
-        return c;
     }
+    return a;
+}
+
+NSUInteger UYTDebugErrorCount(void) {
+    return UYTFailureLines().count;
 }
 
 NSString *UYTDebugErrorsText(void) {
-    NSMutableArray *errs = [NSMutableArray array];
-    @synchronized (UYTLogLock) {
-        for (NSString *l in UYTLogRing) {
-            if (UYTLineIsFailure(l)) [errs addObject:l];
-        }
-    }
-    return [errs componentsJoinedByString:@"\n"] ?: @"(none)";
+    NSArray *errs = UYTFailureLines();
+    return errs.count ? [errs componentsJoinedByString:@"\n"] : @"(none)";
 }
 
 NSString *UYTDebugLogText(NSUInteger lastLines) {
@@ -220,25 +221,52 @@ void UYTLogInstall(void) {
 
 NSString *UYTDebugFullReport(void) {
     NSMutableString *s = [NSMutableString string];
-    [s appendString:@"===== uYouEnhanced Debug Report =====\n"];
+
+    // ---- Header ----
+    [s appendString:@"============================================================\n"];
+    [s appendString:@"  uYouEnhanced — Debug Report\n"];
+    [s appendString:@"============================================================\n"];
 #ifdef TWEAK_VERSION
-    [s appendFormat:@"tweak: %s\n", TWEAK_VERSION];
+    [s appendFormat:@"  tweak   : %s\n", TWEAK_VERSION];
 #endif
-    [s appendFormat:@"device: %@ / %@\n", UIDevice.currentDevice.model ?: @"?", UIDevice.currentDevice.systemVersion ?: @"?"];
-    [s appendFormat:@"bundle: %@ v%@\n",
+    [s appendFormat:@"  device  : %@\n", UIDevice.currentDevice.model ?: @"?"];
+    [s appendFormat:@"  iOS     : %@\n", UIDevice.currentDevice.systemVersion ?: @"?"];
+    [s appendFormat:@"  bundle  : %@ v%@\n",
         [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"] ?: @"?",
         [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?"];
-    [s appendString:@"\n---- ERRORS / FAILURES ----\n"];
-    [s appendString:UYTDebugErrorsText()];
-    [s appendString:@"\n\n---- LAST 300 LINES ----\n"];
-    [s appendString:UYTDebugLogText(300)];
+    NSDateFormatter *df = [NSDateFormatter new];
+    df.dateFormat = @"yyyy-MM-dd HH:mm:ss";
+    [s appendFormat:@"  exported: %@\n", [df stringFromDate:[NSDate date]]];
+    [s appendString:@"------------------------------------------------------------\n"];
 
+    // ---- Errors / failures (numbered) ----
+    NSArray<NSString *> *errs = UYTFailureLines();
+    [s appendFormat:@"\n---- %lu ERROR(S) / FAILURE(S) ----\n", (unsigned long)errs.count];
+    if (!errs.count) {
+        [s appendString:@"(none) — clean session\n"];
+    } else {
+        NSUInteger i = 1;
+        for (NSString *line in errs) {
+            [s appendFormat:@"%4lu. %@\n", (unsigned long)i++, line];
+        }
+    }
+
+    // ---- Last raw lines ----
+    [s appendString:@"\n---- LAST 300 RAW LINES ----\n"];
+    [s appendString:UYTDebugLogText(300)];
+    [s appendString:@"\n"];
+
+    // ---- Shorts unrecognized-selector evidence ----
     NSString *selPath = [UYTDocDir() stringByAppendingPathComponent:@"uYouUnrecognizedSelector.log"];
     if ([[NSFileManager defaultManager] fileExistsAtPath:selPath]) {
-        [s appendString:@"\n\n---- UNRECOGNIZED SELECTORS (Shorts crash evidence) ----\n"];
+        [s appendString:@"\n---- UNRECOGNIZED SELECTORS (Shorts crash evidence) ----\n"];
         [s appendString:[NSString stringWithContentsOfFile:selPath encoding:NSUTF8StringEncoding error:nil] ?: @"(unreadable)"];
+        [s appendString:@"\n"];
     }
-    [s appendString:@"\n===== END =====\n"];
+
+    [s appendString:@"============================================================\n"];
+    [s appendString:@"  END OF REPORT\n"];
+    [s appendString:@"============================================================\n"];
     return s;
 }
 
