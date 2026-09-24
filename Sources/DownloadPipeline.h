@@ -43,4 +43,9 @@ NSString * _Nullable UYTResolvedVideoURL(NSString * _Nullable vid);
 void UYTMarkAudioOnly(NSString * _Nullable vid, BOOL audioOnly);
 BOOL UYTIsAudioOnly(NSString * _Nullable vid);
 
+// Register a task URL for a videoID so a failed URLSession task (403/broken
+// URL) can be mapped back to its video and rerouted to SABR. Backed by
+// uYouPatches' URL→videoID registry.
+void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullable url);
+
 NS_ASSUME_NONNULL_END

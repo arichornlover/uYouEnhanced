@@ -160,20 +160,39 @@ static NSString * const UYTClientVersion = @"19.45.1";
 // Shared store: per-videoID muxed/audio/video working URLs + audio-only flag.
 // Backs the public API declared in DownloadPipeline.h and consumed by
 // uYouPatches.xm (DownloadsManager + DownloadItem hooks, Reels button).
+// All access is serialized: the reel tap and a regular download can fire
+// innertube fetches from separate background threads at the same time, and an
+// unsynchronized NSMutableDictionary mutating concurrently is a crash.
 static NSMutableDictionary<NSString *, NSMutableDictionary *> *UYTResolvedStore;
+static NSObject *UYTResolvedStoreLock;
 
-static NSMutableDictionary *UYTResolvedEntryFor(NSString *vid) {
+static void UYTEnsureResolvedStoreLock(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         UYTResolvedStore = [NSMutableDictionary dictionary];
+        UYTResolvedStoreLock = [NSObject new];
     });
+}
+
+static NSDictionary *UYTResolvedEntrySnapshot(NSString *vid) {
     if (!vid.length) return nil;
-    NSMutableDictionary *entry = UYTResolvedStore[vid];
-    if (!entry) {
-        entry = [NSMutableDictionary dictionary];
-        UYTResolvedStore[vid] = entry;
+    UYTEnsureResolvedStoreLock();
+    @synchronized(UYTResolvedStoreLock) {
+        return [UYTResolvedStore[vid] copy];
     }
-    return entry;
+}
+
+static void UYTResolvedEntrySet(NSString *vid, NSString *key, id value) {
+    if (!vid.length || !key.length) return;
+    UYTEnsureResolvedStoreLock();
+    @synchronized(UYTResolvedStoreLock) {
+        NSMutableDictionary *entry = UYTResolvedStore[vid];
+        if (!entry) {
+            entry = [NSMutableDictionary dictionary];
+            UYTResolvedStore[vid] = entry;
+        }
+        entry[key] = value ?: [NSNull null];
+    }
 }
 
 // A locally staged SABR file (Downloaded/<vid>.mp4 or .m4a) is the source of
@@ -196,13 +215,9 @@ static NSString *UYTFileURLString(NSString *path) {
 
 void UYTStoreResolvedURLs(NSString *vid, NSString *muxedURL, NSString *audioURL, NSString *videoURL) {
     @try {
-        NSMutableDictionary *entry = UYTResolvedEntryFor(vid);
-        if (!entry) return;
-        // Overwrite as given — nil intentionally clears (e.g. audio-only drops
-        // the video stream entirely).
-        entry[@"muxed"] = muxedURL ?: [NSNull null];
-        entry[@"audio"] = audioURL ?: [NSNull null];
-        entry[@"video"] = videoURL ?: [NSNull null];
+        UYTResolvedEntrySet(vid, @"muxed", muxedURL);
+        UYTResolvedEntrySet(vid, @"audio", audioURL);
+        UYTResolvedEntrySet(vid, @"video", videoURL);
     } @catch (NSException *e) {}
 }
 
@@ -211,7 +226,7 @@ NSString *UYTResolvedVideoURL(NSString *vid) {
         if (!vid.length) return nil;
         NSString *staged = UYTStagedCanonicalPathFor(vid, @"mp4");
         if (staged.length) return UYTFileURLString(staged);
-        NSDictionary *entry = UYTResolvedStore[vid];
+        NSDictionary *entry = UYTResolvedEntrySnapshot(vid);
         if (!entry) return nil;
         NSString *muxed = entry[@"muxed"];
         if ([muxed isKindOfClass:[NSString class]] && [muxed length]) return muxed;
@@ -229,7 +244,7 @@ NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
         if (audio) {
             NSString *stagedAudio = UYTStagedCanonicalPathFor(vid, @"m4a");
             if (stagedAudio.length) return UYTFileURLString(stagedAudio);
-            NSDictionary *entry = UYTResolvedStore[vid];
+            NSDictionary *entry = UYTResolvedEntrySnapshot(vid);
             if (entry) {
                 NSString *audioURL = entry[@"audio"];
                 if ([audioURL isKindOfClass:[NSString class]] && [audioURL length]) return audioURL;
@@ -237,7 +252,7 @@ NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
         }
         NSString *videoURL = UYTResolvedVideoURL(vid);
         if (videoURL.length) return videoURL;
-        NSDictionary *entry = UYTResolvedStore[vid];
+        NSDictionary *entry = UYTResolvedEntrySnapshot(vid);
         if (entry) {
             NSString *audioURL = entry[@"audio"];
             if ([audioURL isKindOfClass:[NSString class]] && [audioURL length]) return audioURL;
@@ -250,14 +265,14 @@ NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
 
 void UYTMarkAudioOnly(NSString *vid, BOOL audioOnly) {
     @try {
-        NSMutableDictionary *entry = UYTResolvedEntryFor(vid);
-        if (entry) entry[@"audioOnly"] = @(audioOnly);
+        UYTResolvedEntrySet(vid, @"audioOnly", @(audioOnly));
     } @catch (NSException *e) {}
 }
 
 BOOL UYTIsAudioOnly(NSString *vid) {
     @try {
-        NSDictionary *entry = UYTResolvedStore[vid];
+        if (!vid.length) return NO;
+        NSDictionary *entry = UYTResolvedEntrySnapshot(vid);
         if (!entry) return NO;
         NSNumber *flag = entry[@"audioOnly"];
         if ([flag isKindOfClass:[NSNumber class]]) return flag.boolValue;
@@ -381,8 +396,13 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
 
 - (void)setRemoteURL:(NSURL *)url {
     NSString *vid = self.videoID ?: @"";
+    // Register BOTH the original and the swap target so the AF task-failure
+    // reroute can map any 403 back to this video, even if uYou later appends
+    // metadata params to the URL (the lookup tolerates prefixes).
+    if (url.absoluteString.length) UYTRegisterRemoteURLForVideoID(vid, url.absoluteString);
     NSString *working = UYTGetResolvedURL(vid);
     if (working.length) {
+        UYTRegisterRemoteURLForVideoID(vid, working);
         NSURL *fixed = [NSURL URLWithString:working];
         if (fixed) {
             NSLog(@"[UYTPipeline] swapped broken URL -> working innertube URL for %@", vid);

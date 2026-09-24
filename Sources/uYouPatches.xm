@@ -325,10 +325,26 @@ static void UYTRegisterVideoIDForURL(NSString *vid, NSString *url) {
     }
 }
 
+void UYTRegisterRemoteURLForVideoID(NSString *vid, NSString *url) {
+    UYTRegisterVideoIDForURL(vid, url);
+}
+
 static NSString *UYTVideoIDForRequestURL(NSURL *url) {
-    if (!url.absoluteString.length) return nil;
+    NSString *turl = url.absoluteString;
+    if (!turl.length) return nil;
     @synchronized(UYTURLVideoIDs) {
-        return UYTURLVideoIDs[url.absoluteString] ?: nil;
+        NSString *exact = UYTURLVideoIDs[turl];
+        if (exact) return exact;
+        // Tolerant match: uYou rewrites/appends metadata query params to the
+        // URL before building the task, so the failing task URL is a SUPERSET
+        // of the bare stream URL we registered. Match when one is a prefix of
+        // the other (e.g. "?title=...&type=..." appended to our swapped URL).
+        for (NSString *reg in UYTURLVideoIDs) {
+            if (!reg.length) continue;
+            if ([turl hasPrefix:reg] || [reg hasPrefix:turl]) {
+                return UYTURLVideoIDs[reg];
+            }
+        }
     }
     return nil;
 }
@@ -580,6 +596,56 @@ static BOOL UYTEnsureMergeableAudio(id item, NSString *phase) {    @try {
         return NO;
     } @catch (NSException *e) {
         HBLogWarn(@"[uYouPatches] %@: pre-conversion exception: %@", phase, e);
+        return NO;
+    }
+}
+
+// Video-stream analogue of UYTEnsureMergeableAudio (#1015). WebM/VP9 or AV1
+// video can't be stream-copied into the final mp4; transcode it to H.264
+// BEFORE the remux so the mp4 path uses a fast -c copy. Mirrors the audio
+// webm→m4a conversion (renamed audio→video) that lets audio downloads finish.
+static BOOL uYouConvertWebmVideoToMp4(NSString *webmPath, NSString *mp4Path) {
+    @try {
+        if (UYTFFActiveBackend() == UYTFFBackendNone) return NO;
+        return UYTFFConvertWebmVideoToMp4(webmPath, mp4Path);
+    } @catch (NSException *e) {
+        return NO;
+    }
+}
+
+static BOOL UYTEnsureMergeableVideo(id item, NSString *phase) {
+    @try {
+        id ui = UYTResolveUYouItem(item);
+        if (!ui) return NO;
+        NSString *videoPath = nil;
+        if ([ui respondsToSelector:@selector(tmpVideoPath)]) videoPath = [ui tmpVideoPath];
+        if (!videoPath.length && [ui respondsToSelector:@selector(cachedVideoPath)]) videoPath = [ui cachedVideoPath];
+        if (!videoPath.length) return YES;
+        HBLogInfo(@"[uYouPatches] %@: video=%@ (.%@)", phase, videoPath.lastPathComponent, videoPath.pathExtension);
+        if (!UYTPathIsWebm(videoPath)) return YES;
+
+        NSString *mp4Path = [[videoPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"mp4"];
+        if (uYouConvertWebmVideoToMp4(videoPath, mp4Path)) {
+            // #1010 parity: uYouItem DERIVES tmpVideoPath from videoFormat +
+            // downloadIdentifier and has no tmpVideoPath setter, so point the
+            // item at the converted file by switching videoFormat to "mp4",
+            // then verify that tmpVideoPath now resolves to the mp4 we wrote.
+            @try { [ui setValue:@"mp4" forKey:@"videoFormat"]; } @catch (NSException *e) {}
+            NSString *now = nil;
+            @try { now = [ui valueForKey:@"tmpVideoPath"]; } @catch (NSException *e) {}
+            if (now.length && ![now isEqualToString:mp4Path]) {
+                HBLogWarn(@"[uYouPatches] %@: tmpVideoPath is %@ after conversion, expected %@", phase, now, mp4Path);
+                return NO;
+            }
+            // Nothing references the .webm source any more; reclaim the space.
+            [[NSFileManager defaultManager] removeItemAtPath:videoPath error:nil];
+            HBLogInfo(@"[uYouPatches] %@: webm→mp4 video conversion done", phase);
+            return YES;
+        }
+        HBLogWarn(@"[uYouPatches] %@: webm→mp4 video conversion FAILED", phase);
+        return NO;
+    } @catch (NSException *e) {
+        HBLogWarn(@"[uYouPatches] %@: pre-video-conversion exception: %@", phase, e);
         return NO;
     }
 }
@@ -1263,6 +1329,12 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
         return;
     }
 
+    // Video-stream analogue (#1015): transcode webm/VP9 video to H.264 first so
+    // the mp4 remux stream-copies instead of hanging on conversion.
+    if (!UYTEnsureMergeableVideo(item, @"mergeMP4")) {
+        HBLogWarn(@"[uYouPatches] mergeAudioWithMP4Video: video not pre-mergeable — continuing (best-effort below)");
+    }
+
     // Modern pipeline first: ffmpeg remux (stream-copy mp4, transcode webm).
     id ui = UYTResolveUYouItem(item);
     if (UYTRemuxWithFFmpeg(ui, @"mergeMP4")) {
@@ -1303,6 +1375,12 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     if (!UYTEnsureMergeableAudio(item, @"mergeAudio")) {
         UYTFinalizeItem(item, @"no-merge fallback");
         return;
+    }
+
+    // Video-stream analogue (#1015): transcode webm/VP9 video to H.264 first so
+    // the mp4 remux stream-copies instead of hanging on conversion.
+    if (!UYTEnsureMergeableVideo(item, @"mergeAudio")) {
+        HBLogWarn(@"[uYouPatches] mergeAudioWithVideo: video not pre-mergeable — continuing (best-effort below)");
     }
 
     // Modern pipeline first: ffmpeg remux (stream-copy mp4, transcode webm).
@@ -1595,17 +1673,33 @@ static float uYouSavedPlaybackRate = 0.0f;
 
 static const char UYTReelsShortsKey = 0;
 
+// Find the nearest view controller from a host view (nil-safe on teardown).
+static UIViewController *UYTReelsPresenterForHost(UIView *host) {
+    if (![host isKindOfClass:[UIView class]]) return nil;
+    UIResponder *chain = host;
+    while (chain) {
+        @try {
+            if ([chain isKindOfClass:[UIViewController class]]) return (UIViewController *)chain;
+        } @catch (NSException *e) {}
+        chain = [chain nextResponder];
+    }
+    return nil;
+}
+
 static void UYTReelsPresentAlertFromView(UIView *host, NSString *title, NSString *message) {
     dispatch_async(dispatch_get_main_queue(), ^{
-        UIResponder *chain = host;
-        while (chain && ![chain isKindOfClass:[UIViewController class]]) { chain = [chain nextResponder]; }
-        if (![chain isKindOfClass:[UIViewController class]]) {
-            NSLog(@"[uYouPatches] Reels download: no presenter for alert");
-            return;
+        @try {
+            UIViewController *presenter = UYTReelsPresenterForHost(host);
+            if (!presenter) {
+                NSLog(@"[uYouPatches] Reels download: no presenter for alert");
+                return;
+            }
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+            [presenter presentViewController:alert animated:YES completion:nil];
+        } @catch (NSException *e) {
+            NSLog(@"[uYouPatches] Reels alert failed: %@", e);
         }
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-        [(UIViewController *)chain presentViewController:alert animated:YES completion:nil];
     });
 }
 
@@ -1623,6 +1717,96 @@ static NSString *UYTReelsCurrentVideoIDFromView(UIView *host) {
     return nil;
 }
 
+// Start the DownloadPipeline's Reels downloader (SABR) for the video, honoring
+// the one-shot quality/audio-only choice recorded from the menu. This is the
+// ONLY downloader the reel button may ever use.
+static void UYTReelsRunDownload(UIView *host, NSString *videoID, NSString *requestedQuality, BOOL audioOnly) {
+    if (requestedQuality.length) {
+        [[NSUserDefaults standardUserDefaults] setObject:requestedQuality forKey:@"UYTRequestedQuality"];
+    }
+    if (audioOnly) {
+        [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"UYTRequestedAudioOnly"];
+    }
+    // Consume the one-shot choices right away so they don't leak into a later
+    // normal (non-Reels) download the way a stale choice would.
+    @try {
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedQuality"];
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedAudioOnly"];
+    } @catch (NSException *e) {}
+    @try {
+        UYTSABRFallbackDownloadForVideoID(videoID, nil, audioOnly, ^(double frac, unsigned long long bytes) {
+            @try { UYTDriveDownloadItemProgressForVideoID(videoID, frac, bytes); } @catch (NSException *e) {}
+        }, ^(BOOL ok, NSString *err) {
+            @try {
+                if (ok) {
+                    UYTReelsPresentAlertFromView(host, @"Download complete", @"Saved to the uYouDownloads folder.");
+                } else {
+                    UYTReelsPresentAlertFromView(host, @"Download failed", err.length ? err : @"SABR capture unavailable - play the video for a few seconds first.");
+                }
+            } @catch (NSException *e) {
+                NSLog(@"[uYouPatches] reel completion alert failed: %@", e);
+            }
+        });
+    } @catch (NSException *e) {
+        NSLog(@"[uYouPatches] reel SABR start failed: %@", e);
+    }
+}
+
+// Quality-options popup — the same video-quality menu the stock uYou reel
+// button shows — but every option routes into UYTReelsRunDownload (the
+// DownloadPipeline reels system). MiRO92's dead 3.0.4 downloader never runs.
+static void UYTReelsPresentQualityMenuFromView(UIView *host, NSString *videoID, NSArray<UYTStreamFormat *> *formats, NSError *error) {
+    if (!formats.count) {
+        // No working formats resolved (this content 403'd) — still finish via
+        // SABR capture instead of blocking the button.
+        UYTReelsRunDownload(host, videoID, nil, NO);
+        return;
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+        @try {
+            UIViewController *presenter = UYTReelsPresenterForHost(host);
+            if (!presenter) return;
+            UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"uYou Download" message:videoID preferredStyle:UIAlertControllerStyleActionSheet];
+            NSMutableArray<NSString *> *seen = [NSMutableArray array];
+
+            UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
+            if (muxed.qualityLabel.length) {
+                [seen addObject:muxed.qualityLabel];
+                [sheet addAction:[UIAlertAction actionWithTitle:muxed.qualityLabel style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+                    UYTReelsRunDownload(host, videoID, muxed.qualityLabel, NO);
+                }]];
+            }
+            for (UYTStreamFormat *f in formats) {
+                if (!f.hasVideo || f.hasAudio) continue;
+                NSString *ql = f.qualityLabel.length ? f.qualityLabel : [NSString stringWithFormat:@"%ldp", (long)f.itag];
+                if ([seen containsObject:ql]) continue;
+                [seen addObject:ql];
+                [sheet addAction:[UIAlertAction actionWithTitle:ql style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+                    UYTReelsRunDownload(host, videoID, ql, NO);
+                }]];
+            }
+            if ([UYTDownloadPipeline bestAudioFormat:formats]) {
+                [sheet addAction:[UIAlertAction actionWithTitle:@"Audio only" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+                    UYTReelsRunDownload(host, videoID, nil, YES);
+                }]];
+            }
+            if (sheet.actions.count == 0) {
+                UYTReelsPresentAlertFromView(host, @"uYou Download", @"No playable formats found for this video.");
+                return;
+            }
+            [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+            [presenter presentViewController:sheet animated:YES completion:nil];
+        } @catch (NSException *e) {
+            NSLog(@"[uYouPatches] reel menu failed: %@", e);
+        }
+    });
+}
+
+// Tap flow: resolve working URLs and cache them (fewer 403s for the DownloadItem
+// swap and the AF task-failure reroute), then present the quality menu and route
+// the chosen option through UYTReelsRunDownload — MiRO92's 3.0.4 reel downloader
+// never executes (its tap handler is replaced with no %orig, and the vendored
+// button's system menu is stripped in UYTReelsBindVendedButton).
 static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
     (void)sender;
     NSString *videoID = UYTReelsCurrentVideoIDFromView(host);
@@ -1635,10 +1819,6 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
     BOOL isShorts = shortsBox ? shortsBox.boolValue : YES;
     NSLog(@"[uYouPatches] Reels download requested (vid: %@, shorts: %@)", videoID, isShorts ? @"YES" : @"NO");
 
-    // New pipeline (#1010 ANDROID client): resolve working innertube URLs and
-    // cache them for uYou's DownloadItem swap (plus any concurrent flow), then
-    // finish the download via the SABR capture path uYou's own reel button
-    // always used — which handles Shorts natively.
     [UYTDownloadPipeline fetchFormatsForVideoID:videoID isShorts:isShorts progress:nil completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
         @try {
             if (formats.count) {
@@ -1658,25 +1838,8 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
         } @catch (NSException *e) {
             NSLog(@"[uYouPatches] reel pipeliner blocked: %@", e);
         }
+        UYTReelsPresentQualityMenuFromView(host, videoID, formats, error);
     }];
-
-    @try {
-        UYTSABRFallbackDownloadForVideoID(videoID, nil, NO, ^(double frac, unsigned long long bytes) {
-            @try { UYTDriveDownloadItemProgressForVideoID(videoID, frac, bytes); } @catch (NSException *e) {}
-        }, ^(BOOL ok, NSString *err) {
-            @try {
-                if (ok) {
-                    UYTReelsPresentAlertFromView(host, @"Download complete", @"Saved to the uYouDownloads folder.");
-                } else {
-                    UYTReelsPresentAlertFromView(host, @"Download failed", err.length ? err : @"SABR capture unavailable - play the video for a few seconds first.");
-                }
-            } @catch (NSException *e) {
-                NSLog(@"[uYouPatches] reel completion alert failed: %@", e);
-            }
-        });
-    } @catch (NSException *e) {
-        NSLog(@"[uYouPatches] reel SABR start failed: %@", e);
-    }
 }
 
 // YTReelHeaderView is uYou's real Shorts download surface: it vends the button
@@ -1692,9 +1855,10 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
 @end
 
 // Modify the VENDED YTReelPlayerButton *uYouButton — NO custom button is ever
-// created. Strips the broken vendored target/action (the #995 press crash),
-// routes the tap to the hooked uYouDownloadButtonTapped: below, and keeps the
-// button visible/tappable.
+// created. Strips the broken vendored target/action AND the vendored iOS-14
+// system menu (whose actions call MiRO92's dead 3.0.4 downloader — the #995
+// press crash), routes the tap to the hooked uYouDownloadButtonTapped: below,
+// and keeps the button visible/tappable.
 static void UYTReelsBindVendedButton(YTReelHeaderView *headerView) {
     UIView *header = (UIView *)headerView;
     if (!headerView || ![headerView respondsToSelector:@selector(uYouButton)]) return;
@@ -1704,6 +1868,22 @@ static void UYTReelsBindVendedButton(YTReelHeaderView *headerView) {
     if ([button isKindOfClass:[UIButton class]]) {
         UIButton *b = (UIButton *)button;
         [b removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
+        // Detach MiRO92's vendored context menu and primary-action presentation
+        // so its handlers can never fire; our target/action below is the flow.
+        @try {
+            if ([b respondsToSelector:@selector(setShowsMenuAsPrimaryAction:)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+                [b performSelector:@selector(setShowsMenuAsPrimaryAction:) withObject:@NO];
+#pragma clang diagnostic pop
+            }
+            if ([b respondsToSelector:@selector(setMenu:)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+                [b performSelector:@selector(setMenu:) withObject:nil];
+#pragma clang diagnostic pop
+            }
+        } @catch (NSException *e) {}
         [b addTarget:header action:@selector(uYouDownloadButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
     }
     [header bringSubviewToFront:button];
