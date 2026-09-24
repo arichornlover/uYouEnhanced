@@ -27,6 +27,11 @@ static NSString * const UYTClientVersion = @"19.45.1";
 // doesn't import DownloadPipeline.h.
 void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullable url);
 void UYTStoreResolvedURLs(NSString * _Nullable vid, NSString * _Nullable muxedURL, NSString * _Nullable audioURL, NSString * _Nullable videoURL);
+// Structured logging (UYTLog.xm) — forward-declared here since this file
+// doesn't import UYTLog.h.
+void UYTDebugInfo(NSString * _Nonnull fmt, ...) __attribute__((format(NSString, 1, 2)));
+void UYTDebugWarn(NSString * _Nonnull fmt, ...) __attribute__((format(NSString, 1, 2)));
+void UYTDebugErr(NSString * _Nonnull fmt, ...) __attribute__((format(NSString, 1, 2)));
 
 @interface UYTStreamFormat : NSObject
 @property (nonatomic, copy) NSString *url;
@@ -138,6 +143,7 @@ static int UYTLastGoodClient = 0;
         completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
             if (progress) progress(1.0, (unsigned long long)data.length);
             if (err || !data) {
+                UYTDebugErr(@"fetch client %d net error for %@: %@", idx, videoID, err.localizedDescription ?: @"empty response");
                 completion(@[], err ?: [NSError errorWithDomain:@"UYTDownload" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"empty response"}]);
                 return;
             }
@@ -165,6 +171,12 @@ static int UYTLastGoodClient = 0;
             }
             // Ask innertube's error status instead of guessing on empty data,
             // so rotation keeps trying on 400s this client provokes.
+            if (out.count) {
+                UYTDebugInfo(@"fetch client %d OK: %lu formats for %@", idx, (unsigned long)out.count, videoID);
+            } else {
+                UYTDebugErr(@"fetch client %d no usable URLs for %@ (%@)", idx, videoID,
+                            jsonErr ? jsonErr.localizedDescription : (json ? @"no direct urls" : @"bad response"));
+            }
             completion(out, json ? nil : (jsonErr ?: [NSError errorWithDomain:@"UYTDownload" code:-11 userInfo:@{NSLocalizedDescriptionKey: @"bad player response"}]));
         }];
     [task resume];
@@ -175,6 +187,7 @@ static int UYTLastGoodClient = 0;
      completion:(void (^)(NSArray<UYTStreamFormat *> *formats, NSError *error))completion
     lastError:(NSError *)lastError {
     if (n > 2) {
+        UYTDebugErr(@"all %d clients failed for %@ (last: %@)", 3, videoID, lastError.localizedDescription ?: @"no formats");
         completion(@[], lastError ?: [NSError errorWithDomain:@"UYTDownload" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"no client produced formats"}]);
         return;
     }
@@ -234,9 +247,13 @@ static int UYTLastGoodClient = 0;
 // resolved store. A retried task then swaps in a URL that isn't 403'd yet.
 void UYTRefreshResolvedURLsForVideo(NSString *vid) {
     if (!vid.length) return;
+    UYTDebugInfo(@"refreshing resolved URLs for %@ (client rotation)", vid);
     [UYTDownloadPipeline fetchFormatsForVideoID:vid isShorts:NO progress:nil completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
         @try {
-            if (!formats.count) return;
+            if (!formats.count) {
+                UYTDebugErr(@"refresh: still no formats for %@ (%@)", vid, error.localizedDescription ?: @"none");
+                return;
+            }
             UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
             UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
             UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
@@ -489,6 +506,7 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
         UYTRegisterRemoteURLForVideoID(vid, working);
         NSURL *fixed = [NSURL URLWithString:working];
         if (fixed) {
+            UYTDebugInfo(@"URL swap for %@ (task URL -> cached resolved URL)", vid);
             NSLog(@"[UYTPipeline] swapped broken URL -> working innertube URL for %@", vid);
             %orig(fixed);
             return;

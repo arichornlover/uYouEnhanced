@@ -2,6 +2,7 @@
 #import "uYouPatches.h"
 #import "UYTMediaKit.h"
 #import "DownloadPipeline.h"
+#import "UYTLog.h"
 #import "UYTSABR.h"
 #import <YouTubeHeader/YTUIUtils.h>
 #import <objc/runtime.h>
@@ -977,6 +978,8 @@ static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSSt
         HBLogWarn(@"[uYouPatches] download stalled â€” attempting recovery (polls left %ld, vid: %@)",
                   (long)pollsLeft,
                   [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : @"?");
+        UYTDebugErr(@"stall watchdog: download stalled (polls left %ld, vid: %@)",
+                    (long)pollsLeft, [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : @"?");
 
         NSDictionary *best = UYTBestAvailableSource(ui);
         if (!best) {
@@ -1025,6 +1028,13 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
             UYTDriveDownloadItemProgressForVideoID(vid, frac, bytes);
         } @catch (NSException *e) {}
     } completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
+        if (!formats.count) {
+            UYTDebugErr(@"getLinks: no formats for %@ (%@)", vid, error.localizedDescription ?: @"none");
+        } else {
+            UYTDebugInfo(@"getLinks: %lu formats for %@ (audioOnly=%d, quality=%@)",
+                         (unsigned long)formats.count, vid, requestedAudioOnly,
+                         requestedQuality.length ? requestedQuality : @"default");
+        }
         UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
         UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
         UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
@@ -1105,6 +1115,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
                 id ui = UYTResolveUYouItem(self);
                 if (ui) {
                     HBLogWarn(@"[uYouPatches] SABR on-device file ready for %@ — finalizing without network task", vid);
+                    UYTDebugInfo(@"createDownloadTask: file:// ready for %@ — finalizing w/o network task", vid);
                     // Write accurate final values (100% + real file size) on the
                     // item so the downloads list doesn't show a zero-byte row.
                     NSString *filePath = [NSURL URLWithString:resolved].path;
@@ -1121,6 +1132,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
         // enough (it survives playback, which starved every normal download).
         if (vid.length && UYTSABRIsDownloadActive(vid)) {
             HBLogWarn(@"[uYouPatches] skipping uYou's createDownloadTask for %@ - SABR is driving this download", vid);
+            UYTDebugWarn(@"skipping uYou createDownloadTask — SABR driving %@", vid);
             return;
         }
     } @catch (NSException *e) {
@@ -1140,6 +1152,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
                 // Playback capture valid -> let SABR finish it on-device.
                 if (UYTSABRHasValidCaptureForVideoID(vid)) {
                     HBLogWarn(@"[uYouPatches] task error (%ld) for %@ - rerouting to SABR capture", code, vid);
+                    UYTDebugErr(@"task error %ld for %@ → SABR capture", code, vid);
                     UYTSABRRecoverItemForVideo(vid, UYTIsAudioOnly(vid));
                     return; // SABR completes the item (or best-effort finalizes)
                 }
@@ -1151,6 +1164,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
                 if (![objc_getAssociatedObject(self, &retryKey) boolValue]) {
                     objc_setAssociatedObject(self, &retryKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
                     HBLogWarn(@"[uYouPatches] task error (%ld) for %@ - refetching fresh URLs", code, vid);
+                    UYTDebugErr(@"task error %ld for %@ → refetching fresh URLs", code, vid);
                     __block NSArray<UYTStreamFormat *> *freshFormats = nil;
                     dispatch_semaphore_t sem = dispatch_semaphore_create(0);
                     [UYTDownloadPipeline fetchFormatsForVideoID:vid isShorts:NO progress:nil completion:^(NSArray<UYTStreamFormat *> *formats, NSError *fetchErr) {
@@ -1169,12 +1183,14 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
                         NSString *fresh = UYTResolvedVideoURL(vid);
                         if (fresh.length) {
                             HBLogWarn(@"[uYouPatches] restarting %@ on a fresh URL after (%ld)", vid, code);
+                            UYTDebugErr(@"restarting %@ on fresh URL after %ld — new task armed", vid, code);
                             [self setRemoteURL:[NSURL URLWithString:fresh]];
                             [self createDownloadTask];
                             return; // new task drives the item (watchdog armed)
                         }
                     } else {
                         HBLogWarn(@"[uYouPatches] no fresh URLs for %@ after (%ld) — reporting to uYou", vid, code);
+                        UYTDebugErr(@"no fresh URLs for %@ after %ld — giving up, will show -1011", vid, code);
                     }
                 }
             }
@@ -1319,6 +1335,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     dispatch_async(dispatch_get_main_queue(), ^{
         [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouConversionStarted" object:item];
     });
+    UYTDebugInfo(@"merge hook: mergeAudioWithMP4Video entered");
 
     // Audio-only download (e.g. Shorts audio-only): there's no video to merge —
     // finalize the audio file directly instead of hanging on a video+audio merge.
@@ -1368,6 +1385,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     dispatch_async(dispatch_get_main_queue(), ^{
         [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouConversionStarted" object:item];
     });
+    UYTDebugInfo(@"merge hook: mergeAudioWithVideo entered");
 
     // Audio-only download (e.g. Shorts audio-only): no video to merge.
     if (UYTItemIsAudioOnly(item)) {
@@ -1726,6 +1744,8 @@ static NSString *UYTReelsCurrentVideoIDFromView(UIView *host) {
 // the one-shot quality/audio-only choice recorded from the menu. This is the
 // ONLY downloader the reel button may ever use.
 static void UYTReelsRunDownload(UIView *host, NSString *videoID, NSString *requestedQuality, BOOL audioOnly) {
+    UYTDebugInfo(@"reel download start — vid: %@, quality: %@, audioOnly: %d", videoID,
+                 requestedQuality.length ? requestedQuality : @"muxed-default", audioOnly);
     if (requestedQuality.length) {
         [[NSUserDefaults standardUserDefaults] setObject:requestedQuality forKey:@"UYTRequestedQuality"];
     }
@@ -1744,8 +1764,10 @@ static void UYTReelsRunDownload(UIView *host, NSString *videoID, NSString *reque
         }, ^(BOOL ok, NSString *err) {
             @try {
                 if (ok) {
+                    UYTDebugInfo(@"reel SABR completed: %@", videoID);
                     UYTReelsPresentAlertFromView(host, @"Download complete", @"Saved to the uYouDownloads folder.");
                 } else {
+                    UYTDebugErr(@"reel SABR failed: %@ (%@)", videoID, err.length ? err : @"no capture");
                     UYTReelsPresentAlertFromView(host, @"Download failed", err.length ? err : @"SABR capture unavailable - play the video for a few seconds first.");
                 }
             } @catch (NSException *e) {
@@ -1754,6 +1776,7 @@ static void UYTReelsRunDownload(UIView *host, NSString *videoID, NSString *reque
         });
     } @catch (NSException *e) {
         NSLog(@"[uYouPatches] reel SABR start failed: %@", e);
+        UYTDebugErr(@"reel SABR start threw: %@", e);
     }
 }
 
