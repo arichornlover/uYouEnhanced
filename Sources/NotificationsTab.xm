@@ -88,7 +88,11 @@ static NSInteger _notificationsBadgeCount = 0;
 	YTIPivotBarItemRenderer *itemBar = [[%c(YTIPivotBarItemRenderer) alloc] init];
 	[itemBar setPivotIdentifier:@"FEnotifications_inbox"];
 	YTIIcon *icon = [itemBar icon];
-	[icon setIconType:YT_NOTIFICATIONS];
+	// setIconType: validates against the binary's live enum descriptor and
+	// raises when the compile-time YT_NOTIFICATIONS no longer matches this
+	// build (logged as "unknown enum value" via YouTube's sinkhole). Guard it
+	// so the tab still builds; the icon image comes from the iconType: hook.
+	@try { [icon setIconType:YT_NOTIFICATIONS]; } @catch (NSException *e) {}
 	[itemBar setNavigationEndpoint:command];
 
 	YTIFormattedString *formatString;
@@ -121,9 +125,19 @@ static NSInteger _notificationsBadgeCount = 0;
 %hook YTBrowseViewController
 - (void)viewDidLoad {
     %orig;
-    @try {
-        YTICommand *navEndpoint = [self valueForKey:@"_navEndpoint"];
-        if ([navEndpoint.browseEndpoint.browseId isEqualToString:@"FEnotifications_inbox"]) {
+    // The `_navEndpoint` ivar is gone in current builds; raw KVC on it threw
+    // "Cannot show notifications view controller" every load. Probe surviving
+    // accessors; if none resolve, degrade silently — the child-VC overlay is a
+    // best-effort cosmetic feature (the endpoint may just be stored elsewhere).
+    YTICommand *navEndpoint = nil;
+    for (NSString *key in @[@"navigationEndpoint", @"navEndpoint", @"_navEndpoint"]) {
+        @try {
+            id value = [self valueForKey:key];
+            if ([value isKindOfClass:[%c(YTICommand) class]]) { navEndpoint = value; break; }
+        } @catch (NSException *e) {}
+    }
+    if ([navEndpoint.browseEndpoint.browseId isEqualToString:@"FEnotifications_inbox"]) {
+        @try {
             UIViewController *notificationsViewController = [[UIViewController alloc] init];
             [self addChildViewController:notificationsViewController];
             // FIXME: View issues
@@ -131,9 +145,9 @@ static NSInteger _notificationsBadgeCount = 0;
             [self.view addSubview:notificationsViewController.view];
             [self.view endEditing:YES];
             [notificationsViewController didMoveToParentViewController:self];
+        } @catch (NSException *exception) {
+            NSLog(@"Cannot show notifications view controller: %@", exception.reason);
         }
-    } @catch (NSException *exception) {
-        NSLog(@"Cannot show notifications view controller: %@", exception.reason);
     }
 }
 %end
@@ -145,9 +159,13 @@ static NSInteger _notificationsBadgeCount = 0;
     if (!IS_ENABLED(kShowNotificationsTab)) return;
 
     @try {
-        // Identify this view's pivot identifier to only badge the notifications tab
+        // Identify this view's pivot identifier to only badge the notifications tab.
+        // The item renderer is exposed via the `renderer` property now — the old
+        // `_item` ivar key died in current builds and threw "not KVC-compliant"
+        // on every layout pass (spammed the log, broke the badge).
         NSString *pivotId = nil;
-        id item = [self valueForKey:@"_item"];
+        id item = nil;
+        @try { item = [self valueForKey:@"renderer"]; } @catch (NSException *e) {}
         if (item && [item respondsToSelector:@selector(pivotIdentifier)]) {
             pivotId = [item pivotIdentifier];
         }

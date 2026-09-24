@@ -107,7 +107,37 @@ void UYTDebugErr(NSString *format, ...) {
     UYTDebugWriteLine([NSString stringWithFormat:@"[UYT-E] %@ %@", UYTNowStamp(), msg]);
 }
 
+// Known-benign chatter that floods stderr and must never count as a failure:
+// YouTube's own share-sheet scheme probes (canOpenURL), Crashpad dump reader,
+// its sinkholed NSInvalidArgumentException processor, Lottie warnings, and a
+// one-off UIKit layout note. Kept out of the numbered error list but still
+// visible in the raw-lines section.
+static BOOL UYTLineIsNoise(NSString *line) {
+    NSString *lc = line.lowercaseString;
+    static NSArray<NSString *> *noise = @[
+        @"-canopenurl:",
+        @"intermediate_dump_reader_util.cc",
+        @"directory_reader_posix.cc",
+        @"exception_processor.mm",
+        @"sinkhole",
+        @"ytiicon.icontype",
+        @"lotshapegroup",
+        @"gradient strokes",
+        @"merge shape is not supported",
+        @"unbalanced calls to begin/end appearance transitions",
+        @"tensorflow lite",
+        @"xnnpack"
+    ];
+    for (NSString *n in noise) {
+        if ([lc containsString:n]) return YES;
+    }
+    return NO;
+}
+
 static BOOL UYTLineIsFailure(NSString *line) {
+    // Anything our own code escalated to UYTDebugErr is a failure by definition,
+    // even if the message wording happens to avoid the keywords below.
+    if ([line hasPrefix:@"[UYT-E]"]) return YES;
     NSString *lc = line.lowercaseString;
     static NSArray<NSString *> *words = @[
         @"error", @"fail", @"403", @"400", @"401", @"exception", @"throw",
@@ -125,6 +155,7 @@ static NSArray<NSString *> *UYTFailureLines(void) {
     NSMutableArray *a = [NSMutableArray array];
     @synchronized (UYTLogLock) {
         for (NSString *l in UYTLogRing) {
+            if (UYTLineIsNoise(l)) continue;
             if (UYTLineIsFailure(l)) [a addObject:l];
         }
     }

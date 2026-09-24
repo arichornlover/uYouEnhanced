@@ -1881,6 +1881,14 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
 - (void)uYouDownloadButtonTapped:(id)sender;
 @end
 
+// Hard guarantee the vendored action always resolves on the header's class:
+// if %hook couldn't install uYouDownloadButtonTapped: (class not present at
+// %init, or the real class carries no such method), adding our IMP makes every
+// target/action tap land here instead of doesNotRecognizeSelector: (#995 crash).
+static void UYTReelsDownloadTapIMP(id self, SEL _cmd, id sender) {
+    @try { UYTReelsHandleDownloadTapFromView((UIView *)self, (UIButton *)sender); } @catch (NSException *e) {}
+}
+
 // Modify the VENDED YTReelPlayerButton *uYouButton — NO custom button is ever
 // created. Strips the broken vendored target/action AND the vendored iOS-14
 // system menu (whose actions call MiRO92's dead 3.0.4 downloader — the #995
@@ -1889,6 +1897,10 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
 static void UYTReelsBindVendedButton(YTReelHeaderView *headerView) {
     UIView *header = (UIView *)headerView;
     if (!headerView || ![headerView respondsToSelector:@selector(uYouButton)]) return;
+    if (![headerView respondsToSelector:@selector(uYouDownloadButtonTapped:)]) {
+        class_addMethod([headerView class], @selector(uYouDownloadButtonTapped:),
+                        (IMP)UYTReelsDownloadTapIMP, "v@:@");
+    }
     id button = [headerView uYouButton];
     if (![button isKindOfClass:[UIView class]]) return;
     objc_setAssociatedObject(header, &UYTReelsShortsKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);

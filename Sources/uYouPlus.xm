@@ -179,6 +179,13 @@ static NSString *UYTDNSLogFilePath(void) {
 
 static void UYTAppendSelectorLog(NSString *line) {
     NSString *path = UYTDNSLogFilePath();
+    static NSDateFormatter *stamp;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        stamp = [NSDateFormatter new];
+        stamp.dateFormat = @"yyyy-MM-dd HH:mm:ss.SSS";
+    });
+    NSString *dated = [NSString stringWithFormat:@"[%@] %@", [stamp stringFromDate:[NSDate date]], line];
     NSFileHandle *fh = [NSFileHandle fileHandleForWritingToURL:[NSURL fileURLWithPath:path] error:nil];
     if (!fh) {
         [[NSFileManager defaultManager] createFileAtPath:path contents:nil attributes:nil];
@@ -187,7 +194,7 @@ static void UYTAppendSelectorLog(NSString *line) {
     if (fh) {
         @try {
             [fh seekToEndOfFile];
-            [fh writeData:[[line stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding]];
+            [fh writeData:[[dated stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding]];
             [fh closeFile];
         } @catch (NSException *e) {}
     }
@@ -1968,21 +1975,45 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
 
     if (IS_ENABLED(kNewSettingsUI)) {
         @try {
-            Class frostedGlassClass = %c(YTFrostedGlassView);
+            UIView *settingsView = [(UIViewController *)self view];
 
-            if (frostedGlassClass) {
-                UIView *settingsView = [(UIViewController *)self view];
+            UIView *frostedView = nil;
+            @try {
+                Class frostedGlassClass = %c(YTFrostedGlassView);
+                if (frostedGlassClass) {
+                    // initWithBlurEffectStyle: was removed from recent builds
+                    // and raised "unrecognized selector" on every Settings open.
+                    // Probe both variants before touching it.
+                    if ([frostedGlassClass instancesRespondToSelector:@selector(initWithBlurEffectStyle:)]) {
+                        frostedView = [[frostedGlassClass alloc] initWithBlurEffectStyle:1];
+                    } else if ([frostedGlassClass instancesRespondToSelector:@selector(initWithBlurEffectStyle:alpha:)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+                        frostedView = [frostedGlassClass performSelector:@selector(initWithBlurEffectStyle:alpha:) withObject:@1 withObject:@1.0];
+#pragma clang diagnostic pop
+                    }
+                }
+                if (frostedView) {
+                    [frostedView setAutoresizingMask:
+                        UIViewAutoresizingFlexibleWidth |
+                        UIViewAutoresizingFlexibleHeight];
+                }
+            } @catch (NSException *e) {
+                frostedView = nil;
+            }
 
-                YTFrostedGlassView *frostedView =
-                    [[frostedGlassClass alloc] initWithBlurEffectStyle:1];
-
-                frostedView.frame = settingsView.bounds;
+            if (!frostedView) {
+                // Google's frosted layer isn't available this build — fall back
+                // to a stock UIVisualEffectView so the blur still applies.
+                frostedView = (YTFrostedGlassView *)[[UIVisualEffectView alloc]
+                    initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterial]];
                 frostedView.autoresizingMask =
                     UIViewAutoresizingFlexibleWidth |
                     UIViewAutoresizingFlexibleHeight;
-
-                [settingsView insertSubview:frostedView atIndex:0];
             }
+
+            frostedView.frame = settingsView.bounds;
+            [settingsView insertSubview:frostedView atIndex:0];
         } @catch (NSException *e) {
             HBLogWarn(@"[BlurrySettingsUI] Failed to apply frosted glass: %@", e);
         }
