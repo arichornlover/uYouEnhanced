@@ -1147,7 +1147,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
                 // this signed URL/client. Refetch a fresh player (rotating
                 // clients) and restart the task on a URL that isn't dead yet.
                 // One shot per item so a repeat failure still reports normally.
-                static const char retryKey;
+                static char retryKey;
                 if (![objc_getAssociatedObject(self, &retryKey) boolValue]) {
                     objc_setAssociatedObject(self, &retryKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
                     HBLogWarn(@"[uYouPatches] task error (%ld) for %@ - refetching fresh URLs", code, vid);
