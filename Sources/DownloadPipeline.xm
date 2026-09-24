@@ -26,6 +26,7 @@ static NSString * const UYTClientVersion = @"19.45.1";
 // task can be mapped back to its video. Declared here since this file
 // doesn't import DownloadPipeline.h.
 void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullable url);
+void UYTStoreResolvedURLs(NSString * _Nullable vid, NSString * _Nullable muxedURL, NSString * _Nullable audioURL, NSString * _Nullable videoURL);
 
 @interface UYTStreamFormat : NSObject
 @property (nonatomic, copy) NSString *url;
