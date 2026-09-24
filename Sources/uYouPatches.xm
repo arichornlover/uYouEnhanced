@@ -1136,15 +1136,51 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
             // -1011 bad server response (403), -1100 unsupported URL,
             // -1004 cannot connect, -1002 unsupported scheme.
             long code = (long)error.code;
-            if (vid.length && (code == -1011 || code == -1100 || code == -1002 || code == -1004) &&
-                UYTSABRHasValidCaptureForVideoID(vid)) {
-                HBLogWarn(@"[uYouPatches] task error (%ld) for %@ - rerouting to SABR capture", code, vid);
-                UYTSABRRecoverItemForVideo(vid, UYTIsAudioOnly(vid));
-                return; // SABR completes the item (or best-effort finalizes)
+            if (vid.length && (code == -1011 || code == -1100 || code == -1002 || code == -1004)) {
+                // Playback capture valid -> let SABR finish it on-device.
+                if (UYTSABRHasValidCaptureForVideoID(vid)) {
+                    HBLogWarn(@"[uYouPatches] task error (%ld) for %@ - rerouting to SABR capture", code, vid);
+                    UYTSABRRecoverItemForVideo(vid, UYTIsAudioOnly(vid));
+                    return; // SABR completes the item (or best-effort finalizes)
+                }
+                // yt-dlp-style recovery (#1011): that 403 is often specific to
+                // this signed URL/client. Refetch a fresh player (rotating
+                // clients) and restart the task on a URL that isn't dead yet.
+                // One shot per item so a repeat failure still reports normally.
+                static const char retryKey;
+                if (![objc_getAssociatedObject(self, &retryKey) boolValue]) {
+                    objc_setAssociatedObject(self, &retryKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                    HBLogWarn(@"[uYouPatches] task error (%ld) for %@ - refetching fresh URLs", code, vid);
+                    __block NSArray<UYTStreamFormat *> *freshFormats = nil;
+                    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+                    [UYTDownloadPipeline fetchFormatsForVideoID:vid isShorts:NO progress:nil completion:^(NSArray<UYTStreamFormat *> *formats, NSError *fetchErr) {
+                        freshFormats = formats;
+                        dispatch_semaphore_signal(sem);
+                    }];
+                    long waited = dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8.0 * NSEC_PER_SEC)));
+                    if (waited == 0 && freshFormats.count) {
+                        UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:freshFormats];
+                        UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:freshFormats];
+                        UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:freshFormats];
+                        UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
+                        UYTRegisterVideoIDForURL(vid, video.url);
+                        UYTRegisterVideoIDForURL(vid, audio.url);
+                        UYTRegisterVideoIDForURL(vid, muxed.url);
+                        NSString *fresh = UYTResolvedVideoURL(vid);
+                        if (fresh.length) {
+                            HBLogWarn(@"[uYouPatches] restarting %@ on a fresh URL after (%ld)", vid, code);
+                            [self setRemoteURL:[NSURL URLWithString:fresh]];
+                            [self createDownloadTask];
+                            return; // new task drives the item (watchdog armed)
+                        }
+                    } else {
+                        HBLogWarn(@"[uYouPatches] no fresh URLs for %@ after (%ld) — reporting to uYou", vid, code);
+                    }
+                }
             }
         }
     } @catch (NSException *e) {
-        HBLogWarn(@"[uYouPatches] URLSession didComplete SABR reroute failed: %@", e);
+        HBLogWarn(@"[uYouPatches] URLSession didComplete reroute failed: %@", e);
     }
     %orig;
 }

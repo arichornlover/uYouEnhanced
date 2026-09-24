@@ -54,14 +54,51 @@ void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullab
 
 @implementation UYTDownloadPipeline
 
-+ (NSDictionary *)clientContext {
-    return @{@"context": @{@"client": @{
-        @"clientName": @"ANDROID",
-        @"clientVersion": @"19.45.1",
-        @"deviceMake": @"samsung",
-        @"deviceModel": @"SM-S928B",
-        @"osName": @"Android",
-        @"osVersion": @"15",
+// yt-dlp-style client rotation (#1011): a stream 403 / empty response is often
+// client-specific. Each innertube client gets its own signed URLs, so a video
+// that 403s on one usually resolves on another. Start at the last good client,
+// sweep the rest on failure. Order: ANDROID 19.45.1 -> ANDROID 19.09.39 ->
+// IOS 19.45.1 (last resort; #1010 notes it 400s broadly but only as a fallback).
+static int UYTLastGoodClient = 0;
+
++ (NSDictionary *)clientContextForIndex:(int)idx {
+    if (idx <= 0) {
+        return @{@"context": @{@"client": @{   // ANDROID 19.45.1
+            @"clientName": @"ANDROID",
+            @"clientVersion": UYTClientVersion,
+            @"deviceMake": @"samsung",
+            @"deviceModel": @"SM-S928B",
+            @"osName": @"Android",
+            @"osVersion": @"15",
+            @"hl": @"en",
+            @"timeZone": @"UTC",
+            @"utcOffsetMinutes": @0
+        }},
+        @"contentCheckOk": @YES,
+        @"racyCheckOk": @YES};
+    }
+    if (idx == 1) {
+        return @{@"context": @{@"client": @{   // ANDROID 19.09.39 (classic)
+            @"clientName": @"ANDROID",
+            @"clientVersion": @"19.09.39",
+            @"deviceMake": @"samsung",
+            @"deviceModel": @"SM-S928B",
+            @"osName": @"Android",
+            @"osVersion": @"14",
+            @"hl": @"en",
+            @"timeZone": @"UTC",
+            @"utcOffsetMinutes": @0
+        }},
+        @"contentCheckOk": @YES,
+        @"racyCheckOk": @YES};
+    }
+    return @{@"context": @{@"client": @{        // IOS 19.45.1 (last resort)
+        @"clientName": @"IOS",
+        @"clientVersion": UYTClientVersion,
+        @"deviceMake": @"Apple",
+        @"deviceModel": @"iPhone15,2",
+        @"osName": @"iPhone",
+        @"osVersion": @"17.5.1.21F90",
         @"hl": @"en",
         @"timeZone": @"UTC",
         @"utcOffsetMinutes": @0
@@ -70,15 +107,21 @@ void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullab
     @"racyCheckOk": @YES};
 }
 
-+ (void)fetchFormatsForVideoID:(NSString *)videoID
-                     isShorts:(BOOL)isShorts
-                     progress:(void (^)(double frac, unsigned long long bytes))progress
-                   completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
-    // shorts share the ANDROID client below, nothing else to do here.
-    (void)isShorts;
-    // ANDROID innertube client (#1010: IOS/19.45.1 400s on 21.29+).
-    // client and UA are a matching pair or innertube 400s the whole thing.
-    NSMutableDictionary *body = [[self clientContext] mutableCopy];
++ (NSString *)userAgentForClientIndex:(int)idx {
+    if (idx <= 0) {
+        return @"com.google.android.youtube/19.45.1 (Linux; U; Android 15; SM-S928B Build/BP1A.250305.009; en_US)";
+    }
+    if (idx == 1) {
+        return @"com.google.android.youtube/19.09.39 (Linux; U; Android 14; SM-S928B Build/UP1A.231005.007; en_US)";
+    }
+    return @"com.google.android.youtube/19.45.1 (iPhone15,2; U; CPU iPhoneOS 17_5_1 like Mac OS X; en_US)";
+}
+
++ (void)tryClient:(int)idx
+          onVideo:(NSString *)videoID
+         progress:(void (^)(double frac, unsigned long long bytes))progress
+       completion:(void (^)(NSArray<UYTStreamFormat *> *formats, NSError *error))completion {
+    NSMutableDictionary *body = [[self clientContextForIndex:idx] mutableCopy];
     body[@"videoId"] = videoID;
     body[@"playbackContext"] = @{@"contentPlaybackContext": @{@"html5Preference": @"HTML5_PREF_WANTS"}};
 
@@ -86,8 +129,7 @@ void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullab
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
     req.HTTPMethod = @"POST";
     [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-    [req setValue:@"com.google.android.youtube/19.09.39 (Linux; U; Android 14; SM-S928B Build/UP1A.231005.007; en_US)"
-         forHTTPHeaderField:@"User-Agent"];
+    [req setValue:[self userAgentForClientIndex:idx] forHTTPHeaderField:@"User-Agent"];
     req.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
 
     if (progress) progress(0.0, 0);
@@ -98,33 +140,61 @@ void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullab
                 completion(@[], err ?: [NSError errorWithDomain:@"UYTDownload" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"empty response"}]);
                 return;
             }
+            NSMutableArray *out = [NSMutableArray array];
             NSError *jsonErr = nil;
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonErr];
-            if (!json) {
-                completion(@[], jsonErr);
-                return;
-            }
-            NSArray *streams = json[@"streamingData"][@"adaptiveFormats"];
-            NSArray *muxed = json[@"streamingData"][@"formats"];
-            NSMutableArray *out = [NSMutableArray array];
-            for (NSArray *list in @[streams ?: @[], muxed ?: @[]]) {
-                for (NSDictionary *f in list) {
-                    NSString *u = f[@"url"];
-                    if (!u) continue; // sigCipher formats need phase 2, skip for now
-                    UYTStreamFormat *sf = [[UYTStreamFormat alloc] init];
-                    sf.url = u;
-                    sf.itag = [f[@"itag"] integerValue];
-                    sf.mimeType = f[@"mimeType"];
-                    sf.bitrate = [f[@"bitrate"] longLongValue];
-                    sf.qualityLabel = f[@"qualityLabel"];
-                    sf.hasVideo = [sf.mimeType hasPrefix:@"video"];
-                    sf.hasAudio = [sf.mimeType hasPrefix:@"audio"] || ([sf.mimeType hasPrefix:@"video"] && ![f objectForKey:@"qualityLabel"]);
-                    [out addObject:sf];
+            if (json) {
+                NSArray *streams = json[@"streamingData"][@"adaptiveFormats"];
+                NSArray *muxed = json[@"streamingData"][@"formats"];
+                for (NSArray *list in @[streams ?: @[], muxed ?: @[]]) {
+                    for (NSDictionary *f in list) {
+                        NSString *u = f[@"url"];
+                        if (!u) continue; // sigCipher formats need phase 2, skip for now
+                        UYTStreamFormat *sf = [[UYTStreamFormat alloc] init];
+                        sf.url = u;
+                        sf.itag = [f[@"itag"] integerValue];
+                        sf.mimeType = f[@"mimeType"];
+                        sf.bitrate = [f[@"bitrate"] longLongValue];
+                        sf.qualityLabel = f[@"qualityLabel"];
+                        sf.hasVideo = [sf.mimeType hasPrefix:@"video"];
+                        sf.hasAudio = [sf.mimeType hasPrefix:@"audio"] || ([sf.mimeType hasPrefix:@"video"] && ![f objectForKey:@"qualityLabel"]);
+                        [out addObject:sf];
+                    }
                 }
             }
-            completion(out, nil);
+            // Ask innertube's error status instead of guessing on empty data,
+            // so rotation keeps trying on 400s this client provokes.
+            completion(out, json ? nil : (jsonErr ?: [NSError errorWithDomain:@"UYTDownload" code:-11 userInfo:@{NSLocalizedDescriptionKey: @"bad player response"}]));
         }];
     [task resume];
+}
+
++ (void)attempt:(int)n first:(int)first onVideo:(NSString *)videoID
+       progress:(void (^)(double frac, unsigned long long bytes))progress
+     completion:(void (^)(NSArray<UYTStreamFormat *> *formats, NSError *error))completion
+    lastError:(NSError *)lastError {
+    if (n > 2) {
+        completion(@[], lastError ?: [NSError errorWithDomain:@"UYTDownload" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"no client produced formats"}]);
+        return;
+    }
+    int idx = (first + n) % 3;
+    [self tryClient:idx onVideo:videoID progress:progress completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
+        if (formats.count) {
+            UYTLastGoodClient = idx;
+            completion(formats, nil);
+        } else {
+            [self attempt:(n + 1) first:first onVideo:videoID progress:progress completion:completion lastError:error ?: lastError];
+        }
+    }];
+}
+
++ (void)fetchFormatsForVideoID:(NSString *)videoID
+                     isShorts:(BOOL)isShorts
+                     progress:(void (^)(double frac, unsigned long long bytes))progress
+                   completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
+    (void)isShorts; // shorts use the same client list
+    int first = UYTLastGoodClient % 3;
+    [self attempt:0 first:first onVideo:videoID progress:progress completion:completion lastError:nil];
 }
 
 + (void)fetchFormatsForVideoID:(NSString *)videoID
@@ -157,6 +227,26 @@ void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullab
 @end
 
 // --- Wiring: fix uYou's stream URLs at the DownloadItem level ---
+
+// yt-dlp-style recovery (#1011): re-fetch formats (rotating clients, so a
+// fresh player response hands back fresh signed URLs) and push them into the
+// resolved store. A retried task then swaps in a URL that isn't 403'd yet.
+void UYTRefreshResolvedURLsForVideo(NSString *vid) {
+    if (!vid.length) return;
+    [UYTDownloadPipeline fetchFormatsForVideoID:vid isShorts:NO progress:nil completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
+        @try {
+            if (!formats.count) return;
+            UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
+            UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
+            UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
+            UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
+            UYTRegisterRemoteURLForVideoID(vid, video.url);
+            UYTRegisterRemoteURLForVideoID(vid, audio.url);
+            UYTRegisterRemoteURLForVideoID(vid, muxed.url);
+            NSLog(@"[UYTPipeline] refreshed resolved URLs for %@", vid);
+        } @catch (NSException *e) {}
+    }];
+}
 
 // Resolved URLs per videoID (muxed/audio/video + audioOnly flag). The reel
 // tap and a normal download can both fire innertube fetches on seperate bg

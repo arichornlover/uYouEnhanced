@@ -48,4 +48,8 @@ BOOL UYTIsAudioOnly(NSString * _Nullable vid);
 // uYouPatches' URL→videoID registry.
 void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullable url);
 
+// yt-dlp-style recovery (#1011): re-fetch the player with client rotation and
+// refresh the resolved-store URLs so a retried task swaps in a fresh URL.
+void UYTRefreshResolvedURLsForVideo(NSString * _Nullable vid);
+
 NS_ASSUME_NONNULL_END
