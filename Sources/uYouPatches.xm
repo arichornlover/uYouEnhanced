@@ -271,10 +271,8 @@ static void refreshUYouAppearance() {
 %group gYouDownloadFixes
 
 // --- Background Download Session Support (#70) ---
-// uYou uses AFHTTPSessionManager with session identifier "com.miro.uyou".
-// The session is NOT configured for background transfers, so downloads break
-// when the app is backgrounded or killed. Fix: enable background session
-// configuration so iOS can continue downloads in the background.
+// uYou's session ("com.miro.uyou") isn't configured for background transfers,
+// so bg downloads break when the app is killed. (#813)
 
 %hook DownloadsManager
 - (void)setupURLSessionConfiguration {
@@ -304,11 +302,11 @@ static BOOL UYTTaskWroteEverything(NSURLSessionTask *task) {
     return expected > 0 && written >= (long long)(expected * 0.98);
 }
 
-// --- SABR 403/URL-error recovery --------------------------------------------
-// When a stream URL fails (ANDROID innertube URLs can 403, or uYou's extractor
-// produced a broken URL), finish the download from the SABR capture for this
-// video instead of showing the error. Registration maps task URLs back to their
-// videoID since the DownloadItem is not the session delegate.
+// --- SABR 403/URL-error recovery (#1011) ---
+// Stream URL 403'd (android urls do this sometimes) or uYou's extractor gave
+// a broken URL — finish the download from the SABR capture instead. We keep a
+// URL→videoID map because the DownloadItem is NOT the session delegate, so its
+// own error hook never fires.
 
 static BOOL UYTFinalizeItem(id item, NSString *reason);
 
@@ -436,19 +434,15 @@ static void UYTSABRRecoverItemForVideo(NSString *vid, BOOL audioOnly) {
 %end
 
 // --- Prevent Idle Timer During Downloads (#813) ---
-// Manage idle timer to prevent device from sleeping during active downloads.
-// Previously the timer management was too aggressive - only managed during
-// getLinksLocally. Now we manage it across the full download lifecycle.
+// Keep the device awake for the whole download lifetime, not just the fetch.
 
 static BOOL uYouDownloadIsActive = NO;
 static NSInteger uYouActiveDownloadCount = 0;
 
 // --- WebM Audio Format Fix (#771, #465, #814) ---
-// Since YouTube v19.22, adaptive audio streams changed from m4a to webm.
-// uYou's merge methods (mergeAudioWithMP4VideoForDownloadItem: etc.) use
-// AVAssetExportSession which CANNOT merge mp4 video + webm audio,
-// causing downloads to hang forever at "conversion" or "Adding metadata".
-// Fix: detect webm audio and convert it to m4a via MobileFFmpeg before merge.
+// Since v19.22 adaptive audio is webm, but AVAssetExportSession can't merge
+// mp4 video + webm audio — downloads hung at "conversion" forever. Convert
+// webm → m4a via ffmpeg before any merge.
 static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
     if (!webmPath || !m4aPath) return NO;
 
@@ -521,8 +515,8 @@ static BOOL UYTAudioStillWebm(id item) {
     }
 }
 
-// Is this an audio-only download (no video stream)? Used to skip the video+audio
-// merge for Shorts audio-only downloads, which uYou creates as .mp4 items.
+// Audio-only download (Shorts audio / pure audio). Skips the video+audio merge
+// uYou insists on for .mp4 items.
 static BOOL UYTItemIsAudioOnly(id item) {
     @try {
         id ui = UYTResolveUYouItem(item);
@@ -543,13 +537,9 @@ static BOOL UYTItemIsAudioOnly(id item) {
     }
 }
 
-// #1010: uYouItem DERIVES tmpAudioPath from audioFormat + downloadIdentifier
-// and has NO tmpAudioPath setter, so KVC on that key throws NSUnknownKeyException.
-// The hooks below used to swallow it and then bail out (audio still read as
-// .webm → merge skipped → download hung forever). Point the item at the
-// converted file by switching audioFormat instead, then verify that tmpAudioPath
-// now resolves to the m4a we just wrote. Returns YES on success. Also reclaims
-// the stale .webm since nothing references it any more.
+// #1010: uYouItem derives tmpAudioPath from audioFormat + downloadIdentifier
+// and has NO tmpAudioPath setter, so KVC on that key throws. Point the item at
+// the converted file via audioFormat instead, then verify tmpAudioPath resolves.
 static BOOL UYTPointItemAtConvertedAudio(id uyouItem, NSString *webmPath, NSString *m4aPath) {
     @try {
         [uyouItem setValue:@"m4a" forKey:@"audioFormat"];
@@ -568,7 +558,7 @@ static BOOL UYTPointItemAtConvertedAudio(id uyouItem, NSString *webmPath, NSStri
     }
 }
 
-// Convert webm audio to m4a before merging.
+// Convert webm audio to m4a so the merge/remux can stream-copy.
 static BOOL UYTEnsureMergeableAudio(id item, NSString *phase) {    @try {
         id ui = UYTResolveUYouItem(item);
         NSString *audioPath = UYTAudioPathForItem(ui);
@@ -1063,13 +1053,12 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
         NSLog(@"[UYTPipeline] cached URLs for %@ (muxed=%ld, audio=%ld, video=%ld, audioOnly=%d)",
               vid, (long)muxed.itag, (long)audio.itag, (long)video.itag, requestedAudioOnly);
 
-        // Register every resolved URL so a failed task (403/broken URL) can be
-        // mapped back to this video and rerouted to SABR.
+        // Register the resolved URLs so a 403 (#1011) can be mapped back to this
+        // video; also the URL uYou already recorded on the item, in case the
+        // swap never applied.
         UYTRegisterVideoIDForURL(vid, video.url);
         UYTRegisterVideoIDForURL(vid, audio.url);
         UYTRegisterVideoIDForURL(vid, muxed.url);
-        // Also the URL uYou already recorded on the item — if the swap never
-        // applied, the failing task carries this original URL instead.
         @try {
             NSString *original = [item respondsToSelector:@selector(remoteURL)] ?
                 [item remoteURL] : [item valueForKey:@"remoteURL"];
@@ -1080,13 +1069,12 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
         [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedQuality"];
         [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedAudioOnly"];
 
-        // Let uYou's native flow proceed. Our DownloadItem hook below will
-        // swap any broken URL with our cached working one.
+        // Let uYou's native flow proceed; the DownloadItem hook below swaps in
+        // our working URL.
         dispatch_async(dispatch_get_main_queue(), ^{
             %orig;
-            // Lifecycle catch-all (#992): covers stalls in phases we cannot hook —
+            // Catch stalls in phases we can't hook (#992) + keep screen awake.
             UYTArmStallWatchdog(item, 300.0);
-            // Start idle timer prevention when download setup begins
             uYouActiveDownloadCount++;
             if (!uYouDownloadIsActive) {
                 uYouDownloadIsActive = YES;
@@ -1100,20 +1088,16 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 %end
 
 // --- Honest SABR finalize (no fake network task) ---
-// When the pipeline resolved only LOCAL file:// URLs, SABR already downloaded
-// and muxed the video on-device. Spinning up uYou's native download task on a
-// file:// URL fails instantly with -1002 leaving the item stuck forever. Instead
-// finalize the item end-to-end (file promotion, flags, DB row, queue purge,
-// notifications, Downloads list reload) with no %orig. Real http(s) URLs and
-// unknown states fall through to %orig untouched.
+// If the pipeline resolved file:// URLs, SABR already muxed it on-device and a
+// uYou native task on a file:// URL dies with -1002 leaving the item stuck.
+// So finalize the item end-to-end (file, flags, DB, queue, UI) with no %orig.
 %hook DownloadItem
 - (void)createDownloadTask {
     @try {
         NSString *vid = [NSString stringWithFormat:@"%@", self.videoID];
 
-        // SABR already finished and stored a file:// URL — finalize the item
-        // end-to-end (no network task, no %orig). This must be checked FIRST:
-        // after SABR completes, remoteURL is still nil but a ready file exists.
+        // SABR already finished: finalize with no network task. Must be FIRST —
+        // after SABR completes remoteURL is still nil but a ready file exists.
         if (vid.length) {
             NSString *resolved = UYTResolvedVideoURL(vid);
             if (!resolved.length) resolved = UYTResolvedURLForVideo(vid, YES);
@@ -1131,16 +1115,10 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
             }
         }
 
-        // HOTFIX4: if SABR is ALREADY driving this download but has not finished
-        // (no file:// URL stored yet), uYou's caller still invokes
-        // createDownloadTask right after setRemoteURL:. %orig here would build
-        // an NSURLRequest from uYou's broken extraction URL and fail instantly
-        // with NSURLErrorUnsupportedURL (-1002), RACING our in-progress SABR
-        // download (progress ticks up, then the row shows -1002 anyway and
-        // nothing ever finishes). Skip %orig only while SABR has an ACTUAL job
-        // in flight for this video — bare capture validity is NOT sufficient
-        // (it persists after any playback, which starved every normal download
-        // into "Not Started" because %orig never got to create the task).
+        // SABR is ALREADY driving this but hasn't stored a file:// yet — %orig would
+        // build a request from uYou's broken URL and fail -1002, racing SABR.
+        // Only skip for an ACTUAL in-flight job; bare capture validity isn't
+        // enough (it survives playback, which starved every normal download).
         if (vid.length && UYTSABRIsDownloadActive(vid)) {
             HBLogWarn(@"[uYouPatches] skipping uYou's createDownloadTask for %@ - SABR is driving this download", vid);
             return;
@@ -1173,9 +1151,7 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 %end
 
 // --- Format Detection Fallback (#735, #814) ---
-// uYou uses sub_12CE0E0 (black-box) to detect MP4 vs WebM. This can fail
-// for newer YouTube stream formats. Provide a fallback based on MIME type
-// and quality label inspection.
+// uYou's isMP4 heuristic fails on newer formats; fall back to MIME hints.
 
 %hook uYouItem
 - (BOOL)isMP4 {
@@ -1212,13 +1188,9 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 }
 %end
 
-// --- Metadata Attachment Exception Handling (#241, #814, #771, #465) ---
-// addMetadataToAudioForDownloadItem: can throw NSExceptions when the
-// audio file is corrupted, the export session fails, or AVAsset can't
-// be initialized (especially when audio is webm instead of m4a).
-// Fix: convert webm audio to m4a BEFORE adding metadata, then wrap in try-catch.
-// Also: extract audio from muxed video for low-quality audio-only downloads.
-
+// --- Metadata Attachment Fix (#241, #814, #771, #465) ---
+// addMetadata can throw on webm audio / bad files. Convert to m4a first, wrap
+// in try-catch, and pull audio out of a muxed video for low-quality audio-only.
 %hook DownloadsManager
 - (void)addMetadataToAudioForDownloadItem:(id)item {
     HBLogInfo(@"[uYouPatches] addMetadata entered");
@@ -1301,13 +1273,10 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 }
 %end
 
-// --- Audio/Video Merge with WebM Audio Fix (#241, #771, #465, #814) ---
-// After YouTube v19.22, adaptive audio changed from m4a to webm.
-// AVAssetExportSession CANNOT merge mp4 video + webm audio,
-// causing downloads to hang forever at "conversion" step.
-// Fix: detect webm audio and convert to m4a via MobileFFmpeg before merge.
-// Also: exception handling for crash recovery + fallback to video as-is.
-
+// --- Video+Audio Merge Fix (#241, #771, #465, #814, #1015) ---
+// v19.22+ audio is webm; AVAssetExportSession can't merge into mp4 and just
+// hung at "conversion". We own this path now: convert streams, remux with
+// ffmpeg, else SABR, else best-effort finish. Never the legacy exporter.
 %hook DownloadsManager
 - (void)mergeAudioWithMP4VideoForDownloadItem:(id)item {
     HBLogInfo(@"[uYouPatches] mergeAudioWithMP4Video entered");
@@ -1842,11 +1811,10 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
     }];
 }
 
-// YTReelHeaderView is uYou's real Shorts download surface: it vends the button
-// as its `uYouButton` property and ALREADY implements uYouDownloadButtonTapped:
-// (so that selector is %hook'd, never %new — Logos %new asserts if the method
-// exists). Declared here so the compiler has a concrete receiver type; the
-// class is never reimplemented, only hooked.
+// YTReelHeaderView is the real Shorts button host: it vends `uYouButton` and
+// already has uYouDownloadButtonTapped: (so that one is %hook'd, never %new —
+// %new asserts when the method exists). uYouButton lives here; elsewhere it's
+// just vended and modified, never created.
 @interface YTReelHeaderView : NSObject
 - (void)uYou;
 - (void)setUYOUButton:(id)button;

@@ -1,6 +1,5 @@
 // DownloadPipeline.xm — modern stream fetcher for YouTube 21.14.4+ (iOS 16–26).
 // Design doc: Docs/DownloadPipeline.md
-// Phase 1 scaffold: innertube player request + format selection.
 
 #import <Foundation/Foundation.h>
 
@@ -22,6 +21,11 @@
 
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
 static NSString * const UYTClientVersion = @"19.45.1";
+
+// 403 reroute (#1011): uYouPatches keeps the URL→videoID map so a failed
+// task can be mapped back to its video. Declared here since this file
+// doesn't import DownloadPipeline.h.
+void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullable url);
 
 @interface UYTStreamFormat : NSObject
 @property (nonatomic, copy) NSString *url;
@@ -70,13 +74,10 @@ static NSString * const UYTClientVersion = @"19.45.1";
                      isShorts:(BOOL)isShorts
                      progress:(void (^)(double frac, unsigned long long bytes))progress
                    completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
-    // isShorts: shorts share the ANDROID innertube client below (#1010:
-    // IOS/19.45.1 → HTTP 400 for 21.29+), so shorts quality/video-data fetch
-    // natively without uYou's broken legacy fallback. Included for parity with
-    // the public header API; the request itself is identical either way.
+    // shorts share the ANDROID client below, nothing else to do here.
     (void)isShorts;
-    // ANDROID innertube client (#1010: IOS/19.45.1 → HTTP 400 for 21.29+).
-    // Body and UA must be a matching pair or innertube 400s the request.
+    // ANDROID innertube client (#1010: IOS/19.45.1 400s on 21.29+).
+    // client and UA are a matching pair or innertube 400s the whole thing.
     NSMutableDictionary *body = [[self clientContext] mutableCopy];
     body[@"videoId"] = videoID;
     body[@"playbackContext"] = @{@"contentPlaybackContext": @{@"html5Preference": @"HTML5_PREF_WANTS"}};
@@ -109,7 +110,7 @@ static NSString * const UYTClientVersion = @"19.45.1";
             for (NSArray *list in @[streams ?: @[], muxed ?: @[]]) {
                 for (NSDictionary *f in list) {
                     NSString *u = f[@"url"];
-                    if (!u) continue; // signatureCipher fallback handled in phase 2
+                    if (!u) continue; // sigCipher formats need phase 2, skip for now
                     UYTStreamFormat *sf = [[UYTStreamFormat alloc] init];
                     sf.url = u;
                     sf.itag = [f[@"itag"] integerValue];
@@ -155,14 +156,12 @@ static NSString * const UYTClientVersion = @"19.45.1";
 
 @end
 
-// --- Wiring: fix uYou's stream URLs at the DownloadItem level ---------------
+// --- Wiring: fix uYou's stream URLs at the DownloadItem level ---
 
-// Shared store: per-videoID muxed/audio/video working URLs + audio-only flag.
-// Backs the public API declared in DownloadPipeline.h and consumed by
-// uYouPatches.xm (DownloadsManager + DownloadItem hooks, Reels button).
-// All access is serialized: the reel tap and a regular download can fire
-// innertube fetches from separate background threads at the same time, and an
-// unsynchronized NSMutableDictionary mutating concurrently is a crash.
+// Resolved URLs per videoID (muxed/audio/video + audioOnly flag). The reel
+// tap and a normal download can both fire innertube fetches on seperate bg
+// threads, so this dict is locked — an unlocked NSMutableDictionary here is
+// a crash waiting to happen. (#995, #1011)
 static NSMutableDictionary<NSString *, NSMutableDictionary *> *UYTResolvedStore;
 static NSObject *UYTResolvedStoreLock;
 
@@ -195,9 +194,8 @@ static void UYTResolvedEntrySet(NSString *vid, NSString *key, id value) {
     }
 }
 
-// A locally staged SABR file (Downloaded/<vid>.mp4 or .m4a) is the source of
-// truth once a download finished on-device — the innertube http(s) URL becomes
-// irrelevant then. createDownloadTask (uYouPatches) finalizes from file://.
+// Staged SABR file (Downloaded/<vid>.mp4|m4a) wins once it exists — the
+// https URL is then pointless and createDownloadTask finalizes from file://.
 static NSString *UYTStagedCanonicalPathFor(NSString *vid, NSString *ext) {
     @try {
         if (!vid.length || !ext.length) return nil;
@@ -292,15 +290,14 @@ static NSString *UYTGetResolvedURL(NSString *vid) {
     return UYTResolvedVideoURL(vid);
 }
 
-// KVC helpers — real uYou item keys change across versions, so every write is
-// individually guarded and unknown keys simply no-op.
+// KVC helper — real uYou key names change across versions so each write is
+// guarded; unknown keys just no-op.
 static void UYTSafeSetValue(id obj, NSString *key, id value) {
     if (!obj || !key.length) return;
     @try { [obj setValue:value forKey:key]; } @catch (NSException *e) {}
 }
 
-// Drive uYou's own DownloadItem list-row UI off the live (fraction, bytes)
-// signal from the new pipeline / SABR.
+// Mirror SABR/pipeline progress onto uYou's own download list row.
 void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double fractionComplete, unsigned long long bytesDownloaded) {
     @try {
         if (!vid.length) return;
@@ -331,7 +328,7 @@ void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double fractionComple
     } @catch (NSException *e) {}
 }
 
-// Write accurate final values (100% + real file size) on a completed item.
+// Stamp final values (100% + real size) on a done item.
 void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
     @try {
         if (!item) return;
@@ -357,16 +354,12 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
     } @catch (NSException *e) {}
 }
 
-// --- DB integration (reserved for future use) --------------------------------
-// With the URL-swap approach, uYou's native flow handles DB insertion when
-// given valid stream URLs. This section is kept for reference but the
-// standalone insert function was removed to fix -Wunused-function.
-// Schema for future re-use:
-//   CREATE TABLE IF NOT EXISTS downloads (id TEXT PRIMARY KEY, videoID TEXT,
-//   title TEXT, channel TEXT, channelURL TEXT, qualityLabel TEXT,
-//   typeAndQuality TEXT, size TEXT, duration TEXT, type TEXT, path TEXT,
-//   lyrics TEXT, timestamp DATETIME)
-//   DB path: Documents/uyoudb.sqlite (or AppGroup/uyoudb.sqlite)
+// --- DB integration (reserved) ---
+// The URL swap lets uYou's own flow do DB inserts when given a valid URL, so
+// the standalone insert func was removed (was hitting -Wunused-function).
+// Keeping the old schema here for reference:
+//   downloads(id TEXT PK, videoID, title, channel, channelURL, qualityLabel,
+//             typeAndQuality, size, duration, type, path, lyrics, timestamp)
 
 %hook DownloadItem
 
@@ -396,9 +389,9 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
 
 - (void)setRemoteURL:(NSURL *)url {
     NSString *vid = self.videoID ?: @"";
-    // Register BOTH the original and the swap target so the AF task-failure
-    // reroute can map any 403 back to this video, even if uYou later appends
-    // metadata params to the URL (the lookup tolerates prefixes).
+    // Register both the original and the swap URL so a failed task (403,
+    // #1011) can map back to this video — the lookup tolerates uYou's extra
+    // metadata params on the URL.
     if (url.absoluteString.length) UYTRegisterRemoteURLForVideoID(vid, url.absoluteString);
     NSString *working = UYTGetResolvedURL(vid);
     if (working.length) {
