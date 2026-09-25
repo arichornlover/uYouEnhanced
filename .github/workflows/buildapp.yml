@@ -240,6 +240,18 @@ jobs:
           PLIST="Payload/YouTube.app/Info.plist"
           ICON_SRC="../main/Localizations/uYouPlus.bundle/AppIcons"
           PB=/usr/libexec/PlistBuddy
+          BADICONS=0
+          for f in "$ICON_SRC"/*.png; do
+            SPEC="$(sips -g pixelWidth -g pixelHeight -g hasAlpha "$f" 2>/dev/null | awk '/pixelWidth/{w=$2} /pixelHeight/{h=$2} /hasAlpha/{a=$2} END{print w"x"h" alpha="a}')"
+            case "$SPEC" in
+              "1024x1024 alpha=no"*) ;;
+              *) echo "::warning::$(basename "$f") is $SPEC"; BADICONS=1 ;;
+            esac
+          done
+          if [ "$BADICONS" != 0 ]; then
+            echo "::error::app icons must be 1024x1024 opaque PNGs or iOS rejects them with OSStatus -54"
+            exit 1
+          fi
           # Create intermediate dicts FIRST (PlistBuddy cannot nest-create).
           for ROOT in CFBundleIcons "CFBundleIcons~ipad"; do
             $PB -c "Add :$ROOT dict" "$PLIST" 2>/dev/null || true
@@ -248,11 +260,12 @@ jobs:
           for f in "$ICON_SRC"/*.png; do
             NAME="$(basename "$f" .png)"
             cp -f "$f" "Payload/YouTube.app/$NAME.png"
+            cp -f "$f" "Payload/YouTube.app/$NAME@2x.png"
+            cp -f "$f" "Payload/YouTube.app/$NAME@3x.png"
             for ROOT in CFBundleIcons "CFBundleIcons~ipad"; do
               $PB -c "Add :$ROOT:CFBundleAlternateIcons:$NAME dict" "$PLIST" 2>/dev/null || true
               $PB -c "Add :$ROOT:CFBundleAlternateIcons:$NAME:CFBundleIconFiles array" "$PLIST" 2>/dev/null || true
               $PB -c "Add :$ROOT:CFBundleAlternateIcons:$NAME:CFBundleIconFiles:0 string $NAME" "$PLIST" 2>/dev/null || true
-              $PB -c "Add :$ROOT:CFBundleAlternateIcons:$NAME:CFBundleIconName string $NAME" "$PLIST" 2>/dev/null || true
             done
             echo "Registered alternate icon: $NAME"
           done
