@@ -27,11 +27,11 @@ static NSString * const UYTClientVersion = @"19.45.1";
 // doesn't import DownloadPipeline.h.
 void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullable url);
 void UYTStoreResolvedURLs(NSString * _Nullable vid, NSString * _Nullable muxedURL, NSString * _Nullable audioURL, NSString * _Nullable videoURL);
-// Structured logging (UYTLog.xm) — forward-declared here since this file
-// doesn't import UYTLog.h.
-void UYTDebugInfo(NSString * _Nonnull fmt, ...) __attribute__((format(NSString, 1, 2)));
-void UYTDebugWarn(NSString * _Nonnull fmt, ...) __attribute__((format(NSString, 1, 2)));
-void UYTDebugErr(NSString * _Nonnull fmt, ...) __attribute__((format(NSString, 1, 2)));
+// Structured logging (UYTLog.h — C linkage via extern "C"). Downloaded via the
+// header so call sites here match UYTLog.xm's unmangled definitions (this .xm
+// is ObjC++, which would otherwise C++-mangle UYTDebug* call sites and fail to
+// link against the C-linkage implementations).
+#import "UYTLog.h"
 
 @interface UYTStreamFormat : NSObject
 @property (nonatomic, copy) NSString *url;
