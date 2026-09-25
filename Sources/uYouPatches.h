@@ -1,12 +1,9 @@
 #import "uYouPlus.h"
 #import <YouTubeHeader/GOODialogView.h>
 
-// Access Group / Sideloading utilities
-// Shared between uYouPlusPatches.xm and uYouPatches.xm
 NSString *uYouAccessGroupID();
 BOOL uYouIsSideStore();
 
-// From uYou 3.0.4 source (a0zhar/uYou-3.0.4-src)
 @interface PlayerManager : NSObject
 + (id)sharedInstance;
 - (float)progress;
@@ -30,8 +27,8 @@ BOOL uYouIsSideStore();
 - (int)ffmpegWithArguments:(id)arguments;
 - (void)setupURLSessionConfiguration;
 - (void)createDownloadTask;
-- (void)reloadDownloadedVC;              // HOTFIX4: refresh Downloads list UI
-- (NSMutableArray *)downloadItemsArray;  // HOTFIX4: active downloading queue
+- (void)reloadDownloadedVC;
+- (NSMutableArray *)downloadItemsArray;
 - (void)setDownloadingItems:(id)items;
 - (void)exportVideoToCameraRollWithPath:(id)path removeFile:(BOOL)remove;
 - (void)dismissHUD;
@@ -81,12 +78,6 @@ BOOL uYouIsSideStore();
 @property (nonatomic, strong) NSString *title;
 @end
 
-// NOTE: YTIStreamingData, YTIFormatStream, YTPlaybackData, YTSingleVideoController,
-// YTPlayerResponse, YTIPlayerResponse, YTPlayerOverlayManager,
-// YTMainAppVideoPlayerOverlayViewController, YTPlayerViewController are already
-// declared in Tweaks/YouTubeHeader/. HAMPlayerInternal and MLHAMQueuePlayer
-// are already declared in Sources/uYouPlus.h. Do NOT re-declare them here.
-
 @interface YTPlayerViewController (uYouPatches)
 - (void)setPlaybackRate:(float)rate;
 @end
@@ -95,17 +86,12 @@ BOOL uYouIsSideStore();
 - (float)rate;
 @end
 
-// Bundled inside uYou's payload; used for webm -> m4a audio conversion (#771/#465)
-// NOT linked against this tweak: always call via %c(MobileFFmpeg) runtime lookup.
-// A bare [MobileFFmpeg ...] reference emits _OBJC_CLASS_$_MobileFFmpeg and fails to link.
 @interface MobileFFmpeg : NSObject
 + (int)executeWithArguments:(NSArray *)arguments;
 @end
 
-// Minimal declaration so touch-forwarding hooks can use UIView's nextResponder
 @interface YTFullScreenEngagementOverlayView : UIView
 @end
-
 
 @interface DownloadsPagerVC : UIViewController
 - (NSArray<UIViewController *> *)viewControllers;

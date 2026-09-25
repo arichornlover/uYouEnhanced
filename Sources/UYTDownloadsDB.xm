@@ -2,9 +2,6 @@
 #import "UYTLog.h"
 #import <sqlite3.h>
 
-// Confirmed on-device: Documents/uYou/ already existed before this tweak
-// ever touched it ("existed-before-us=1"), and rows written there show up
-// in uYou's "All" tab - that's the DB uYou actually reads.
 static NSString *UYTDownloadsDBPath(void) {
     NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
     NSString *dir = [docs stringByAppendingPathComponent:@"uYou"];
@@ -31,10 +28,6 @@ static BOOL UYTDownloadsDBInsertAtPath(NSString *dbPath,
         return NO;
     }
 
-    // Same CREATE TABLE uYou itself uses (confirmed via strings on
-    // uYou.dylib) - IF NOT EXISTS makes this a no-op in the normal case
-    // where uYou already created the table; a safety net if we ever get
-    // here first.
     const char *createSQL =
         "CREATE TABLE IF NOT EXISTS downloads ("
         "id TEXT PRIMARY KEY, videoID TEXT, title TEXT, channel TEXT, "
@@ -61,12 +54,9 @@ static BOOL UYTDownloadsDBInsertAtPath(NSString *dbPath,
     }
 
     NSDateFormatter *fmt = [NSDateFormatter new];
-    fmt.dateFormat = @"yyyy-MM-dd HH:mm"; // matches uYou's own format string, confirmed via strings
+    fmt.dateFormat = @"yyyy-MM-dd HH:mm";
     NSString *timestamp = [fmt stringFromDate:[NSDate date]];
 
-    // rowID is uYouItem's own downloadIdentifier - using videoID here made
-    // every re-download of the same video collide on the PRIMARY KEY and get
-    // silently dropped by INSERT OR IGNORE.
     NSArray<NSString *> *values = @[
         rowID.length ? rowID : videoID,
         videoID,
@@ -79,7 +69,7 @@ static BOOL UYTDownloadsDBInsertAtPath(NSString *dbPath,
         [NSString stringWithFormat:@"%.0f", duration],
         type ?: @"0",
         path,
-        @"", // lyrics
+        @"",
         timestamp,
     ];
     for (NSUInteger i = 0; i < values.count; i++) {
@@ -110,3 +100,4 @@ BOOL UYTDownloadsDBInsertCompleted(NSString *rowID,
     return UYTDownloadsDBInsertAtPath(UYTDownloadsDBPath(), rowID, videoID, title, channel, channelURL,
                                       qualityLabel, typeAndQuality, size, duration, type, path);
 }
+

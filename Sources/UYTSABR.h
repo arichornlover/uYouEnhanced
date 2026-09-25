@@ -1,13 +1,8 @@
-// UYTSABR.h — Public interface for vendored SABR engine (YouMod SABRDownload.x)
-// Credit: @Tonwalter888 / YouMod 2.0.0 — https://github.com/Tonwalter888/YouMod
-// Vendored as Sources/UYTSABR.xm, adapted for uYouEnhanced (always-on fallback for 21.29+).
 
 #import <Foundation/Foundation.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
-// SABR engine — downloads via captured signed videoplayback request + UMP.
-// Produces elementary files (mp4 video + m4a audio) for FFmpegKitNext muxing.
 @interface YMSABR : NSObject
 + (void)downloadVideoItag:(int)videoItag audioItag:(int)audioItag
                  progress:(void (^)(float fraction, unsigned long long bytesDownloaded, BOOL isAudio))progress
@@ -20,31 +15,12 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)cancelCurrent;
 @end
 
-// Helper to check if SABR has a valid captured request (for fallback gating)
 BOOL UYTSABRHasValidCapture(void);
 
-// Same as UYTSABRHasValidCapture but additionally requires the captured request
-// to belong to `videoID`. The capture is whatever video the player is CURRENTLY
-// streaming, so without this check a queued/requested download could silently
-// download a DIFFERENT video's segments. Returns capture-valid when `videoID`
-// is nil/empty or the captured videoID is unknown (backwards compatible).
 BOOL UYTSABRHasValidCaptureForVideoID(NSString * _Nullable videoID);
 
-// True only while UYTSABRFallbackDownloadForVideoID has an actual SABR job in
-// flight for `videoID` (cleared when that job finishes or fails). Capture
-// validity merely means the player streamed the video at some point; gating
-// logic must use THIS to decide "SABR is driving this download" so normal
-// native downloads are never starved of their createDownloadTask (%orig).
 BOOL UYTSABRIsDownloadActive(NSString * _Nullable videoID);
 
-// Fallback entry for uYou pipeline: download best mp4+m4a for videoID via SABR,
-// then mux with FFmpegKitNext and finalize via uYou's DB. Called when innertube
-// returns -1002 / empty URLs on YouTube 21.29+.
-// If audioOnly is YES, only downloads audio (for audio-only Shorts downloads).
-// progress (optional, may be nil) is called on the main queue as media arrives,
-// with fractionComplete in [0,1] (time-based: SABR has no upfront
-// Content-Length) plus the real running byte total across both tracks — the
-// inputs for uYou's DownloadItem size/speed/remaining UI fields.
 void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
                                       NSString * _Nullable title,
                                       BOOL audioOnly,
@@ -52,3 +28,4 @@ void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
                                       void (^completion)(BOOL success, NSString * _Nullable error));
 
 NS_ASSUME_NONNULL_END
+

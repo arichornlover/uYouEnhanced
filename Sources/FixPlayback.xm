@@ -1,28 +1,3 @@
-//
-//  FixPlayback.xm — definitive fix for "video playback stopping/stalling after ~60 s".
-//
-//  The old band-aid (reload the watch controller when error code 14 fires) only hides
-//  the symptom. The real cause is server-side: for an iOS client that fails YouTube's
-//  client attestation / integrity check, YouTube serves only the initial ~60 s buffer
-//  and then rejects every SABR segment request (HTTP 403), so playback looks like it
-//  "stops after a minute". Logged-out/VR/Oculus clients are not gated the same way.
-//
-//  This file implements three layers, all gated behind the existing
-//  "Fix Playback Issues" (kFixPlaybackIssues) toggle:
-//
-//   1. ROOT CAUSE — present /player, /next and /browse requests as the Android VR
-//      (Oculus Quest) client, bypassing the iOS-side attestation gate.
-//      Ported from AppropriateNet2928/YouFixPlaybackIssues v1.0.12
-//      (co-developed with Tonwalter888), shipped by YTLitePlus & YTPlusYTweaks.
-//      Improved: the visitorData of EACH request is read from that request's own body
-//      (no shared-session races) and is kept in both the context and the header.
-//
-//   2. RENDER PATH — force YouTube's HAM render view to METAL like Tonwalter888's
-//      YTUHD "Fix playback issues" does, so decoding/rendering stays on the reliable
-//      native hardware path (YTUHD FixPlayback.x, adapted from YouPiP by PoomSmart).
-//
-//   3. SAFETY NET — keep the previous reload-on-playback-error fallback (YouMod
-//      FixPlaybackIssues.x / Mark02-2012 YTPlaybackFix), with a loop guard.
 
 #import "uYouPlus.h"
 #import "UYTLog.h"
@@ -40,12 +15,10 @@
 #import <YouTubeHeader/YTPlayerViewController.h>
 #import <YouTubeHeader/YTWatchController.h>
 
-// -reload exists at runtime but isn't declared in YouTubeHeader.
 @interface YTWatchController (uYouFixPlayback)
 - (void)reload;
 @end
 
-// Not present in YouTubeHeader; declared so Logos can hook it (no-op if absent).
 @interface YTGLMediaPlayerViewFactory : NSObject
 @end
 
@@ -74,8 +47,6 @@ static NSDictionary *UYTFixVRHeaders(NSString *visitorData) {
     return headers;
 }
 
-// Rebuild the innertube body around a clean Android VR (Oculus Quest) client,
-// keeping the video/feed identification fields and the per-request visitorData.
 static NSDictionary *UYTFixVRBody(NSDictionary *incomingBody, NSString *visitorData) {
     NSMutableDictionary *client = [NSMutableDictionary dictionary];
     client[@"clientName"] = @"ANDROID_VR";
@@ -119,16 +90,10 @@ static NSDictionary *UYTFixVRBody(NSDictionary *incomingBody, NSString *visitorD
         return self;
     }
 
-    // Never rewrite the download pipeline's own innertube fetches. They carry a
-    // magic internal API key and deliberately choose per-client bodies (IOS,
-    // IOS_MUSIC, IOS_CREATOR, WEB) with downgraded versions so direct stream URLs
-    // come back — the VR spoof would replace the body/client and topple that.
     if ([URL.absoluteString containsString:@"youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc"]) {
         return self;
     }
 
-    // Pull the app-chosen visitorData out of THIS request so the VR session stays
-    // consistent for that request (no shared-state races across threads).
     NSString *visitorData = @"";
     if (self.HTTPBody) {
         NSDictionary *incoming = [NSJSONSerialization JSONObjectWithData:self.HTTPBody options:0 error:nil];
@@ -156,7 +121,7 @@ static NSDictionary *UYTFixVRBody(NSDictionary *incomingBody, NSString *visitorD
 
 %end
 
-%end // gFixPlaybackNetwork
+%end
 
 #pragma mark - [2] Render path: force HAM render view to METAL (YTUHD / YouPiP)
 
@@ -239,7 +204,7 @@ static void UYTFixForceRenderType(YTHotConfig *config) {
 }
 %end
 
-%end // gFixPlaybackRenderer
+%end
 
 #pragma mark - [3] Safety net: reload the watch controller on the classic playback error
 
@@ -268,7 +233,7 @@ static NSTimeInterval uytLastPlaybackReload = 0;
 }
 %end
 
-%end // gFixPlayback
+%end
 
 %ctor {
     if (!IS_ENABLED(kFixPlaybackIssues)) return;

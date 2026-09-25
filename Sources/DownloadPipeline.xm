@@ -1,5 +1,3 @@
-// DownloadPipeline.xm — modern stream fetcher for YouTube 21.14.4+ (iOS 16–26).
-// Design doc: Docs/DownloadPipeline.md
 
 #import <Foundation/Foundation.h>
 
@@ -22,22 +20,15 @@
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
 static NSString * const UYTClientVersion = @"19.45.1";
 
-// 403 reroute (#1011): uYouPatches keeps the URL→videoID map so a failed
-// task can be mapped back to its video. Declared here since this file
-// doesn't import DownloadPipeline.h.
 void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullable url);
 void UYTStoreResolvedURLs(NSString * _Nullable vid, NSString * _Nullable muxedURL, NSString * _Nullable audioURL, NSString * _Nullable videoURL);
-// Structured logging (UYTLog.h — C linkage via extern "C"). Downloaded via the
-// header so call sites here match UYTLog.xm's unmangled definitions (this .xm
-// is ObjC++, which would otherwise C++-mangle UYTDebug* call sites and fail to
-// link against the C-linkage implementations).
 #import "UYTLog.h"
 #import "YTSigDecipher.h"
 
 @interface UYTStreamFormat : NSObject
 @property (nonatomic, copy) NSString *url;
 @property (nonatomic, assign) NSInteger itag;
-@property (nonatomic, copy) NSString *mimeType;   // e.g. "video/mp4"
+@property (nonatomic, copy) NSString *mimeType;
 @property (nonatomic, assign) BOOL hasVideo;
 @property (nonatomic, assign) BOOL hasAudio;
 @property (nonatomic, assign) long long bitrate;
@@ -73,16 +64,11 @@ static UYTStreamFormat *UYTStreamFormatFromDict(NSDictionary *f, NSString *url) 
 
 @implementation UYTDownloadPipeline
 
-// yt-dlp-style client rotation (#1011): a stream 403 / empty response is often
-// client-specific. Each innertube client gets its own signed URLs, so a video
-// that 403s on one usually resolves on another. Start at the last good client,
-// sweep the rest on failure. Order: ANDROID 19.45.1 -> ANDROID 19.09.39 ->
-// IOS 19.45.1 (last resort; #1010 notes it 400s broadly but only as a fallback).
 static int UYTLastGoodClient = 0;
 
 + (NSDictionary *)clientContextForIndex:(int)idx {
     if (idx <= 0) {
-        return @{@"context": @{@"client": @{   // ANDROID 19.45.1
+        return @{@"context": @{@"client": @{
             @"clientName": @"ANDROID",
             @"clientVersion": UYTClientVersion,
             @"deviceMake": @"samsung",
@@ -97,7 +83,7 @@ static int UYTLastGoodClient = 0;
         @"racyCheckOk": @YES};
     }
     if (idx == 1) {
-        return @{@"context": @{@"client": @{   // ANDROID 19.09.39 (classic)
+        return @{@"context": @{@"client": @{
             @"clientName": @"ANDROID",
             @"clientVersion": @"19.09.39",
             @"deviceMake": @"samsung",
@@ -111,7 +97,7 @@ static int UYTLastGoodClient = 0;
         @"contentCheckOk": @YES,
         @"racyCheckOk": @YES};
     }
-    return @{@"context": @{@"client": @{        // IOS 19.45.1 (last resort)
+    return @{@"context": @{@"client": @{
         @"clientName": @"IOS",
         @"clientVersion": UYTClientVersion,
         @"deviceMake": @"Apple",
@@ -174,18 +160,11 @@ static int UYTLastGoodClient = 0;
                             [out addObject:UYTStreamFormatFromDict(f, u)];
                             continue;
                         }
-                        // No plain url: the format is behind a signatureCipher.
-                        // Queue it for the batch resolve below instead of
-                        // dropping it - skipping these emptied `out` whenever
-                        // every format came back ciphered, which is now the
-                        // common case (the old skip -> "no direct urls").
                         NSString *cipher = f[@"signatureCipher"] ?: f[@"cipher"];
                         if (cipher) [ciphered addObject:f];
                     }
                 }
             }
-            // Ask innertube's error status instead of guessing on empty data,
-            // so rotation keeps trying on 400s this client provokes.
             if (!out.count && !ciphered.count) {
                 UYTDebugErr(@"fetch client %d no usable URLs for %@ (%@)", idx, videoID,
                             jsonErr ? jsonErr.localizedDescription : (json ? @"no direct urls" : @"bad response"));
@@ -197,8 +176,6 @@ static int UYTLastGoodClient = 0;
                 completion(out, nil);
                 return;
             }
-            // One player.js fetch resolves every ciphered format for this video
-            // (they all share the same player version).
             UYTDebugInfo(@"[UYTPipeline] client %d: %lu direct + %lu ciphered for %@", idx,
                          (unsigned long)out.count, (unsigned long)ciphered.count, videoID);
             [UYTSigDecipher playerContextForVideoID:videoID completion:^(UYTPlayerJSContext *player, NSError *sigErr) {
@@ -257,7 +234,7 @@ static int UYTLastGoodClient = 0;
                      isShorts:(BOOL)isShorts
                      progress:(void (^)(double frac, unsigned long long bytes))progress
                    completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
-    (void)isShorts; // shorts use the same client list
+    (void)isShorts;
     int first = UYTLastGoodClient % 3;
     [self attempt:0 first:first onVideo:videoID progress:progress completion:completion lastError:nil];
 }
@@ -291,11 +268,6 @@ static int UYTLastGoodClient = 0;
 
 @end
 
-// --- Wiring: fix uYou's stream URLs at the DownloadItem level ---
-
-// yt-dlp-style recovery (#1011): re-fetch formats (rotating clients, so a
-// fresh player response hands back fresh signed URLs) and push them into the
-// resolved store. A retried task then swaps in a URL that isn't 403'd yet.
 void UYTRefreshResolvedURLsForVideo(NSString *vid) {
     if (!vid.length) return;
     UYTDebugInfo(@"refreshing resolved URLs for %@ (client rotation)", vid);
@@ -317,10 +289,6 @@ void UYTRefreshResolvedURLsForVideo(NSString *vid) {
     }];
 }
 
-// Resolved URLs per videoID (muxed/audio/video + audioOnly flag). The reel
-// tap and a normal download can both fire innertube fetches on seperate bg
-// threads, so this dict is locked — an unlocked NSMutableDictionary here is
-// a crash waiting to happen. (#995, #1011)
 static NSMutableDictionary<NSString *, NSMutableDictionary *> *UYTResolvedStore;
 static NSObject *UYTResolvedStoreLock;
 
@@ -353,8 +321,6 @@ static void UYTResolvedEntrySet(NSString *vid, NSString *key, id value) {
     }
 }
 
-// Staged SABR file (Downloaded/<vid>.mp4|m4a) wins once it exists — the
-// https URL is then pointless and createDownloadTask finalizes from file://.
 static NSString *UYTStagedCanonicalPathFor(NSString *vid, NSString *ext) {
     @try {
         if (!vid.length || !ext.length) return nil;
@@ -449,14 +415,11 @@ static NSString *UYTGetResolvedURL(NSString *vid) {
     return UYTResolvedVideoURL(vid);
 }
 
-// KVC helper — real uYou key names change across versions so each write is
-// guarded; unknown keys just no-op.
 static void UYTSafeSetValue(id obj, NSString *key, id value) {
     if (!obj || !key.length) return;
     @try { [obj setValue:value forKey:key]; } @catch (NSException *e) {}
 }
 
-// Mirror SABR/pipeline progress onto uYou's own download list row.
 void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double fractionComplete, unsigned long long bytesDownloaded) {
     @try {
         if (!vid.length) return;
@@ -487,7 +450,6 @@ void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double fractionComple
     } @catch (NSException *e) {}
 }
 
-// Stamp final values (100% + real size) on a done item.
 void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
     @try {
         if (!item) return;
@@ -513,13 +475,6 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
     } @catch (NSException *e) {}
 }
 
-// --- DB integration (reserved) ---
-// The URL swap lets uYou's own flow do DB inserts when given a valid URL, so
-// the standalone insert func was removed (was hitting -Wunused-function).
-// Keeping the old schema here for reference:
-//   downloads(id TEXT PK, videoID, title, channel, channelURL, qualityLabel,
-//             typeAndQuality, size, duration, type, path, lyrics, timestamp)
-
 %hook DownloadItem
 
 - (id)initWithVideoID:(id)videoID
@@ -530,17 +485,11 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
            cachedPath:(id)cachedPath
                  type:(int)type {
 
-    UYTDebugInfo(@"[UYTPipeline] DownloadItem init:");
-    UYTDebugInfo(@"[UYTPipeline] videoID = %@", videoID);
-    UYTDebugInfo(@"[UYTPipeline] downloadID = %@", downloadID);
-    UYTDebugInfo(@"[UYTPipeline] filePath = %@", filePath);
-    UYTDebugInfo(@"[UYTPipeline] cachedPath = %@", cachedPath);
-
     @try {
-        UYTDebugInfo(@"[UYTPipeline] title = %@", [uYouItem valueForKey:@"title"]);
-        UYTDebugInfo(@"[UYTPipeline] uYouItem.filePath = %@", [uYouItem valueForKey:@"filePath"]);
+        UYTDebugInfo(@"[UYTPipeline] DownloadItem init vid=%@ downloadID=%@ file=%@ cached=%@ title=%@",
+                     videoID, downloadID, filePath, cachedPath, [uYouItem valueForKey:@"title"]);
     } @catch (NSException *e) {
-        UYTDebugErr(@"[UYTPipeline] diagnostic failed: %@", e);
+        UYTDebugInfo(@"[UYTPipeline] DownloadItem init vid=%@ (detail lookup failed: %@)", videoID, e.reason ?: e);
     }
 
     return %orig(videoID, uYouItem, downloadID, url, filePath, cachedPath, type);
@@ -548,17 +497,13 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
 
 - (void)setRemoteURL:(NSURL *)url {
     NSString *vid = self.videoID ?: @"";
-    // Register both the original and the swap URL so a failed task (403,
-    // #1011) can map back to this video — the lookup tolerates uYou's extra
-    // metadata params on the URL.
     if (url.absoluteString.length) UYTRegisterRemoteURLForVideoID(vid, url.absoluteString);
     NSString *working = UYTGetResolvedURL(vid);
     if (working.length) {
         UYTRegisterRemoteURLForVideoID(vid, working);
         NSURL *fixed = [NSURL URLWithString:working];
         if (fixed) {
-            UYTDebugInfo(@"URL swap for %@ (task URL -> cached resolved URL)", vid);
-            UYTDebugInfo(@"[UYTPipeline] swapped broken URL -> working innertube URL for %@", vid);
+            UYTDebugInfo(@"[UYTPipeline] swapped broken task URL -> cached innertube URL for %@", vid);
             %orig(fixed);
             return;
         }
@@ -570,3 +515,4 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
 %ctor {
     %init;
 }
+

@@ -4,19 +4,11 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 
-static NSInteger UYTFFCachedBackend = -1; // -1 = not probed yet
+static NSInteger UYTFFCachedBackend = -1;
 
 static void UYTFFProbe(void) {
-    // Re-probe whenever we haven't found a backend yet: uYou.dylib (which
-    // provides MobileFFmpeg) may not be loaded at the first probe (e.g. if a
-    // conversion is attempted during our %ctor before uYou finishes loading).
-    // Caching "none" permanently would break conversion forever after an
-    // early probe. Only cache a positive result.
     if (UYTFFCachedBackend != -1 && UYTFFCachedBackend != UYTFFBackendNone) return;
 
-    // ffmpegkit.framework hard-links every av*/sw* library, and its install
-    // names use @rpath which the host app may not resolve. Preload each
-    // dependency by explicit path (dependencies first) so the shell loads.
     const char *libs[] = {
         "libavutil", "libswresample", "libavcodec",
         "libavformat", "libavdevice", "libavfilter", "libswscale",
@@ -55,7 +47,6 @@ BOOL UYTFFRun(NSArray<NSString *> *arguments) {
                 kitClass, @selector(executeWithArguments:), arguments);
             if (!session) return NO;
 
-            // ReturnCode object with -isSuccess, or a plain numeric exit code.
             if ([session respondsToSelector:@selector(getReturnCode)]) {
                 id rc = ((id (*)(id, SEL))objc_msgSend)(session, @selector(getReturnCode));
                 if ([rc respondsToSelector:@selector(isSuccess)]) {
@@ -69,7 +60,6 @@ BOOL UYTFFRun(NSArray<NSString *> *arguments) {
                 }
                 return NO;
             }
-            // Older wrapper shape: session state string.
             if ([session respondsToSelector:@selector(getState)]) {
                 NSString *state = [NSString stringWithFormat:@"%@",
                     ((id (*)(id, SEL))objc_msgSend)(session, @selector(getState))];
@@ -78,7 +68,6 @@ BOOL UYTFFRun(NSArray<NSString *> *arguments) {
             return NO;
         }
 
-        // MobileFFmpeg: class method returning the int exit code.
         int rc = ((int (*)(id, SEL, NSArray *))objc_msgSend)(
             kitClass, @selector(executeWithArguments:), arguments);
         return rc == 0;
@@ -111,7 +100,6 @@ BOOL UYTFFRemuxVideoAudioToMP4(NSString *videoPath, NSString *audioPath, NSStrin
     ]);
 }
 
-// Detect webm container by extension.
 static BOOL uytPathIsWebm(NSString *path) {
     return path.length > 0 && [path.pathExtension.lowercaseString isEqualToString:@"webm"];
 }
@@ -122,8 +110,6 @@ BOOL UYTFFConvertWebmVideoToMp4(NSString *webmPath, NSString *mp4Path) {
     if (![fm fileExistsAtPath:webmPath]) return NO;
     if ([fm fileExistsAtPath:mp4Path]) [fm removeItemAtPath:mp4Path error:nil];
 
-    // Try libx264 first (software encoder — always available in standard builds).
-    // Use medium preset for better quality/speed balance, and ensure proper pixel format.
     BOOL ok = UYTFFRun(@[
         @"-i", webmPath,
         @"-c:v", @"libx264",
@@ -139,11 +125,8 @@ BOOL UYTFFConvertWebmVideoToMp4(NSString *webmPath, NSString *mp4Path) {
         unsigned long long sz = [[fm attributesOfItemAtPath:mp4Path error:nil] fileSize];
         if (sz > 0) return YES;
     }
-    // Clean up partial output on failure.
     if ([fm fileExistsAtPath:mp4Path]) [fm removeItemAtPath:mp4Path error:nil];
 
-    // Fallback: VideoToolbox hardware encoder (available on iOS 11+).
-    // Use correct pixel format for VideoToolbox (nv12/yuv420p equivalent).
     ok = UYTFFRun(@[
         @"-i", webmPath,
         @"-c:v", @"h264_videotoolbox",
@@ -172,11 +155,9 @@ BOOL UYTFFSmartRemuxToMP4(NSString *videoPath, NSString *audioPath, NSString *ou
     BOOL audioIsWebm = uytPathIsWebm(audioPath);
 
     if (!videoIsWebm && !audioIsWebm) {
-        // Both are mp4-compatible — fast stream-copy.
         return UYTFFRemuxVideoAudioToMP4(videoPath, audioPath, outputPath);
     }
 
-    // Need to transcode webm streams to H.264/AAC before muxing.
     NSString *tmpVideo = videoPath;
     NSString *tmpAudio = audioPath;
     BOOL cleanupVideo = NO;
@@ -205,7 +186,6 @@ BOOL UYTFFSmartRemuxToMP4(NSString *videoPath, NSString *audioPath, NSString *ou
         cleanupAudio = YES;
     }
 
-    // Now mux the converted H.264 video with the AAC audio track.
     BOOL ok = UYTFFRemuxVideoAudioToMP4(tmpVideo, tmpAudio, outputPath);
 
     if (cleanupVideo && [fm fileExistsAtPath:tmpVideo]) [fm removeItemAtPath:tmpVideo error:nil];
@@ -213,3 +193,4 @@ BOOL UYTFFSmartRemuxToMP4(NSString *videoPath, NSString *audioPath, NSString *ou
 
     return ok;
 }
+

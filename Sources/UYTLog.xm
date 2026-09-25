@@ -1,15 +1,3 @@
-// UYTLog.xm — in-app debug logging for uYouEnhanced.
-//
-// Two capture paths:
-//   1. UYTDebugInfo/Warn/Err — call sites that matter (DownloadPipeline fetches,
-//      403 reroutes, retries, merges, watchdog). Always captured.
-//   2. A stderr tee — everything NSLog/HBLog/fprintf(stderr) writes goes into
-//      the same ring + file (and is still forwarded to the real stderr), so
-//      uYou's own errors show up too.
-//
-// The Settings > "uYouEnhanced Debug Logs" cell copies UYTDebugFullReport() to
-// the clipboard; the report header carries device/tweak/bundle info so sent
-// logs are self-describing.
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
@@ -19,11 +7,45 @@
 #import <pthread.h>
 #import "UYTLog.h"
 
+typedef NS_ENUM(NSInteger, UYTKind) {
+    UYTKindOther = 0,
+    UYTKindNoise = 1,
+    UYTKindSignal = 2
+};
+
+@interface UYTGroup : NSObject
+@property (nonatomic, copy) NSString *tag;
+@property (nonatomic, copy) NSString *source;
+@property (nonatomic, copy) NSString *sample;
+@property (nonatomic, copy) NSString *first;
+@property (nonatomic, copy) NSString *last;
+@property (nonatomic, assign) NSUInteger count;
+@property (nonatomic, assign) UYTKind kind;
+@property (nonatomic, strong) NSMutableArray<NSString *> *extras;
+@end
+
+@implementation UYTGroup
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _extras = [NSMutableArray array];
+        _count = 0;
+        _kind = UYTKindOther;
+    }
+    return self;
+}
+@end
+
 static NSMutableArray<NSString *> *UYTLogRing;
 static NSObject *UYTLogLock;
 static NSString *UYTLogFile;
+static NSFileHandle *UYTLogHandle;
+static NSString *UYTSessionStart;
 static int UYTOrigStderr = -1;
 static const NSUInteger UYTLogRingCap = 2000;
+static const NSUInteger UYTHostCaptureCap = 500;
+static const NSUInteger UYTHostSignalCap = 220;
+static const NSUInteger UYTNoiseSampleCap = 150;
 
 static NSString *UYTDocDir(void) {
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
@@ -40,11 +62,31 @@ static NSString *UYTNowStamp(void) {
     return [df stringFromDate:[NSDate date]];
 }
 
+static NSString *UYTCap(NSString *text, NSUInteger cap) {
+    if (text.length <= cap) return text;
+    return [NSString stringWithFormat:@"%@  <+%lu chars>", [text substringToIndex:cap], (unsigned long)(text.length - cap)];
+}
+
+static NSString *UYTSqueeze(NSString *text) {
+    NSString *t = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    while ([t containsString:@"  "]) t = [t stringByReplacingOccurrencesOfString:@"  " withString:@" "];
+    return t ?: @"";
+}
+
+static void UYTCloseLogFile(void) {
+    @try {
+        [UYTLogHandle synchronizeFile];
+        [UYTLogHandle closeFile];
+    } @catch (NSException *e) {}
+    UYTLogHandle = nil;
+}
+
 static void UYTRotateLogFile(void) {
-    if (!UYTLogFile) return;
+    if (!UYTLogFile.length) return;
     @try {
         NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:UYTLogFile error:nil];
         if (attrs && [attrs fileSize] > 1024 * 1024) {
+            UYTCloseLogFile();
             NSString *old = [UYTLogFile stringByAppendingString:@".old"];
             [[NSFileManager defaultManager] removeItemAtPath:old error:nil];
             [[NSFileManager defaultManager] moveItemAtPath:UYTLogFile toPath:old error:nil];
@@ -52,37 +94,51 @@ static void UYTRotateLogFile(void) {
     } @catch (NSException *e) {}
 }
 
-static void UYTDebugWriteLine(NSString *line) {
-    if (!line.length) return;
+static void UYTFileAppend(NSString *line) {
+    if (!UYTLogFile.length) return;
+    if (!UYTLogHandle) {
+        @try {
+            if (![[NSFileManager defaultManager] fileExistsAtPath:UYTLogFile]) {
+                [[NSFileManager defaultManager] createFileAtPath:UYTLogFile contents:nil attributes:nil];
+            }
+            UYTLogHandle = [NSFileHandle fileHandleForWritingAtPath:UYTLogFile];
+            [UYTLogHandle seekToEndOfFile];
+        } @catch (NSException *e) {
+            UYTLogHandle = nil;
+        }
+    }
+    if (!UYTLogHandle) return;
+    @try {
+        [UYTLogHandle writeData:[[line stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding]];
+    } @catch (NSException *e) {
+        @try { [UYTLogHandle closeFile]; } @catch (NSException *e2) {}
+        UYTLogHandle = nil;
+    }
+}
+
+static void UYTWriteLine(NSString *tag, NSString *stamp, NSString *text) {
+    NSString *line = [NSString stringWithFormat:@"%@ %@ %@", tag, stamp, text];
     @synchronized (UYTLogLock) {
         if (UYTLogRing.count >= UYTLogRingCap) {
             [UYTLogRing removeObjectsInRange:NSMakeRange(0, UYTLogRing.count - UYTLogRingCap + 1)];
         }
         [UYTLogRing addObject:line];
-        if (UYTLogFile.length) {
-            @try {
-                NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:UYTLogFile];
-                if (!fh) {
-                    [[NSFileManager defaultManager] createFileAtPath:UYTLogFile contents:nil attributes:nil];
-                    fh = [NSFileHandle fileHandleForWritingAtPath:UYTLogFile];
-                }
-                if (fh) {
-                    [fh seekToEndOfFile];
-                    [fh writeData:[[line stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding]];
-                    [fh closeFile];
-                }
-            } @catch (NSException *e) {}
-        }
+        UYTFileAppend(line);
     }
 }
 
-// Raw stderr line captured by the NSLog/HBLog tee. Tagged with capture time
-// so the report reads like a proper log.
-void UYTDebugCaptureLine(NSString *raw) {
-    if (!raw.length) return;
-    UYTDebugWriteLine([NSString stringWithFormat:@"[LOG] %@ %@", UYTNowStamp(), raw]);
-    if (UYTOrigStderr >= 0) {
-        @try { dprintf(UYTOrigStderr, "%s\n", raw.UTF8String); } @catch (NSException *e) {}
+static void UYTWriteMessage(NSString *tag, NSString *message) {
+    NSString *trimmed = UYTSqueeze(message);
+    if (!trimmed.length) return;
+    NSArray<NSString *> *parts = [trimmed componentsSeparatedByString:@"\n"];
+    NSUInteger index = 0;
+    for (NSString *part in parts) {
+        NSString *text = UYTSqueeze(part);
+        if (text.length) {
+            if (index == 0) UYTWriteLine(tag, UYTNowStamp(), text);
+            else UYTWriteLine(@"[CONT]", UYTNowStamp(), text);
+        }
+        index++;
     }
 }
 
@@ -90,100 +146,51 @@ void UYTDebugInfo(NSString *format, ...) {
     va_list ap; va_start(ap, format);
     NSString *msg = [[NSString alloc] initWithFormat:format arguments:ap];
     va_end(ap);
-    UYTDebugWriteLine([NSString stringWithFormat:@"[UYT-I] %@ %@", UYTNowStamp(), msg]);
+    UYTWriteMessage(@"[UYT-I]", msg);
 }
 
 void UYTDebugWarn(NSString *format, ...) {
     va_list ap; va_start(ap, format);
     NSString *msg = [[NSString alloc] initWithFormat:format arguments:ap];
     va_end(ap);
-    UYTDebugWriteLine([NSString stringWithFormat:@"[UYT-W] %@ %@", UYTNowStamp(), msg]);
+    UYTWriteMessage(@"[UYT-W]", msg);
 }
 
 void UYTDebugErr(NSString *format, ...) {
     va_list ap; va_start(ap, format);
     NSString *msg = [[NSString alloc] initWithFormat:format arguments:ap];
     va_end(ap);
-    UYTDebugWriteLine([NSString stringWithFormat:@"[UYT-E] %@ %@", UYTNowStamp(), msg]);
+    UYTWriteMessage(@"[UYT-E]", msg);
 }
 
-// Known-benign chatter that floods stderr and must never count as a failure:
-// YouTube's own share-sheet scheme probes (canOpenURL), Crashpad dump reader,
-// its sinkholed NSInvalidArgumentException processor, Lottie warnings, and a
-// one-off UIKit layout note. Kept out of the numbered error list but still
-// visible in the raw-lines section.
-static BOOL UYTLineIsNoise(NSString *line) {
-    NSString *lc = line.lowercaseString;
-    static NSArray<NSString *> *noise = @[
-        @"-canopenurl:",
-        @"intermediate_dump_reader_util.cc",
-        @"directory_reader_posix.cc",
-        @"exception_processor.mm",
-        @"sinkhole",
-        @"ytiicon.icontype",
-        @"lotshapegroup",
-        @"gradient strokes",
-        @"merge shape is not supported",
-        @"unbalanced calls to begin/end appearance transitions",
-        @"tensorflow lite",
-        @"xnnpack"
-    ];
-    for (NSString *n in noise) {
-        if ([lc containsString:n]) return YES;
+static NSString *UYTStripHostPrefix(NSString *raw) {
+    static NSRegularExpression *rx;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        rx = [NSRegularExpression regularExpressionWithPattern:@"^\\d{4}-\\d{2}-\\d{2} \\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}\\s+[A-Za-z0-9_.]+\\[\\d+:\\d+\\]\\s*"
+                                                     options:0 error:nil];
+    });
+    NSString *s = raw ?: @"";
+    while (s.length) {
+        NSTextCheckingResult *m = [rx firstMatchInString:s options:0 range:NSMakeRange(0, s.length)];
+        if (!m || !m.range.length) break;
+        s = [s substringFromIndex:m.range.length];
     }
-    return NO;
+    return s;
 }
 
-static BOOL UYTLineIsFailure(NSString *line) {
-    // Anything our own code escalated to UYTDebugErr is a failure by definition,
-    // even if the message wording happens to avoid the keywords below.
-    if ([line hasPrefix:@"[UYT-E]"]) return YES;
-    NSString *lc = line.lowercaseString;
-    static NSArray<NSString *> *words = @[
-        @"error", @"fail", @"403", @"400", @"401", @"exception", @"throw",
-        @"stall", @"timeout", @"crash", @"refetch", @"reroute", @"retry",
-        @"forbidden", @"denied", @"stuck", @"hung", @"unrecognized selector",
-        @"cannot", @"unable", @"abort", @"zero-byte"
-    ];
-    for (NSString *w in words) {
-        if ([lc containsString:w]) return YES;
-    }
-    return NO;
-}
-
-static NSArray<NSString *> *UYTFailureLines(void) {
-    NSMutableArray *a = [NSMutableArray array];
-    @synchronized (UYTLogLock) {
-        for (NSString *l in UYTLogRing) {
-            if (UYTLineIsNoise(l)) continue;
-            if (UYTLineIsFailure(l)) [a addObject:l];
-        }
-    }
-    return a;
-}
-
-NSUInteger UYTDebugErrorCount(void) {
-    return UYTFailureLines().count;
-}
-
-NSString *UYTDebugErrorsText(void) {
-    NSArray *errs = UYTFailureLines();
-    return errs.count ? [errs componentsJoinedByString:@"\n"] : @"(none)";
-}
-
-NSString *UYTDebugLogText(NSUInteger lastLines) {
-    @synchronized (UYTLogLock) {
-        if (!UYTLogRing.count) return @"(no entries)";
-        NSUInteger n = MIN(lastLines, UYTLogRing.count);
-        NSRange r = NSMakeRange(UYTLogRing.count - n, n);
-        return [[UYTLogRing subarrayWithRange:r] componentsJoinedByString:@"\n"];
+void UYTDebugCaptureLine(NSString *raw) {
+    if (!raw.length) return;
+    UYTWriteMessage(@"[LOG]", UYTCap(UYTStripHostPrefix(raw), UYTHostCaptureCap));
+    if (UYTOrigStderr >= 0) {
+        @try { dprintf(UYTOrigStderr, "%s\n", raw.UTF8String); } @catch (NSException *e) {}
     }
 }
 
 static void UYTHandleUncaught(NSException *exception) {
     @autoreleasepool {
-        UYTDebugWriteLine([NSString stringWithFormat:
-            @"[UYT-E] UNCAUGHT EXCEPTION: %@\nReason: %@\n%@",
+        UYTWriteMessage(@"[UYT-E]", [NSString stringWithFormat:
+            @"UNCAUGHT EXCEPTION: %@\nReason: %@\n%@",
             exception.name ?: @"?", exception.reason ?: @"?",
             [exception.callStackSymbols componentsJoinedByString:@"\n"]]);
     }
@@ -217,14 +224,15 @@ void UYTLogInstall(void) {
         UYTLogRing = [NSMutableArray array];
         UYTLogFile = [UYTDocDir() stringByAppendingPathComponent:@"uYouEnhanced-Debug.log"];
         UYTRotateLogFile();
+        UYTSessionStart = UYTNowStamp();
 
         NSDateFormatter *df = [NSDateFormatter new];
         df.dateFormat = @"yyyy-MM-dd HH:mm:ss";
         NSString *stamp = [df stringFromDate:[NSDate date]];
 #ifdef TWEAK_VERSION
-        UYTDebugWriteLine([NSString stringWithFormat:@"== uYouEnhanced session %@ (tweak %s) ==", stamp, TWEAK_VERSION]);
+        UYTWriteLine(@"[UYT-I]", UYTNowStamp(), [NSString stringWithFormat:@"[uYouEnhanced] == session start %@ (tweak %s) ==", stamp, TWEAK_VERSION]);
 #else
-        UYTDebugWriteLine([NSString stringWithFormat:@"== uYouEnhanced session %@ ==", stamp]);
+        UYTWriteLine(@"[UYT-I]", UYTNowStamp(), [NSString stringWithFormat:@"[uYouEnhanced] == session start %@ ==", stamp]);
 #endif
 
         int fds[2];
@@ -250,55 +258,403 @@ void UYTLogInstall(void) {
     });
 }
 
-NSString *UYTDebugFullReport(void) {
-    NSMutableString *s = [NSMutableString string];
+static BOOL UYTContainsAny(NSString *haystackLower, NSArray<NSString *> *needles) {
+    for (NSString *n in needles) {
+        if ([haystackLower containsString:n]) return YES;
+    }
+    return NO;
+}
 
-    // ---- Header ----
-    [s appendString:@"============================================================\n"];
-    [s appendString:@"  uYouEnhanced — Debug Report\n"];
-    [s appendString:@"============================================================\n"];
-#ifdef TWEAK_VERSION
-    [s appendFormat:@"  tweak   : %s\n", TWEAK_VERSION];
-#endif
-    [s appendFormat:@"  device  : %@\n", UIDevice.currentDevice.model ?: @"?"];
-    [s appendFormat:@"  iOS     : %@\n", UIDevice.currentDevice.systemVersion ?: @"?"];
-    [s appendFormat:@"  bundle  : %@ v%@\n",
-        [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"] ?: @"?",
-        [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?"];
-    NSDateFormatter *df = [NSDateFormatter new];
-    df.dateFormat = @"yyyy-MM-dd HH:mm:ss";
-    [s appendFormat:@"  exported: %@\n", [df stringFromDate:[NSDate date]]];
-    [s appendString:@"------------------------------------------------------------\n"];
+static BOOL UYTIsHostNoise(NSString *lc) {
+    static NSArray<NSString *> *noise;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        noise = @[
+            @"pindiskcache",
+            @"sandbox_extension_issue_file",
+            @"uimotioneffects",
+            @"uimotioneffectbody",
+            @"_startupdatingbodytoken",
+            @"_stopupdatingbodytoken",
+            @"_didupdatebody",
+            @"lotshapegroup",
+            @"merge shape is not supported",
+            @"loaded mobile-ffmpeg",
+            @"ffmpeg version",
+            @"library configuration mismatch",
+            @"built with apple clang",
+            @"avutil      configuration",
+            @"avcodec     configuration",
+            @"avformat    configuration",
+            @"avdevice    configuration",
+            @"avfilter    configuration",
+            @"swscale     configuration",
+            @"swresample  configuration",
+            @"libavutil",
+            @"libavcodec",
+            @"libavformat",
+            @"libavdevice",
+            @"libswscale",
+            @"info:  configuration",
+            @"info:  copyright",
+            @"info: ffmpeg",
+            @"info:",
+            @"intermediate_dump_reader_util.cc",
+            @"directory_reader_posix.cc",
+            @"sinkhole",
+            @"ytiicon.icontype",
+            @"gradient strokes",
+            @"unbalanced calls to begin/end appearance transitions",
+            @"tensorflow lite",
+            @"xnnpack",
+            @"-canopenurl:",
+            @"unsupported url -",
+            @"osstatus error -10814"
+        ];
+    });
+    return UYTContainsAny(lc, noise);
+}
 
-    // ---- Errors / failures (numbered) ----
-    NSArray<NSString *> *errs = UYTFailureLines();
-    [s appendFormat:@"\n---- %lu ERROR(S) / FAILURE(S) ----\n", (unsigned long)errs.count];
-    if (!errs.count) {
-        [s appendString:@"(none) — clean session\n"];
-    } else {
-        NSUInteger i = 1;
-        for (NSString *line in errs) {
-            [s appendFormat:@"%4lu. %@\n", (unsigned long)i++, line];
+static BOOL UYTIsHostSignal(NSString *lc) {
+    static NSArray<NSString *> *signal;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        signal = @[
+            @"unrecognized selector",
+            @"uncaught exception",
+            @"handling objective-c exception",
+            @"attempt to set an unknown enum value",
+            @"exception_processor.mm",
+            @"terminating app",
+            @"exc_bad",
+            @"sigabrt",
+            @"signal sig",
+            @"abort trap",
+            @"assertion failed",
+            @"dyld[",
+            @"no space left",
+            @"disk full",
+            @"status code 4",
+            @"status code 5",
+            @"nsurlsession",
+            @"nw_connection",
+            @"connection lost",
+            @"timed out",
+            @"watchdog",
+            @"nslayoutconstraint is being configured",
+            @"unable to simultaneously satisfy constraints"
+        ];
+    });
+    return UYTContainsAny(lc, signal);
+}
+
+static NSString *UYTGroupKey(NSString *text) {
+    static NSArray *rules;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSArray<NSString *> *patterns = @[
+            @"(?i)^\\s*(info|warning|error|debug|verbose)\\s*:\\s*",
+            @"(?i)https?://[^\\s\"'>]+",
+            @"(?i)https?%3A%2F%2F[^\\s\"'>]+",
+            @"(?i)\\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\b",
+            @"0x[0-9a-f]{4,}",
+            @"(?i)\\b[0-9a-f]{14,}\\b",
+            @"/var/mobile/\\S+",
+            @"\\b\\d{6,}\\b",
+            @"\\b\\d+[.,]\\d+\\b"
+        ];
+        NSArray<NSString *> *replacements = @[
+            @"", @" <url> ", @" <url> ", @" <uuid> ", @" <ptr> ", @" <blob> ", @" <path> ", @" <n> ", @" <f> "
+        ];
+        NSMutableArray *rx = [NSMutableArray array];
+        for (NSUInteger i = 0; i < patterns.count; i++) {
+            NSRegularExpression *r = [NSRegularExpression regularExpressionWithPattern:patterns[i] options:0 error:nil];
+            if (r) [rx addObject:@[r, replacements[i]]];
+        }
+        rules = rx;
+    });
+    NSMutableString *key = [text mutableCopy];
+    for (NSArray *pair in rules) {
+        NSRegularExpression *r = pair[0];
+        NSString *replacement = pair[1];
+        [r replaceMatchesInString:key options:0 range:NSMakeRange(0, key.length)
+                     withTemplate:replacement];
+    }
+    return UYTSqueeze(key).lowercaseString;
+}
+
+static void UYTParseLine(NSString *line, NSString **tag, NSString **stamp, NSString **text) {
+    NSRange sp = [line rangeOfString:@" "];
+    if (sp.location == NSNotFound) {
+        if (tag) *tag = @"[?]";
+        if (stamp) *stamp = @"";
+        if (text) *text = line;
+        return;
+    }
+    NSString *rest = [line substringFromIndex:sp.location + 1];
+    NSRange sp2 = [rest rangeOfString:@" "];
+    if (sp2.location == NSNotFound) {
+        if (tag) *tag = [line substringToIndex:sp.location];
+        if (stamp) *stamp = rest;
+        if (text) *text = @"";
+        return;
+    }
+    if (tag) *tag = [line substringToIndex:sp.location];
+    if (stamp) *stamp = [rest substringToIndex:sp2.location];
+    if (text) *text = [rest substringFromIndex:sp2.location + 1];
+}
+
+static NSString *UYTSourceOf(NSString *text) {
+    if (![text hasPrefix:@"["]) return @"";
+    NSRange end = [text rangeOfString:@"]"];
+    if (end.location == NSNotFound || end.location > 32) return @"";
+    return [text substringToIndex:end.location + 1];
+}
+
+static NSArray<UYTGroup *> *UYTSnapshotGroups(void) {
+    NSArray<NSString *> *lines;
+    @synchronized (UYTLogLock) {
+        lines = [UYTLogRing copy];
+    }
+    NSMutableDictionary<NSString *, UYTGroup *> *map = [NSMutableDictionary dictionary];
+    NSMutableArray<UYTGroup *> *order = [NSMutableArray array];
+    UYTGroup *last = nil;
+    for (NSString *line in lines) {
+        NSString *tag = nil, *stamp = nil, *text = nil;
+        UYTParseLine(line, &tag, &stamp, &text);
+        if ([tag isEqualToString:@"[CONT]"]) {
+            if (last && last.extras.count < 6) [last.extras addObject:text];
+            continue;
+        }
+        NSString *key = [NSString stringWithFormat:@"%@|%@", tag, UYTGroupKey(text)];
+        UYTGroup *g = map[key];
+        if (!g) {
+            g = [UYTGroup new];
+            g.tag = tag;
+            g.source = UYTSourceOf(text);
+            g.sample = text;
+            g.first = stamp;
+            g.last = stamp;
+            g.count = 1;
+            if ([tag isEqualToString:@"[LOG]"]) {
+                NSString *lc = text.lowercaseString;
+                g.kind = UYTIsHostSignal(lc) ? UYTKindSignal : (UYTIsHostNoise(lc) ? UYTKindNoise : UYTKindOther);
+            }
+            map[key] = g;
+            [order addObject:g];
+        } else {
+            g.count++;
+            g.last = stamp;
+            if (text.length > g.sample.length) g.sample = text;
+        }
+        last = g;
+    }
+    return order;
+}
+
+static void UYTFilterGroups(NSMutableArray<UYTGroup *> *dest, NSArray<UYTGroup *> *all,
+                            NSString *tag, NSInteger kind, BOOL anyKind) {
+    for (UYTGroup *g in all) {
+        if (tag && ![g.tag isEqualToString:tag]) continue;
+        if (!anyKind && g.kind != kind) continue;
+        [dest addObject:g];
+    }
+}
+
+static void UYTAppendGroups(NSMutableString *s, NSArray<UYTGroup *> *groups, NSUInteger cap,
+                            NSUInteger maxGroups, BOOL showSource) {
+    if (!groups.count) {
+        [s appendString:@"  (none)\n"];
+        return;
+    }
+    NSUInteger shown = 0;
+    for (UYTGroup *g in groups) {
+        if (shown >= maxGroups) break;
+        shown++;
+        NSString *when = g.first;
+        if (g.count > 1 && g.last.length && ![g.last isEqualToString:g.first]) {
+            when = [NSString stringWithFormat:@"%@ -> %@", g.first, g.last];
+        }
+        NSMutableString *pad = [when mutableCopy] ?: [NSMutableString string];
+        while (pad.length < 26) [pad appendString:@" "];
+        NSMutableString *body = [NSMutableString string];
+        if (showSource && g.source.length) [body appendFormat:@"%@ ", g.source];
+        [body appendString:UYTCap(g.sample, cap)];
+        [s appendFormat:@"  x%-3lu %@ %@\n", (unsigned long)g.count, pad, UYTSqueeze(body)];
+        for (NSString *extra in g.extras) {
+            [s appendFormat:@"        | %@\n", UYTCap(extra, 120)];
         }
     }
-
-    // ---- Last raw lines ----
-    [s appendString:@"\n---- LAST 300 RAW LINES ----\n"];
-    [s appendString:UYTDebugLogText(300)];
-    [s appendString:@"\n"];
-
-    // ---- Shorts unrecognized-selector evidence ----
-    NSString *selPath = [UYTDocDir() stringByAppendingPathComponent:@"uYouUnrecognizedSelector.log"];
-    if ([[NSFileManager defaultManager] fileExistsAtPath:selPath]) {
-        [s appendString:@"\n---- UNRECOGNIZED SELECTORS (Shorts crash evidence) ----\n"];
-        [s appendString:[NSString stringWithContentsOfFile:selPath encoding:NSUTF8StringEncoding error:nil] ?: @"(unreadable)"];
-        [s appendString:@"\n"];
+    if (groups.count > shown) {
+        [s appendFormat:@"  ... and %lu more distinct message(s)\n", (unsigned long)(groups.count - shown)];
     }
+}
 
-    [s appendString:@"============================================================\n"];
-    [s appendString:@"  END OF REPORT\n"];
-    [s appendString:@"============================================================\n"];
-    return s;
+static NSUInteger UYTGroupTotal(NSArray<UYTGroup *> *groups) {
+    NSUInteger total = 0;
+    for (UYTGroup *g in groups) total += g.count;
+    return total;
+}
+
+static void UYTAppendCounts(NSMutableString *s, NSString *label, NSArray<UYTGroup *> *groups) {
+    NSMutableString *pad = [label mutableCopy] ?: [NSMutableString string];
+    while (pad.length < 22) [pad appendString:@" "];
+    [s appendFormat:@"    %@ %5lu line(s) in %lu distinct message(s)\n",
+     pad, (unsigned long)UYTGroupTotal(groups), (unsigned long)groups.count];
+}
+
+NSUInteger UYTDebugLineCount(void) {
+    NSUInteger n = 0;
+    @synchronized (UYTLogLock) { n = UYTLogRing.count; }
+    return n;
+}
+
+NSUInteger UYTDebugErrorCount(void) {
+    NSUInteger n = 0;
+    @synchronized (UYTLogLock) {
+        for (NSString *l in UYTLogRing) {
+            if ([l hasPrefix:@"[UYT-E] "]) n++;
+        }
+    }
+    return n;
+}
+
+NSString *UYTDebugErrors(void) {
+    NSMutableArray<NSString *> *errs = [NSMutableArray array];
+    BOOL inError = NO;
+    @synchronized (UYTLogLock) {
+        for (NSString *l in UYTLogRing) {
+            if ([l hasPrefix:@"[UYT-E] "]) inError = YES;
+            else if (![l hasPrefix:@"[CONT] "]) inError = NO;
+            if (inError) [errs addObject:l];
+        }
+    }
+    return errs.count ? [errs componentsJoinedByString:@"\n"] : @"(none)";
+}
+
+NSString *UYTDebugLogText(NSUInteger lastLines) {
+    @synchronized (UYTLogLock) {
+        if (!UYTLogRing.count) return @"(no entries)";
+        NSUInteger n = MIN(lastLines, UYTLogRing.count);
+        NSRange r = NSMakeRange(UYTLogRing.count - n, n);
+        return [[UYTLogRing subarrayWithRange:r] componentsJoinedByString:@"\n"];
+    }
+}
+
+NSString *UYTDebugFullReport(void) {
+    @autoreleasepool {
+        NSMutableString *s = [NSMutableString string];
+        NSArray<UYTGroup *> *all = UYTSnapshotGroups();
+
+        [s appendString:@"============================================================\n"];
+        [s appendString:@"  uYouEnhanced — Debug Report\n"];
+        [s appendString:@"============================================================\n"];
+#ifdef TWEAK_VERSION
+        [s appendFormat:@"  tweak    : %s\n", TWEAK_VERSION];
+#endif
+        [s appendFormat:@"  device   : %@\n", UIDevice.currentDevice.model ?: @"?"];
+        [s appendFormat:@"  iOS      : %@\n", UIDevice.currentDevice.systemVersion ?: @"?"];
+        [s appendFormat:@"  bundle   : %@ v%@\n",
+            [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"] ?: @"?",
+            [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?"];
+        NSDateFormatter *df = [NSDateFormatter new];
+        df.dateFormat = @"yyyy-MM-dd HH:mm:ss";
+        [s appendFormat:@"  exported : %@\n", [df stringFromDate:[NSDate date]]];
+        [s appendFormat:@"  session  : started %@, %lu line(s) in ring (cap %lu)\n",
+         UYTSessionStart ?: @"?", (unsigned long)UYTDebugLineCount(), (unsigned long)UYTLogRingCap];
+        [s appendString:@"------------------------------------------------------------\n"];
+
+        NSMutableArray<UYTGroup *> *errors = [NSMutableArray array];
+        NSMutableArray<UYTGroup *> *tweakErrors = [NSMutableArray array];
+        NSMutableArray<UYTGroup *> *crashes = [NSMutableArray array];
+        NSMutableArray<UYTGroup *> *warns = [NSMutableArray array];
+        NSMutableArray<UYTGroup *> *info = [NSMutableArray array];
+        NSMutableArray<UYTGroup *> *signals = [NSMutableArray array];
+        NSMutableArray<UYTGroup *> *noise = [NSMutableArray array];
+        NSMutableArray<UYTGroup *> *other = [NSMutableArray array];
+        UYTFilterGroups(tweakErrors, all, @"[UYT-E]", 0, YES);
+        for (UYTGroup *g in tweakErrors) {
+            if ([g.sample containsString:@"UNCAUGHT EXCEPTION"]) [crashes addObject:g];
+            else [errors addObject:g];
+        }
+        UYTFilterGroups(warns, all, @"[UYT-W]", 0, YES);
+        UYTFilterGroups(info, all, @"[UYT-I]", 0, YES);
+        UYTFilterGroups(signals, all, @"[LOG]", UYTKindSignal, NO);
+        UYTFilterGroups(noise, all, @"[LOG]", UYTKindNoise, NO);
+        UYTFilterGroups(other, all, @"[LOG]", UYTKindOther, NO);
+
+        [s appendString:@"\n  SUMMARY\n"];
+        [s appendString:@"  ------------------------------------------------------------\n"];
+        UYTAppendCounts(s, @"tweak errors", errors);
+        UYTAppendCounts(s, @"tweak warnings", warns);
+        UYTAppendCounts(s, @"tweak info", info);
+        UYTAppendCounts(s, @"host signals", signals);
+        UYTAppendCounts(s, @"host noise", noise);
+        UYTAppendCounts(s, @"host other", other);
+        UYTAppendCounts(s, @"uncaught exceptions", crashes);
+        [s appendString:@"\n  HOW TO READ\n"];
+        [s appendString:@"  ------------------------------------------------------------\n"];
+        [s appendString:@"  [UYT-I/W/E] = this tweak. [LOG] = YouTube app or iOS on stderr.\n"];
+        [s appendString:@"  xN = that message happened N times.  a -> b = first to last seen.\n"];
+        [s appendString:@"  | = a continuation line of the message above it.\n"];
+        [s appendString:@"  Host noise is third-party chatter and is collapsed, not dropped.\n"];
+        [s appendString:@"  Fix the first tweak error; later repeats are usually its echo.\n"];
+
+        if (crashes.count) {
+            [s appendFormat:@"\n---- UNCAUGHT EXCEPTIONS (%lu) ----\n", (unsigned long)crashes.count];
+            UYTAppendGroups(s, crashes, 400, 10, YES);
+        }
+
+        [s appendFormat:@"\n---- TWEAK ERRORS (%lu) ----\n", (unsigned long)errors.count];
+        UYTAppendGroups(s, errors, 400, 25, YES);
+
+        [s appendFormat:@"\n---- TWEAK WARNINGS (%lu) ----\n", (unsigned long)warns.count];
+        UYTAppendGroups(s, warns, 300, 25, YES);
+
+        if (signals.count) {
+            [s appendFormat:@"\n---- HOST SIGNALS (%lu, third-party) ----\n", (unsigned long)signals.count];
+            UYTAppendGroups(s, signals, UYTHostSignalCap, 20, NO);
+        }
+
+        if (noise.count) {
+            NSArray<UYTGroup *> *byCount = [noise sortedArrayUsingComparator:^NSComparisonResult(id a, id b) {
+                NSUInteger ca = [(UYTGroup *)a count], cb = [(UYTGroup *)b count];
+                if (ca == cb) return NSOrderedSame;
+                return ca > cb ? NSOrderedAscending : NSOrderedDescending;
+            }];
+            [s appendFormat:@"\n---- HOST NOISE (%lu line(s), %lu distinct, third-party, benign, most frequent first) ----\n",
+             (unsigned long)UYTGroupTotal(noise), (unsigned long)noise.count];
+            UYTAppendGroups(s, byCount, UYTNoiseSampleCap, 12, NO);
+        }
+
+        if (other.count) {
+            [s appendFormat:@"\n---- HOST OTHER (%lu distinct, unclassified) ----\n", (unsigned long)other.count];
+            UYTAppendGroups(s, other, UYTNoiseSampleCap, 12, NO);
+        }
+
+        NSMutableArray<UYTGroup *> *recent = [NSMutableArray array];
+        for (NSUInteger i = all.count; i-- > 0;) {
+            UYTGroup *g = all[i];
+            if (![g.tag isEqualToString:@"[UYT-I]"]) continue;
+            [recent insertObject:g atIndex:0];
+            if (recent.count >= 40) break;
+        }
+        [s appendFormat:@"\n---- RECENT TWEAK ACTIVITY (%lu distinct) ----\n", (unsigned long)recent.count];
+        UYTAppendGroups(s, recent, 300, 40, YES);
+
+        NSString *selPath = [UYTDocDir() stringByAppendingPathComponent:@"uYouUnrecognizedSelector.log"];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:selPath]) {
+            NSString *selText = [NSString stringWithContentsOfFile:selPath encoding:NSUTF8StringEncoding error:nil] ?: @"(unreadable)";
+            [s appendString:@"\n---- UNRECOGNIZED SELECTORS (crash evidence) ----\n"];
+            [s appendString:UYTCap(selText, 4000)];
+            [s appendString:@"\n"];
+        }
+
+        [s appendString:@"\n============================================================\n"];
+        [s appendString:@"  END OF REPORT\n"];
+        [s appendString:@"============================================================\n"];
+        return [s copy];
+    }
 }
 
 %ctor {

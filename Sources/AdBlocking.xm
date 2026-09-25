@@ -1,9 +1,7 @@
-// @PoomSmart - YouTube-X v1.7.23
 
 #import "uYouPlus.h"
 #import "UYTLog.h"
 
-// uYou AdBlock Workaround LITE (This Version will only remove ads from only Videos/Shorts!) - @PoomSmart
 %group uYouAdBlockingWorkaroundLite
 %hook YTGlobalConfig
 - (BOOL)shouldBlockUpgradeDialog { return YES; }
@@ -42,9 +40,7 @@
 %end
 %end
 
-// uYou AdBlock Workaround (Note: disables uYou's "Remove YouTube Ads" YouTube-X Option) - @PoomSmart, @arichornlover & @Dodieboy
 %group uYouAdBlockingWorkaround
-// Workaround: uYou 3.0.3 Adblock fix
 %hook YTGlobalConfig
 - (BOOL)shouldBlockUpgradeDialog { return YES; }
 %end
@@ -178,13 +174,13 @@ NSString *getAdString(NSString *description) {
 }
 static BOOL isAdRenderer(YTIElementRenderer *elementRenderer, int kind) {
     if ([elementRenderer respondsToSelector:@selector(hasCompatibilityOptions)] && elementRenderer.hasCompatibilityOptions && elementRenderer.compatibilityOptions.hasAdLoggingData) {
-        UYTDebugInfo(@"YTX adLogging %d %@", kind, elementRenderer);
+        UYTDebugInfo(@"YTX adLogging kind=%d renderer=%@", kind, NSStringFromClass([elementRenderer class]));
         return YES;
     }
     NSString *description = [elementRenderer description];
     NSString *adString = getAdString(description);
     if (adString) {
-        UYTDebugInfo(@"YTX getAdString %d %@ %@", kind, adString, elementRenderer);
+        UYTDebugInfo(@"YTX getAdString kind=%d match=%lu chars renderer=%@", kind, (unsigned long)adString.length, NSStringFromClass([elementRenderer class]));
         return YES;
     }
     return NO;
@@ -248,3 +244,4 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
         %init(uYouAdBlockingWorkaround);
     }
 }
+

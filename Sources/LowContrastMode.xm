@@ -1,11 +1,9 @@
 #import "uYouPlus.h"
 
-// Color Configuration
 static UIColor *lcmHexColor = nil;
 static UIColor *const kLowContrastColor = [UIColor colorWithRed:0.56 green:0.56 blue:0.56 alpha:1.0];
 static UIColor *const kDefaultTextColor = [UIColor whiteColor];
 
-// Utility Functions
 static inline int contrastMode() {
     return [[NSUserDefaults standardUserDefaults] integerForKey:@"lcm"];
 }
@@ -18,17 +16,14 @@ static inline BOOL customContrastMode() {
     return IS_ENABLED(@"lowContrastMode_enabled") && contrastMode() == 1;
 }
 
-// Helper to get active contrast color
 static inline UIColor *activeContrastColor() {
     return customContrastMode() && lcmHexColor ? lcmHexColor : kLowContrastColor;
 }
 
-// Helper to check if dark mode is enabled
 static inline BOOL isDarkMode() {
     return UIScreen.mainScreen.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
 }
 
-// Low Contrast Mode v2.0.0 (Compatible with YouTube v19.21.2-v21.26+)
 %group gContrastModeShared
 
 %hook UIColor
@@ -108,7 +103,6 @@ static inline BOOL isDarkMode() {
 - (UIColor *)overlayFilledButtonActive {
     return isDarkMode() ? [activeContrastColor() colorWithAlphaComponent:0.2] : %orig;
 }
-// Modern YouTube v20+ additional palette properties
 - (UIColor *)primaryBackground {
     return isDarkMode() ? activeContrastColor() : %orig;
 }
@@ -140,7 +134,6 @@ static inline BOOL isDarkMode() {
 + (UIColor *)grey2 { return activeContrastColor(); }
 %end
 
-// Modern YouTube v20+: Use view hierarchy traversal for action bar buttons
 %hook _ASDisplayView
 - (void)layoutSubviews {
     %orig;
@@ -148,7 +141,6 @@ static inline BOOL isDarkMode() {
         UIColor *contrastColor = activeContrastColor();
         NSString *accId = self.accessibilityIdentifier;
         NSString *accLabel = self.accessibilityLabel;
-        // Target action bar buttons by their known identifiers
         NSArray<NSString *> *targetIds = @[
             @"id.video.share.button", @"id.video.remix.button",
             @"id.ui.add_to.offline.button", @"clip_button.eml",
@@ -392,7 +384,6 @@ static inline BOOL isDarkMode() {
 
 %end
 
-// Constructor
 %ctor {
     %init;
     if (lowContrastMode() || customContrastMode()) {
@@ -410,3 +401,4 @@ static inline BOOL isDarkMode() {
         }
     }
 }
+

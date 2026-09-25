@@ -148,8 +148,6 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 }
 %end
 
-// uYou settings
-
 %hook settingsReorderTable
 - (void)viewDidLayoutSubviews {
     %orig;
@@ -183,8 +181,7 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 }
 %end
 
-// Explore
-%hook ASScrollView 
+%hook ASScrollView
 - (void)didMoveToWindow {
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
@@ -193,7 +190,6 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 }
 %end
 
-// Download sort
 %hook GOODialogView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
@@ -206,7 +202,6 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 }
 %end
 
-// Playlist sort
 %hook ASCollectionView
 - (void)didMoveToWindow {
     %orig;
@@ -229,7 +224,6 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 }
 %end
 
-// Others
 %hook _ASDisplayView
 - (void)layoutSubviews {
     %orig;
@@ -255,7 +249,6 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 - (void)didMoveToWindow {
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
-        //
         UIResponder *responder = self.nextResponder;
         UIViewController *closestViewController = nil;
 
@@ -267,21 +260,19 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
             responder = responder.nextResponder;
         }
 
-        if ([NSStringFromClass([closestViewController class]) isEqualToString:@"YTActionSheetDialogViewController"] && 
-            (([NSStringFromClass([self.superview class]) isEqualToString:@"YTELMView"]) || 
-            [NSStringFromClass([self.superview class]) isEqualToString:@"_ASDisplayView"] || 
+        if ([NSStringFromClass([closestViewController class]) isEqualToString:@"YTActionSheetDialogViewController"] &&
+            (([NSStringFromClass([self.superview class]) isEqualToString:@"YTELMView"]) ||
+            [NSStringFromClass([self.superview class]) isEqualToString:@"_ASDisplayView"] ||
             [NSStringFromClass([self.superview class]) isEqualToString:@"ELMView"])) {
 
             self.backgroundColor = [UIColor clearColor];
         }
 
-        // Save video bottom
-        if ([NSStringFromClass([closestViewController class]) isEqualToString:@"YTBottomSheetController"]) { self.backgroundColor = [UIColor clearColor]; } 
+        if ([NSStringFromClass([closestViewController class]) isEqualToString:@"YTBottomSheetController"]) { self.backgroundColor = [UIColor clearColor]; }
 
-        //  Subcriptions header
-        if ([NSStringFromClass([closestViewController class]) isEqualToString:@"YTMySubsFilterHeaderViewController"] && 
-            ([NSStringFromClass([self.superview class]) isEqualToString:@"YTELMView"])) { 
-            self.backgroundColor = [UIColor clearColor]; 
+        if ([NSStringFromClass([closestViewController class]) isEqualToString:@"YTMySubsFilterHeaderViewController"] &&
+            ([NSStringFromClass([self.superview class]) isEqualToString:@"YTELMView"])) {
+            self.backgroundColor = [UIColor clearColor];
         }
         if ([self.accessibilityIdentifier isEqualToString:@"brand_promo.view"]) { self.backgroundColor = [UIColor blackColor]; }
         if ([self.accessibilityIdentifier isEqualToString:@"eml.topic_channel_details"]) { self.backgroundColor = [UIColor blackColor]; }
@@ -299,9 +290,6 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 }
 %end
 
-// Open link with...
-// v21.xx.x+: ASWAppSwitchingSheetHeaderView/FooterView/CollectionViewCell removed (Apple's system UI restructured)
-// Kept for v20.xx.x-v21.xx.x compatibility
 %hook ASWAppSwitchingSheetHeaderView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
@@ -336,7 +324,6 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 }
 %end
 
-// Incompatibility with the new YT Dark theme
 %hook YTColdConfig
 - (BOOL)uiSystemsClientGlobalConfigUseDarkerPaletteBgColorForNative { return NO; }
 %end
@@ -404,8 +391,7 @@ UIColor *customHexColor;
 }
 %end
 
-// Explore
-%hook ASScrollView 
+%hook ASScrollView
 - (void)didMoveToWindow {
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
@@ -414,7 +400,6 @@ UIColor *customHexColor;
 }
 %end
 
-// Your videos
 %hook ASCollectionView
 - (void)didMoveToWindow {
     %orig;
@@ -424,17 +409,14 @@ UIColor *customHexColor;
 }
 %end
 
-// Sub menu?
 %hook ELMView
 - (void)didMoveToWindow {
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
-        // self.subviews[0].backgroundColor = [UIColor clearColor];
     }
 }
 %end
 
-// Search view
 %hook YTSearchBarView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
@@ -447,8 +429,7 @@ UIColor *customHexColor;
 }
 %end
 
-// History search view
-%hook YTSearchBoxView 
+%hook YTSearchBoxView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
         %orig(
@@ -460,7 +441,6 @@ UIColor *customHexColor;
 }
 %end
 
-// Comment view
 %hook YTCommentView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
@@ -495,7 +475,7 @@ UIColor *customHexColor;
         %orig;
     }
 }
-- (void)setTextColor:(UIColor *)color { // fix black text in #Shorts video's comment
+- (void)setTextColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
         %orig(
             [UIColor whiteColor]
@@ -510,12 +490,11 @@ UIColor *customHexColor;
 - (void)didMoveToWindow {
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
-        // self.subviews[2].backgroundColor = customHexColor;
     }
 }
 %end
 
-%hook YTFormattedStringLabel  // YT is werid...
+%hook YTFormattedStringLabel
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
         %orig(
@@ -527,8 +506,7 @@ UIColor *customHexColor;
 }
 %end
 
-// Live chat comment
-%hook YCHLiveChatActionPanelView 
+%hook YCHLiveChatActionPanelView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
         %orig(
@@ -556,13 +534,12 @@ UIColor *customHexColor;
 - (void)didMoveToWindow {
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
-        // self.subviews[1].backgroundColor = customHexColor;
     }
 }
 %end
 
-%hook YTCollectionView 
-- (void)setBackgroundColor:(UIColor *)color { 
+%hook YTCollectionView
+- (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
         %orig(
             customHexColor
@@ -573,7 +550,6 @@ UIColor *customHexColor;
 }
 %end
 
-//
 %hook YTBackstageCreateRepostDetailView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
@@ -598,7 +574,6 @@ UIColor *customHexColor;
 }
 %end
 
-// Others
 %hook _ASDisplayView
 - (void)layoutSubviews {
     %orig;
@@ -646,9 +621,6 @@ UIColor *customHexColor;
 }
 %end
 
-// Open link with...
-// v21.xx.x+: ASWAppSwitchingSheetHeaderView/FooterView/CollectionViewCell removed (Apple's system UI restructured)
-// Kept for v20.xx.x-v21.xx.x compatibility
 %hook ASWAppSwitchingSheetHeaderView
 - (void)setBackgroundColor:(UIColor *)color {
     if (IS_DARK_APPEARANCE_ENABLED) {
@@ -678,18 +650,15 @@ UIColor *customHexColor;
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
         self.backgroundColor = raisedColor;
-        // self.subviews[1].backgroundColor = raisedColor;
         self.superview.backgroundColor = raisedColor;
     }
 }
 %end
 
-// Incompatibility with the new YT Dark theme
 %hook YTColdConfig
 - (BOOL)uiSystemsClientGlobalConfigUseDarkerPaletteBgColorForNative { return NO; }
 %end
 %end
-
 
 # pragma mark - OLED keyboard
 
@@ -744,12 +713,11 @@ static inline BOOL oledKBDarkMode(UIView *view) {
 }
 %end
 
-// Since we can't hook a private framework class from UIKit, we check the class name through the nearest available from UIKit class
 %hook UIInputView
 - (void)layoutSubviews {
     %orig;
-    if ([self isKindOfClass:NSClassFromString(@"TUIEmojiSearchInputView")] // Emoji searching panel
-     || [self isKindOfClass:NSClassFromString(@"_SFAutoFillInputView")]) { // Autofill password
+    if ([self isKindOfClass:NSClassFromString(@"TUIEmojiSearchInputView")]
+     || [self isKindOfClass:NSClassFromString(@"_SFAutoFillInputView")]) {
         self.backgroundColor = oledKBDarkMode(self) ? [UIColor blackColor] : [UIColor clearColor];
     }
 }
@@ -831,3 +799,4 @@ static inline BOOL oledKBDarkMode(UIView *view) {
         %init(gOLEDKB);
     }
 }
+

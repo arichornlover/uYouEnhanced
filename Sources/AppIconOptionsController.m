@@ -8,8 +8,6 @@ static NSString *const kPrefEnableIconOverride = @"appIconCustomization_enabled"
 static NSString *const kPrefIconName = @"customAppIcon_name";
 static NSString *const kPrefNotifyName = @"com.arichornlover.uYouEnhanced.prefschanged";
 
-// YouTube's own font family. Falls back to the system font if YTSans isn't
-// loaded (e.g. when the controller is previewed outside the YouTube app).
 static UIFont *YTFont(CGFloat size, NSString *weight) {
     UIFont *font = [UIFont fontWithName:[NSString stringWithFormat:@"YTSans-%@", weight] size:size];
     if (font) return font;
@@ -36,6 +34,42 @@ static UIImage *YTDefaultAppIcon(void) {
     return [UIImage systemImageNamed:@"play.rectangle.fill"];
 }
 
+static NSString *UYTIconFilePath(NSString *name) {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *bundlePath = [[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"];
+    if (bundlePath.length) {
+        NSString *inBundle = [[[bundlePath stringByAppendingPathComponent:@"AppIcons"] stringByAppendingPathComponent:name] stringByAppendingPathExtension:@"png"];
+        if ([fm fileExistsAtPath:inBundle]) return inBundle;
+    }
+    NSString *fallback = [[@"/Library/Application Support/uYouEnhanced/AppIcons" stringByAppendingPathComponent:name] stringByAppendingPathExtension:@"png"];
+    if ([fm fileExistsAtPath:fallback]) return fallback;
+    return nil;
+}
+
+static BOOL UYTIconSpecOK(NSString *name, NSString **reasonOut) {
+    NSString *path = UYTIconFilePath(name);
+    if (!path) {
+        if (reasonOut) *reasonOut = @"no PNG found in uYouPlus.bundle/AppIcons";
+        return NO;
+    }
+    CGImageRef cg = [UIImage imageWithContentsOfFile:path].CGImage;
+    if (!cg) {
+        if (reasonOut) *reasonOut = @"PNG is unreadable";
+        return NO;
+    }
+    size_t w = CGImageGetWidth(cg), h = CGImageGetHeight(cg);
+    if (w != 1024 || h != 1024) {
+        if (reasonOut) *reasonOut = [NSString stringWithFormat:@"%zux%zu px, iOS requires exactly 1024x1024", w, h];
+        return NO;
+    }
+    CGImageAlphaInfo alpha = CGImageGetAlphaInfo(cg);
+    if (alpha != kCGImageAlphaNone && alpha != kCGImageAlphaNoneSkipFirst && alpha != kCGImageAlphaNoneSkipLast) {
+        if (reasonOut) *reasonOut = [NSString stringWithFormat:@"alpha channel %d, iOS requires an opaque icon", (int)alpha];
+        return NO;
+    }
+    return YES;
+}
+
 @interface AppIconOptionsController () <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout>
 @property (strong, nonatomic) UICollectionView *collectionView;
 @property (strong, nonatomic) NSArray<NSString *> *appIcons;
@@ -59,7 +93,6 @@ static UIImage *YTDefaultAppIcon(void) {
     self.title = LOC(@"CHANGE_APP_ICON");
     self.view.backgroundColor = [self ytBackgroundColor];
 
-    // Match YouTube's navigation bar typography.
     [self.navigationController.navigationBar setTitleTextAttributes:@{
         NSFontAttributeName: YTFont(22, @"Bold"),
         NSForegroundColorAttributeName: [UIColor labelColor]
@@ -69,58 +102,40 @@ static UIImage *YTDefaultAppIcon(void) {
     NSDictionary *iconsDict = mainInfo[@"CFBundleIcons"];
     NSDictionary *altDict = [iconsDict objectForKey:@"CFBundleAlternateIcons"];
     NSDictionary *altDictPad = [mainInfo[@"CFBundleIcons~ipad"] objectForKey:@"CFBundleAlternateIcons"];
-    NSMutableSet *merged = [NSMutableSet set];
-    for (NSString *k in altDict) [merged addObject:k];
-    for (NSString *k in altDictPad) [merged addObject:k];
-    NSArray *alternate = [merged allObjects];
-    if (alternate.count == 0) {
-        // Fallback: scan the bundle's AppIcons folder (registration may have
-        // failed in CI, but previews + prefs still function).
-        NSString *iconsDir = [[[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"] ?: @"" stringByAppendingPathComponent:@"AppIcons"];
-        for (NSString *f in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:iconsDir error:nil])
-            if ([f.pathExtension.lowercaseString isEqualToString:@"png"]) [merged addObject:[f stringByDeletingPathExtension]];
-    }
-    // Snapshot how many candidates we scanned BEFORE the registered-only prune
-    // below - that delta is exactly how many would have been OSStatus -54
-    // rejected, and logging it makes the decision self-explanatory when you
-    // read the next device report.
-    NSUInteger scannedBeforePrune = [merged count];
+    NSMutableSet *registered = [NSMutableSet set];
+    for (NSString *k in altDict) [registered addObject:k];
+    for (NSString *k in altDictPad) [registered addObject:k];
 
-    // iOS (17+) rejects any alternateIconName that isn't a registered key in
-    // the app's own CFBundleAlternateIcons - offering pngs that were never
-    // registered into Info.plist yields OSStatus -54 for every such name.
-    // Prune the candidate list down to exactly the registered names so we can
-    // never hand the system one it'll reject.
-    if (altDict.count || altDictPad.count) {
-        NSMutableSet *registeredOnly = [NSMutableSet set];
-        for (NSString *k in altDict) [registeredOnly addObject:k];
-        for (NSString *k in altDictPad) [registeredOnly addObject:k];
-        // Only keep what's both registered AND actually present as a png;
-        // the folder may carry extra/unregistered art that must not be offered.
-        NSMutableSet *kept = [NSMutableSet set];
-        NSString *iconsDir = [[[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"] ?: @"" stringByAppendingPathComponent:@"AppIcons"];
-        NSArray *pngs = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:iconsDir error:nil] ?: @[];
-        for (NSString *k in registeredOnly) {
-            BOOL foundPng = NO;
-            for (NSString *f in pngs)
-                if ([f.stringByDeletingPathExtension isEqualToString:k] &&
-                    [f.pathExtension.lowercaseString isEqualToString:@"png"]) { foundPng = YES; break; }
-            if (foundPng) [kept addObject:k];
-        }
-        merged = kept;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *bundlePath = [[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"];
+    NSMutableArray *iconDirs = [NSMutableArray array];
+    if (bundlePath.length) [iconDirs addObject:[bundlePath stringByAppendingPathComponent:@"AppIcons"]];
+    [iconDirs addObject:@"/Library/Application Support/uYouEnhanced/AppIcons"];
+    NSMutableSet *candidates = [registered mutableCopy];
+    for (NSString *dir in iconDirs)
+        for (NSString *f in [fm contentsOfDirectoryAtPath:dir error:nil] ?: @[])
+            if ([f.pathExtension.lowercaseString isEqualToString:@"png"]) [candidates addObject:[f stringByDeletingPathExtension]];
+
+    NSMutableSet *kept = [NSMutableSet set];
+    NSMutableDictionary *drops = [NSMutableDictionary dictionary];
+    for (NSString *k in candidates) {
+        NSString *reason = nil;
+        if (![registered containsObject:k])
+            reason = @"not declared in the main bundle CFBundleAlternateIcons";
+        else if (!UYTIconSpecOK(k, &reason)) { }
+        if (reason.length) drops[reason] = @([drops[reason] integerValue] + 1);
+        else [kept addObject:k];
     }
-    // iOS 17+ hands back OSStatus -54 for ANY alternateIconName that isn't a
-    // registered key in CFBundleAlternateIcons. The two prune paths above
-    // (iOS 17 plist-registered-only, and iOS-16 registered-∩png fallback)
-    // guarantee we only ever offer names the system will accept - so the
-    // difference between "candidates scanned" and "kept" is exactly how many
-    // would have been -54-rejected, and logging it makes the decision
-    // self-explanatory when reading the next device report.
-    NSUInteger keptCount = [merged count];
-    UYTDebugInfo(@"[uYouEnhanced] AppIcon picker: %lu candidates, %lu kept after prune (dropped %lu unregistered/unregistered-cap candidate(s) to avoid OSStatus -54)",
+    NSUInteger scannedBeforePrune = [candidates count];
+    NSUInteger keptCount = [kept count];
+    for (NSString *bucket in drops)
+        UYTDebugWarn(@"[uYouEnhanced] AppIcon prune: dropped %@ -> %@", drops[bucket], bucket);
+    UYTDebugInfo(@"[uYouEnhanced] AppIcon picker: %lu candidates, %lu usable (dropped %lu that iOS rejects with OSStatus -54)",
                  (unsigned long)scannedBeforePrune, (unsigned long)keptCount,
                  (unsigned long)(scannedBeforePrune - keptCount));
-    NSArray *alternateAll = [merged allObjects];
+    if (keptCount == 0 && scannedBeforePrune)
+        UYTDebugErr(@"[uYouEnhanced] AppIcon: nothing usable. iOS only accepts alternate icons declared in the main app Info.plist CFBundleAlternateIcons, as 1024x1024 opaque PNGs inside the main bundle.");
+    NSArray *alternateAll = [kept allObjects];
     self.appIcons = [alternateAll sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
 
     NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:[NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", kPrefDomain]] ?: @{};
@@ -189,13 +204,19 @@ static UIImage *YTDefaultAppIcon(void) {
 
     UIImage *img = nil;
     if (isDefault) {
-        // Show the real current app icon (regular YouTube icon).
         img = YTDefaultAppIcon();
     } else {
-        NSString *bundlePath = [[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"];
-        NSBundle *bundle = bundlePath ? [NSBundle bundleWithPath:bundlePath] : [NSBundle mainBundle];
-        img = [UIImage imageWithContentsOfFile:[bundle.bundlePath stringByAppendingPathComponent:[NSString stringWithFormat:@"AppIcons/%@.png", name]]];
-        if (!img) img = [UIImage imageWithContentsOfFile:[NSString stringWithFormat:@"/Library/Application Support/uYouEnhanced/AppIcons/%@.png", name]];
+        NSString *path = UYTIconFilePath(name);
+        UIImage *full = path ? [UIImage imageWithContentsOfFile:path] : nil;
+        if (full) {
+            CGSize box = CGSizeMake(tileSize - 32, tileSize - 32);
+            UIGraphicsBeginImageContextWithOptions(box, NO, 1.0);
+            [[UIColor blackColor] setFill];
+            UIRectFill(CGRectMake(0, 0, box.width, box.height));
+            [full drawInRect:CGRectMake(0, 0, box.width, box.height)];
+            img = UIGraphicsGetImageFromCurrentImageContext();
+            UIGraphicsEndImageContext();
+        }
     }
     preview.image = img ?: [UIImage systemImageNamed:@"photo"];
     preview.tintColor = [UIColor secondaryLabelColor];
@@ -227,7 +248,20 @@ static UIImage *YTDefaultAppIcon(void) {
 - (void)collectionView:(UICollectionView *)cv didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     [cv deselectItemAtIndexPath:indexPath animated:YES];
     BOOL isDefault = (indexPath.item == 0);
-    NSString *iconName = isDefault ? nil : self.appIcons[indexPath.item - 1];
+    NSString *iconName = nil;
+    if (!isDefault) {
+        NSUInteger iconIndex = indexPath.item - 1;
+        if (iconIndex >= self.appIcons.count) {
+            UYTDebugErr(@"[uYouEnhanced] icon tap out of range (cell %lu, %lu icons) - ignoring",
+                        (unsigned long)indexPath.item, (unsigned long)self.appIcons.count);
+            return;
+        }
+        iconName = self.appIcons[iconIndex];
+        if (!iconName.length) {
+            UYTDebugErr(@"[uYouEnhanced] icon list has an empty name at index %lu - ignoring", (unsigned long)iconIndex);
+            return;
+        }
+    }
 
     NSString *prefsPath = [NSString stringWithFormat:@"/var/mobile/Library/Preferences/%@.plist", kPrefDomain];
     NSMutableDictionary *prefs = [[NSMutableDictionary alloc] initWithContentsOfFile:prefsPath] ?: [NSMutableDictionary dictionary];
@@ -239,18 +273,23 @@ static UIImage *YTDefaultAppIcon(void) {
     self.selectedIconIndex = isDefault ? -1 : indexPath.item - 1;
     [cv reloadData];
 
-    // Apple already presents its own "app icon changed" confirmation, so we
-    // only surface real failures here — no redundant success alert.
     if (@available(iOS 10.3, *)) {
         if ([[UIApplication sharedApplication] respondsToSelector:@selector(setAlternateIconName:completionHandler:)]) {
-            [[UIApplication sharedApplication] setAlternateIconName:isDefault ? nil : iconName completionHandler:^(NSError * _Nullable error) {
+            BOOL resetting = (iconName.length == 0);
+            NSString *label = resetting ? @"<default>" : iconName;
+            UYTDebugInfo(@"[uYouEnhanced] applying alternate icon %@", label);
+            [[UIApplication sharedApplication] setAlternateIconName:iconName completionHandler:^(NSError * _Nullable error) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     if (error) {
-                        UYTDebugWarn(@"[uYouEnhanced] Icon '%@' rejected: %@", iconName, error.localizedDescription);
+                        UYTDebugWarn(@"[uYouEnhanced] icon '%@' rejected (OSStatus %ld): %@", label, (long)error.code, error.localizedDescription);
                         [self showAlertWithTitle:LOC(@"FAILED") message:error.localizedDescription];
+                    } else {
+                        UYTDebugInfo(@"[uYouEnhanced] alternate icon applied: %@", label);
                     }
                 });
             }];
+        } else {
+            UYTDebugErr(@"[uYouEnhanced] setAlternateIconName:completionHandler: unavailable - icon not applied");
         }
     }
 }
@@ -267,18 +306,15 @@ static UIImage *YTDefaultAppIcon(void) {
 
 #pragma mark - YouTube theme support
 
-// Background adapts to the active uYouEnhanced theme: OLED → pure black,
-// otherwise the standard grouped background (which follows light/dark).
 - (UIColor *)ytBackgroundColor {
-    if (APP_THEME_IDX == 2) return [UIColor blackColor]; // OLED
+    if (APP_THEME_IDX == 2) return [UIColor blackColor];
     return [UIColor systemGroupedBackgroundColor];
 }
 
-// Tile surface: OLED → dark grey, otherwise the standard secondary grouped
-// background (white in light, dark grey in dark).
 - (UIColor *)ytTileColor {
-    if (APP_THEME_IDX == 2) return [UIColor colorWithWhite:0.13 alpha:1.0]; // OLED tile
+    if (APP_THEME_IDX == 2) return [UIColor colorWithWhite:0.13 alpha:1.0];
     return [UIColor secondarySystemGroupedBackgroundColor];
 }
 
 @end
+

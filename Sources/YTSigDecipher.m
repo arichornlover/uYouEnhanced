@@ -4,15 +4,11 @@
 
 #pragma mark - Balanced-bracket extraction
 
-// Given `source` and the index of an opening bracket (openChar), returns the
-// range from that index through its matching closeChar, tracking nesting depth
-// and skipping over bracket characters that appear inside "..."/'...' string
-// literals (player.js source can and does contain "}" inside strings).
 static NSRange UYTBalancedRange(NSString *source, NSUInteger openIndex, unichar openChar, unichar closeChar) {
     NSUInteger len = source.length;
     if (openIndex >= len) return NSMakeRange(NSNotFound, 0);
     NSInteger depth = 0;
-    unichar inString = 0; // 0, '"', or '\''
+    unichar inString = 0;
     BOOL escaped = NO;
     for (NSUInteger i = openIndex; i < len; i++) {
         unichar c = [source characterAtIndex:i];
@@ -32,10 +28,6 @@ static NSRange UYTBalancedRange(NSString *source, NSUInteger openIndex, unichar 
     return NSMakeRange(NSNotFound, 0);
 }
 
-// Finds `identifier={` or `identifier=[` (optionally preceded by "var "/"const "/"let ")
-// anywhere in `source` and returns the full "identifier=<balanced literal>" text,
-// e.g. "Yz={qB:function(a,b){...},Fp:function(a){...}}". Tries object form first,
-// then array form. Returns nil if not found.
 static NSString *UYTExtractContainerLiteral(NSString *source, NSString *identifier) {
     NSString *escaped = [NSRegularExpression escapedPatternForString:identifier];
     for (NSString *bracket in @[@"{", @"["]) {
@@ -45,7 +37,7 @@ static NSString *UYTExtractContainerLiteral(NSString *source, NSString *identifi
         NSRegularExpression *re = [NSRegularExpression regularExpressionWithPattern:pattern options:0 error:nil];
         NSTextCheckingResult *m = [re firstMatchInString:source options:0 range:NSMakeRange(0, source.length)];
         if (!m) continue;
-        NSUInteger openIdx = NSMaxRange(m.range) - 1; // position of the bracket itself
+        NSUInteger openIdx = NSMaxRange(m.range) - 1;
         NSRange body = UYTBalancedRange(source, openIdx, [bracket characterAtIndex:0], [closeBracket characterAtIndex:0]);
         if (body.location == NSNotFound) continue;
         return [NSString stringWithFormat:@"var %@=%@;", identifier, [source substringWithRange:NSMakeRange(openIdx, body.length)]];
@@ -53,9 +45,6 @@ static NSString *UYTExtractContainerLiteral(NSString *source, NSString *identifi
     return nil;
 }
 
-// Scans `functionBody` for calls of the form `IDENT.method(` and returns the
-// distinct short (<=4 char) identifiers found - these are the helper
-// objects/arrays the transform function delegates array-shuffling to.
 static NSArray<NSString *> *UYTFindHelperIdentifiers(NSString *functionBody) {
     NSRegularExpression *re = [NSRegularExpression regularExpressionWithPattern:@"\\b([a-zA-Z_$][a-zA-Z0-9_$]{0,4})\\.[a-zA-Z0-9_$]+\\("
                                                                           options:0 error:nil];
@@ -69,14 +58,10 @@ static NSArray<NSString *> *UYTFindHelperIdentifiers(NSString *functionBody) {
 
 #pragma mark - Locating the signature transform function
 
-// Returns @[functionName, standaloneJSSourceDefiningIt] or nil.
 static NSArray<NSString *> *UYTLocateSigFunction(NSString *js) {
     NSArray<NSString *> *patterns = @[
-        // NAME=function(a){a=a.split("");...;return a.join("")}
         @"([a-zA-Z_$][a-zA-Z0-9_$]{0,3})\\s*=\\s*function\\(\\s*a\\s*\\)\\s*\\{\\s*a\\s*=\\s*a\\.split\\(\\s*\"\"\\s*\\)",
-        // function NAME(a){a=a.split("");...;return a.join("")}
         @"function\\s+([a-zA-Z_$][a-zA-Z0-9_$]{0,3})\\s*\\(\\s*a\\s*\\)\\s*\\{\\s*a\\s*=\\s*a\\.split\\(\\s*\"\"\\s*\\)",
-        // NAME=function(a){a=a.split(String.fromCharCode(...));...}  (rarer variant)
         @"([a-zA-Z_$][a-zA-Z0-9_$]{0,3})\\s*=\\s*function\\(\\s*a\\s*\\)\\s*\\{\\s*a\\s*=\\s*a\\.split\\(\\s*[a-zA-Z0-9_$.\\(\\)\"]+\\)\\s*;\\s*[a-zA-Z0-9_$.\\[\\]]+\\(a,",
     ];
     for (NSString *pattern in patterns) {
@@ -84,9 +69,6 @@ static NSArray<NSString *> *UYTLocateSigFunction(NSString *js) {
         NSTextCheckingResult *m = [re firstMatchInString:js options:0 range:NSMakeRange(0, js.length)];
         if (!m) continue;
         NSString *name = [js substringWithRange:[m rangeAtIndex:1]];
-        // Find the opening "{" of the function body (end of this match, minus the
-        // already-consumed "a=a.split(...)" prefix - just balance-scan from the
-        // first "{" at/after the match start).
         NSRange searchRange = NSMakeRange(m.range.location, js.length - m.range.location);
         NSRange braceSearch = [js rangeOfString:@"{" options:0 range:searchRange];
         if (braceSearch.location == NSNotFound) continue;
@@ -99,23 +81,15 @@ static NSArray<NSString *> *UYTLocateSigFunction(NSString *js) {
             NSString *literal = UYTExtractContainerLiteral(js, helper);
             if (literal) [standalone appendString:literal];
         }
-        // Normalize to a plain named function declaration regardless of which
-        // pattern matched (assignment form vs. declaration form).
         [standalone appendFormat:@"function %@(a)%@", name, bodyOnly];
         return @[name, standalone];
     }
     return nil;
 }
 
-// Best-effort: locate the "n" throttling parameter transform. Structure has
-// shifted across YouTube player releases more than the sig function has, so
-// this is tried but never required - decipherN: returning nil just means we
-// skip the n-fix (may cost download speed, shouldn't cost correctness).
 static NSArray<NSString *> *UYTLocateNFunction(NSString *js) {
     NSArray<NSString *> *patterns = @[
-        // ...&&(b=a.get("n"))&&(b=NAME[0](b)) or (b=NAME(b))
         @"&&\\(b=a\\.get\\(\"n\"\\)\\)&&\\(b=([a-zA-Z_$][a-zA-Z0-9_$]{0,6})(?:\\[(\\d+)\\])?\\(b\\)",
-        // c=NAME(decodeURIComponent(c)) style seen in some releases
         @"[;,]\\s*([a-zA-Z_$][a-zA-Z0-9_$]{0,6})=function\\(\\s*a\\s*\\)\\s*\\{\\s*var\\s+b\\s*=\\s*a\\.split\\(\\s*\"\"\\s*\\)",
     ];
     for (NSString *pattern in patterns) {
@@ -131,7 +105,6 @@ static NSArray<NSString *> *UYTLocateNFunction(NSString *js) {
             NSString *idx = [js substringWithRange:[m rangeAtIndex:2]];
             fnSource = [NSString stringWithFormat:@"%@function __n(a){return (%@)[%@](a);}", literal, name, idx];
         } else {
-            // Find `NAME=function(a){...}` and balance-extract its body.
             NSString *declPattern = [NSString stringWithFormat:@"\\b%@\\s*=\\s*function\\(\\s*a\\s*\\)\\s*\\{",
                                       [NSRegularExpression escapedPatternForString:name]];
             NSRegularExpression *declRe = [NSRegularExpression regularExpressionWithPattern:declPattern options:0 error:nil];
@@ -207,7 +180,6 @@ static NSArray<NSString *> *UYTLocateNFunction(NSString *js) {
 }
 
 + (nullable NSString *)playerJSVersionFromPath:(NSString *)path {
-    // .../s/player/<hash>/player_ios.js or .../s/player/<hash>/base.js
     NSRegularExpression *re = [NSRegularExpression regularExpressionWithPattern:@"/s/player/([a-zA-Z0-9_-]+)/" options:0 error:nil];
     NSTextCheckingResult *m = [re firstMatchInString:path options:0 range:NSMakeRange(0, path.length)];
     if (!m) return nil;
@@ -337,8 +309,6 @@ static NSArray<NSString *> *UYTLocateNFunction(NSString *js) {
         return nil;
     }
 
-    // Best-effort "n" parameter fix - if it fails or isn't present, we still
-    // return a valid (if possibly throttled) URL rather than failing outright.
     NSURLComponents *comps = [NSURLComponents componentsWithString:baseURL];
     NSMutableArray<NSURLQueryItem *> *items = [comps.queryItems mutableCopy] ?: [NSMutableArray array];
     for (NSUInteger i = 0; i < items.count; i++) {
@@ -350,10 +320,6 @@ static NSArray<NSString *> *UYTLocateNFunction(NSString *js) {
             break;
         }
     }
-    // NSURLComponents percent-encodes queryItems values itself when building
-    // .URL below - pass the raw deciphered signature, not a pre-encoded one,
-    // or it gets double-encoded (a literal "%" in the signature would become
-    // "%25", corrupting it).
     [items addObject:[NSURLQueryItem queryItemWithName:sp value:decipheredSig]];
     comps.queryItems = items;
     NSString *finalURL = comps.URL.absoluteString;
@@ -377,3 +343,4 @@ static NSArray<NSString *> *UYTLocateNFunction(NSString *js) {
 }
 
 @end
+

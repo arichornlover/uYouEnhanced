@@ -12,7 +12,7 @@ static UIVisualEffect *UYTLiquidGlassEffect(void) {
     UIVisualEffect *glass = nil;
     SEL factory = NSSelectorFromString(@"effectWithStyle:");
     if ([glassClass respondsToSelector:factory]) {
-        glass = ((UIVisualEffect *(*)(id, SEL, NSInteger))objc_msgSend)(glassClass, factory, 0); // UIGlassEffectStyleRegular
+        glass = ((UIVisualEffect *(*)(id, SEL, NSInteger))objc_msgSend)(glassClass, factory, 0);
     }
 
     if (glass == nil) {

@@ -5,7 +5,6 @@
 #define YT_BUNDLE_ID @"com.google.ios.youtube"
 #define YT_NAME @"YouTube"
 
-// AccessGroupID
 static NSString *accessGroupID() {
     NSDictionary *query = [NSDictionary dictionaryWithObjectsAndKeys:
                            (__bridge NSString *)kSecClassGenericPassword, (__bridge NSString *)kSecClass,
@@ -25,9 +24,6 @@ static NSString *accessGroupID() {
     return accessGroup;
 }
 
-// Declared for the Dynamic Island fix (gDynamicIslandFix below) — logos only
-// emits a forward @class for hooked classes, which isn't enough to message
-// defaultCenter]/setNowPlayingInfo: from the didBecomeActive observer.
 @interface MPNowPlayingInfoCenter : NSObject
 @property (nonatomic, copy) NSDictionary *nowPlayingInfo;
 + (MPNowPlayingInfoCenter *)defaultCenter;
@@ -37,7 +33,6 @@ static NSString *accessGroupID() {
 
 %group gPatches
 
-// Fix Google Sign in Patch - handles AltStore bundle IDs (always-on)
 %hook NSBundle
 + (NSBundle *)bundleWithIdentifier:(NSString *)identifier {
     if ([identifier isEqualToString:YT_BUNDLE_ID])
@@ -49,7 +44,6 @@ static NSString *accessGroupID() {
 - (NSString *)bundleIdentifier {
     if ([self isEqual:NSBundle.mainBundle])
         return YT_BUNDLE_ID;
-    // SideStore: preserve the actual bundle ID for internal checks
     return %orig;
 }
 - (NSDictionary *)infoDictionary {
@@ -73,7 +67,6 @@ static NSString *accessGroupID() {
 }
 %end
 
-// Workaround for MiRO92/uYou-for-YouTube#12, qnblackcat/uYouPlus#263
 %hook YTDataUtils
 + (NSMutableDictionary *)spamSignalsDictionary {
     return [@{ @"ms": @"" } mutableCopy];
@@ -87,7 +80,6 @@ static NSString *accessGroupID() {
 - (BOOL)disableAfmaIdfaCollection { return NO; }
 %end
 
-// Workaround for issue #54 - Hide related videos at end of videos
 %hook YTMainAppVideoPlayerOverlayViewController
 - (void)updateRelatedVideos {
     if ([[NSUserDefaults standardUserDefaults] boolForKey:@"relatedVideosAtTheEndOfYTVideos"]) {
@@ -96,7 +88,6 @@ static NSString *accessGroupID() {
 }
 %end
 
-// YouTube Native Share 0.2.7 - https://github.com/jkhsjdhjs/youtube-native-share - @jkhsjdhjs
 typedef NS_ENUM(NSInteger, ShareEntityType) {
     ShareEntityFieldVideo     = 1,
     ShareEntityFieldPlaylist  = 2,
@@ -237,9 +228,8 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 }
 %end
 
-%end // gPatches
+%end
 
-// Sideloading - Fix App Group Directory
 %group gSideloadingPatches
 %hook NSFileManager
 - (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
@@ -254,11 +244,6 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 }
 %end
 
-// Fixes uYou crash when trying to play video (#1422)
-// NOTE: Newer YouTube builds (21.x+) may no longer implement the varispeed
-// plumbing below. Every send is guarded so a missing selector degrades to a
-// no-op instead of throwing "unrecognized selector sent to instance" during
-// playback setup (observed as a startup SIGABRT on YT 21.14.4).
 %hook YTPlayerOverlayManager
 %property (nonatomic, assign) float currentPlaybackRate;
 
@@ -272,7 +257,6 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
     @try {
         [self varispeedSwitchController:varispeed didSelectRate:rate];
     } @catch (NSException *e) {
-        // Swallow: this shim is best-effort compatibility for uYou.
     }
 }
 
@@ -286,12 +270,10 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
     @try {
         [self varispeedSwitchController:varispeed didSelectRate:rate];
     } @catch (NSException *e) {
-        // Swallow: this shim is best-effort compatibility for uYou.
     }
 }
 %end
 
-// IAmYouTube (https://github.com/PoomSmart/IAmYouTube) — identity spoofing
 %hook YTVersionUtils
 + (NSString *)appName { return YT_NAME; }
 + (NSString *)appID { return YT_BUNDLE_ID; }
@@ -317,7 +299,6 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 - (NSString *)bundleId { return YT_BUNDLE_ID; }
 %end
 
-// Spoof App Store presence so analytics / crash reporting don't flag sideloaded builds.
 %hook APMAEU
 + (BOOL)isFAS { return YES; }
 %end
@@ -326,7 +307,6 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 + (BOOL)isFromAppStore { return YES; }
 %end
 
-// SSO / Google sign-in identity
 %hook SSOClientLogin
 + (NSString *)defaultSourceString { return YT_BUNDLE_ID; }
 %end
@@ -340,14 +320,10 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 }
 %end
 
-// Disable encoded hacks in innertube context (prevents certain telemetry from
-// leaking the real bundle ID).
 %hook YTHotConfig
 - (BOOL)clientInfraClientConfigIosEnableFillingEncodedHacksInnertubeContext { return NO; }
 %end
 
-// Keychain access group — redirect all keychain operations to the sideloaded
-// app's actual access group so sign-in tokens persist across restarts.
 %hook SSOKeychainHelper
 + (id)accessGroup { return accessGroupID(); }
 + (id)sharedAccessGroup { return accessGroupID(); }
@@ -433,21 +409,11 @@ static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *source
 - (id)keychainAccessGroup { return accessGroupID(); }
 %end
 
-%end // gSideloadingPatches
+%end
 
-// Dynamic Island suppression while in-app (#69, #358, #823)
-// Sideloaded builds using the official bundle ID lack Apple's media
-// entitlements, so iOS renders the Dynamic Island the moment any Now Playing
-// info is published — even while the app is frontmost. This is a signing/
-// environment artifact (not a uYou bug), hence it lives with the other
-// sideloading patches. Drop Now Playing updates while the app is ACTIVE;
-// background playback / PiP still publish normally once the app leaves the
-// foreground, so lock-screen controls and the island keep working outside.
 %group gDynamicIslandFix
 %hook MPNowPlayingInfoCenter
 - (void)setNowPlayingInfo:(NSDictionary *)info {
-    // Clearing is always allowed; fresh publications are blocked in-app so
-    // the island can't expand while you're inside YouTube.
     UIApplication *app = [UIApplication sharedApplication];
     BOOL isActive = (app != nil && app.applicationState == UIApplicationStateActive);
     if (info != nil && isActive) {
@@ -473,16 +439,10 @@ static BOOL UYTIsJailbroken(void) {
     %init;
     %init(gPatches);
     %init(gSideloadingPatches);
-    // Opt-IN only: the Dynamic Island fix is OFF by default and is installed
-    // solely when the user enables "Enable Dynamic Island Fix" in settings
-    // (and on non-jailbroken devices, where the official bundle lacks media
-    // entitlements). Nothing runs unless explicitly requested.
     BOOL diFixEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:kEnableDynamicIslandFix];
     if (!UYTIsJailbroken() && diFixEnabled) {
         %init(gDynamicIslandFix);
 
-        // Returning to the app: clear any stale Now Playing session so an
-        // already-expanded island collapses instead of lingering in-app.
         [[NSNotificationCenter defaultCenter]
             addObserverForName:UIApplicationDidBecomeActiveNotification
                         object:nil queue:[NSOperationQueue mainQueue]
@@ -493,17 +453,11 @@ static BOOL UYTIsJailbroken(void) {
         }];
     }
 
-    // Disable broken options
-
-    // Disable uYou's auto updates
     [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"automaticallyCheckForUpdates"];
 
-    // Disable uYou's welcome screen (fix #1147)
     [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"showedWelcomeVC"];
 
-    // Disable uYou's disable age restriction
     [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"disableAgeRestriction"];
 
-    // Disable uYou's playback speed controls (prevent crash on video playback)
-    // [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"showPlaybackRate"];
 }
+
