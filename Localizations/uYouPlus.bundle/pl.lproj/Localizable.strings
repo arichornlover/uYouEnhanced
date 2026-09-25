@@ -1,6 +1,8 @@
 // About
 "ABOUT" = "O programie";
 
+"APP_NAME" = "uYouEnhanced";
+
 "VERSION" = "Wersja";
 "VERSION_CHECK" = "Dotknij aby sprawdzić aktualizację!";
 
@@ -13,6 +15,8 @@
 
 // App appearance
 "APP_THEME" = "🎨 Wygląd aplikacji";
+
+"APP_PERSONALIZATION" = "📺 App Personalization";
 "THEME_OPTIONS" = "Ustawienia motywu";
 
 "DARK_THEME" = "Motyw";
@@ -59,6 +63,9 @@
 
 "STOCK_VOLUME_HUD" = "Użyj systemowego paska głośności";
 "STOCK_VOLUME_HUD_DESC" = "";
+
+"REPLACE_YT_DOWNLOAD_WITH_UYOU" = "Replace YouTube's download with uYou's";
+"REPLACE_YT_DOWNLOAD_WITH_UYOU_DESC" = "";
 
 // Video controls overlay options
 "VIDEO_CONTROLS_OVERLAY_OPTIONS" = "📹 Opcje wyglądu odtwarzacza video";
@@ -118,6 +125,10 @@
 "MSG_YES" = "Tak";
 "MSG_CANCEL" = "Anuluj";
 
+"MSG_CONFIRM" = "Confirm";
+"MSG_DONE" = "Done";
+"MSG_CONFIRM_PASTE_SETTINGS" = "Are you sure you want to paste the settings?";
+
 "DISABLE_HINTS" = "Wyłącz wskazówki";
 "DISABLE_HINTS_DESC" = "Wyłącza podpowiedzi kiedy aplikacja zostanie ponownie zainstalowana";
 
@@ -133,11 +144,7 @@
 "IPHONE_LAYOUT" = "Wymuś wygląd iPhone";
 "IPHONE_LAYOUT_DESC" = "";
 
-"NEW_MINIPLAYER_STYLE" = "Nowy styl miniodtwarzacza (BigYTMiniPlayer)";
-"NEW_MINIPLAYER_STYLE_DESC" = "Restart aplikacji jest wymagany.";
 
-"YT_RE_EXPLORE" = "Zamień kartę Shorts na kartę Odkrywaj (YTReExplore)";
-"YT_RE_EXPLORE_DESC" = "Restart aplikacji jest wymagany.";
 
 "ENABLE_FLEX" = "Włącz FLEX";
 "ENABLE_FLEX_DESC" = "Uruchamia FLEX do diagnostyki";
@@ -147,6 +154,8 @@
 
 // uYouEnhanced Localization ➕
 "SUPPORT_THE_DEVELOPERS" = "Wspomó twórców";
+
+"SUPPORT_THE_DEVELOPERS_DESC" = "MiRO92, PoomSmart, level3tjg, BandarHL, julioverne & Galactic-dev";
 "COPY_SETTINGS" = "Kopiuj ustawienia";
 "COPY_SETTINGS_DESC" = "Kopiuj ustawienia do schowka";
 "PASTE_SETTINGS" = "Wklej ustawienia";
@@ -159,14 +168,21 @@
 "REPLACE_COPY_AND_PASTE_BUTTONS_DESC" = "Zastąp przyciski \'Eksportuj ustawienia\' i \'Importuj ustawienia\'";
 
 "UYOUENHANCED_ESSENTIAL_MENU" = "Niezbędne menu uYouEnhanced";
+
+"UYOUENHANCED_ESSENTIAL_MENU_DESC" = "This menu includes App Color Customization 🎨 & Ability to Clear the Cache 🗑️";
+"UYOUENHANCED_SECTION_DESC" = "TITLE DESCRIPTION";
 "CHANGE_APP_ICON" = "Zmień ikonę aplikacji";
 "CLEAR_NOTIFICATIONS" = "Wyczyść powiadomienia";
 "CLEAR_NOTIFICATIONS_DESC" = "Wymuś wyczyszczenie wszystkich powiadomień aplikacji (Rekomendowane pod \'sideload\')";
 
 "CUSTOM_DARK_THEME" = "Niestandardowy ciemny mowym";
 
+"CUSTOM_DARK_THEME_DESC" = "In order to use Custom Themes, go to uYouEnhanced Essential Menu, you will need to press Custom Theme Color and than change the colors.";
+
 "ENABLE_PORTRAIT_FULLSCREEN" = "Włącz portretowy pełny ekran";
 "ENABLE_PORTRAIT_FULLSCREEN_DESC" = "Wymaga ponownego uruchomienia aplikacji.";
+"FULLSCREEN_TO_THE_RIGHT" = "Fullscreen to the Right";
+"FULLSCREEN_TO_THE_RIGHT_DESC" = "Force the video to always go to landscape right. App restart is required.";
 "ENABLE_TAP_TO_SEEK" = "Włącz dotknij aby przejść";
 "ENABLE_TAP_TO_SEEK_DESC" = "Skocz do dowolnego fragmentu po przyciśnięciu na pasku postępu";
 "DISABLE_PULL_TO_FULLSCREEN_GESTURE" = "Wyłącz gest przeciągnięcia na pełny ekran";
@@ -212,6 +228,18 @@
 "SHORTS_QUALITY_PICKER" = "Wybór jakości w Short\'ach";
 "SHORTS_QUALITY_PICKER_DESC" = "Włącza wybór jakości dla filmów Short";
 
+"SHORTS_PROGRESS_BAR" = "Shorts Progress Bar";
+"SHORTS_PROGRESS_BAR_DESC" = "Enables the progress bar on Shorts videos (YTShortsProgress)";
+
+"HIDE_SHORTS_CLIP_BUTTON" = "Hide Clip Button on Shorts";
+"HIDE_SHORTS_CLIP_BUTTON_DESC" = "Hides the Clip button when a Short is paused.";
+"HIDE_SHORTS_DOWNLOAD_BUTTON" = "Hide Download Button on Shorts";
+"HIDE_SHORTS_DOWNLOAD_BUTTON_DESC" = "Hides the Download button when a Short is paused.";
+"HIDE_SHORTS_REMIX_BUTTON" = "Hide Remix Button on Shorts";
+"HIDE_SHORTS_REMIX_BUTTON_DESC" = "Hides the Remix button when a Short is paused.";
+"HIDE_SHORTS_STATS_BUTTON" = "Hide Stats for Nerds Button on Shorts";
+"HIDE_SHORTS_STATS_BUTTON_DESC" = "Hides the Stats for Nerds button when a Short is paused.";
+
 "VIDEO_PLAYER_BUTTON_OPTIONS" = "Opcje przycisków odtwarzania";
 
 "RED_SUBSCRIBE_BUTTON" = "Czerwony przycisk subskrypcji";
@@ -249,11 +277,17 @@
 "UI_INTERFACE_OPTIONS" = "Ustawienia interfejsu użytkownika";
 
 "HIDE_HOME_TAB" = "Ukryj zakładkę strony głównej";
+
+"SHOW_NOTIFICATIONS_TAB" = "Enable Notifications Tab";
+"SHOW_NOTIFICATIONS_TAB_DESC" = "Makes the Notifications Tab appear back onto the Pivot Bar, experimental: Testing customization options.";
+"NOTIFICATIONS_TAB_CUSTOMIZATION" = "Notifications Tab nostalgic customization";
 "LOW_CONTRAST_MODE" = "Tryb niskiego kontrastu";
 "LOW_CONTRAST_MODE_DESC" = "Spowoduje to zmniejszenie kontrastu kolorów tekstów i przycisków, podobnie jak w interfejsie aplikacji YouTube sprzed 2020 roku.";
 "LOW_CONTRAST_MODE_SELECTOR" = "Wybór trybu niskiego kontrastu";
 "LOW_CONTRAST_MODE_ERROR_1" = "Używasz v%@, czyli wycofanej wersji YouTube, która już nie działa. Aby korzystać z trybu LowContrastMode, użyj wersji 17.33.2-17.38.10.";
 "LOW_CONTRAST_MODE_ERROR_2" = "Tryb LowContrastMode jest dostępny tylko dla wersji aplikacji 17.33.2–17.38.10. \nObecnie używasz v%@. \nRozwiązanie: jeśli chcesz z tego skorzystać, zalecane włączenie opcji „Napraw tryb niskiego kontrastu”.";
+"CLASSIC_VIDEO_PLAYER" = "Classic Video Player";
+"CLASSIC_VIDEO_PLAYER_DESC" = "Restores the classic video player features from v16.xx.x, including pinch-to-fullscreen.";
 "FIX_LOWCONTRASTMODE" = "Napraw tryb niskiego kontrastu";
 "FIX_LOWCONTRASTMODE_DESC" = "Spowoduje to naprawienie i włączenie funkcji LowContrastMode poprzez zmianę wersji YouTube do 17.38.10. Wymagane jest ponowne uruchomienie aplikacji.";
 "DISABLE_MODERN_BUTTONS" = "Wyłącz nowoczesne przyciski";
@@ -270,8 +304,13 @@
 
 "ADBLOCK_WORKAROUND_LITE" = "AdBlock Workaround (Lite)";
 "ADBLOCK_WORKAROUND_LITE_DESC" = "Używa lżejszej wersji AdBlock. Spowoduje to wyłączenie opcji AdBlock z rozszerzenia uYou.";
+"ENABLE_DYNAMIC_ISLAND_FIX" = "Enable Dynamic Island Fix";
+"ENABLE_DYNAMIC_ISLAND_FIX_DESC" = "Off by default. Turn on only if the Dynamic Island expands while using the app on an iPhone 14 Pro or newer (sideloaded). Takes effect after an app restart.";
 "ADBLOCK_WORKAROUND" = "AdBlock Workaround";
 "ADBLOCK_WORKAROUND_DESC" = "Używa pełnej wersji kodu AdBlock";
+
+"FIX_PLAYBACK_ISSUES" = "Fix playback issues";
+"FIX_PLAYBACK_ISSUES_DESC" = "Automatically recovers playback when a video stops or errors out mid-playback (e.g. after about a minute). Recommended for everyone.";
 "FAKE_PREMIUM" = "Fake Premium";
 "FAKE_PREMIUM_DESC" = "Używa wersji loga premium oraz tworzy sztuczne przyciski w Twojej karcie. Wyłącza animowane logo YouTube.";
 "FAKE_PREMIUM_WARNING" = "The *You* Tab doesn't exist in v%@, fake buttons will not be created.\nBut the *Fake Premium Logo* will still work.";
@@ -292,11 +331,19 @@
 "AUTO_HIDE_HOME_INDICATOR_DESC" = "";
 "HIDE_INDICATORS" = "Ukryj podpowiedzi";
 "HIDE_INDICATORS_DESC" = "Ukrywa wszystkie podpowiedzi w aplikacji.";
-"FIX_CASTING" = "Napraw wysyłanie";
-"FIX_CASTING_DESC" = "Zmienia niektóre flagi A/B w celu poprawy wysyłania";
 "NEW_SETTINGS_UI" = "Nowy wygląd ustawień";
 "NEW_SETTINGS_UI_DESC" = "Uruchamia nowy interfejs ustawieć z podziałem rozszerzeń.";
+
+// YouMod migration
+"YOU_MOD_GITHUB" = "YouMod on GitHub";
+"YOU_MOD_GITHUB_DESC" = "Lightweight alternative — visit the YouMod repo first to prepare!";
+"MIGRATE_TO_YOU_MOD" = "⭐ Migrate to YouMod 2.0.0 (Recommended)";
+"MIGRATE_TO_YOU_MOD_DESC" = "Copies your compatible uYouEnhanced settings over to YouMod 2.0.0. Your uYouEnhanced settings are kept. A HUD message confirms how many keys migrated.";
+"MIGRATE_TO_YOU_MOD_RESET" = "⚠️ Migrate to YouMod 2.0.0 + Reset uYouEnhanced (Advanced)";
+"MIGRATE_TO_YOU_MOD_RESET_DESC" = "Copies your settings to YouMod 2.0.0, then REMOVES all toggled uYouEnhanced settings. Only use this if you fully intend to switch to YouMod 2.0.0.";
 
 "DEFAULT" = "Domyślny";
 "CUSTOM_COLOR" = "Niestandardowy kolor";
 "RESTART_REQUIRED" = "Restart aplikacji jest wymagany.";
+"OK" = "OK";
+"FAILED" = "Failed";

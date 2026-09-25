@@ -1,6 +1,8 @@
 // About
 "ABOUT" = "情報";
 
+"APP_NAME" = "uYouEnhanced";
+
 "VERSION" = "バージョン";
 "VERSION_CHECK" = "ここをタップしてアップデートを確認";
 
@@ -13,6 +15,8 @@
 
 // App appearance
 "APP_THEME" = "🎨 アプリのテーマ";
+
+"APP_PERSONALIZATION" = "📺 App Personalization";
 "THEME_OPTIONS" = "テーマの設定";
 
 "DARK_THEME" = "ダークテーマ";
@@ -121,6 +125,10 @@
 "MSG_YES" = "はい";
 "MSG_CANCEL" = "キャンセル";
 
+"MSG_CONFIRM" = "Confirm";
+"MSG_DONE" = "Done";
+"MSG_CONFIRM_PASTE_SETTINGS" = "Are you sure you want to paste the settings?";
+
 "DISABLE_HINTS" = "ヒントを非表示";
 "DISABLE_HINTS_DESC" = "アプリ初回起動時に表示される YouTube のヒントを非表示にします。";
 
@@ -136,11 +144,7 @@
 "IPHONE_LAYOUT" = "iPhone のレイアウトを強制";
 "IPHONE_LAYOUT_DESC" = "";
 
-"NEW_MINIPLAYER_STYLE" = "BigYTMiniPlayer";
-"NEW_MINIPLAYER_STYLE_DESC" = "新しいミニプレーヤーバーのスタイル";
 
-"YT_RE_EXPLORE" = "YTReExplore";
-"YT_RE_EXPLORE_DESC" = "[ショート] タブを [探索] タブに置き換えます。";
 
 "ENABLE_FLEX" = "FLEX を有効化";
 "ENABLE_FLEX_DESC" = "デバッグ用の FLEX を有効にします。";
@@ -150,6 +154,8 @@
 
 // uYouEnhanced Localization ➕
 "SUPPORT_THE_DEVELOPERS" = "開発者を支援";
+
+"SUPPORT_THE_DEVELOPERS_DESC" = "MiRO92, PoomSmart, level3tjg, BandarHL, julioverne & Galactic-dev";
 "COPY_SETTINGS" = "設定をコピー";
 "COPY_SETTINGS_DESC" = "現在のすべての設定をクリップボードにコピーします。";
 "PASTE_SETTINGS" = "設定を貼り付け";
@@ -162,11 +168,16 @@
 "REPLACE_COPY_AND_PASTE_BUTTONS_DESC" = "[設定をコピー] と [設定を貼り付け] ボタンを置き換えます。";
 
 "UYOUENHANCED_ESSENTIAL_MENU" = "uYouEnhanced エクストラメニュー";
+
+"UYOUENHANCED_ESSENTIAL_MENU_DESC" = "This menu includes App Color Customization 🎨 & Ability to Clear the Cache 🗑️";
+"UYOUENHANCED_SECTION_DESC" = "TITLE DESCRIPTION";
 "CHANGE_APP_ICON" = "アプリアイコンを変更";
 "CLEAR_NOTIFICATIONS" = "通知を削除";
 "CLEAR_NOTIFICATIONS_DESC" = "すべてのアプリ通知を強制的に削除します(サイドロード時に推奨)";
 
 "CUSTOM_DARK_THEME" = "カスタムダークテーマ";
+
+"CUSTOM_DARK_THEME_DESC" = "In order to use Custom Themes, go to uYouEnhanced Essential Menu, you will need to press Custom Theme Color and than change the colors.";
 
 "ENABLE_PORTRAIT_FULLSCREEN" = "縦向きの全画面表示を有効化";
 "ENABLE_PORTRAIT_FULLSCREEN_DESC" = "縦向きの全画面表示を有効にします。アプリの再起動が必要です。";
@@ -217,6 +228,9 @@
 "SHORTS_QUALITY_PICKER" = "ショートの画質を選択";
 "SHORTS_QUALITY_PICKER_DESC" = "YouTube ショートの画質選択を有効にします。";
 
+"SHORTS_PROGRESS_BAR" = "Shorts Progress Bar";
+"SHORTS_PROGRESS_BAR_DESC" = "Enables the progress bar on Shorts videos (YTShortsProgress)";
+
 "HIDE_SHORTS_CLIP_BUTTON" = "ショートの [クリップ] ボタンを非表示";
 "HIDE_SHORTS_CLIP_BUTTON_DESC" = "ショートの一時停止中に表示される [クリップ] ボタンを非表示にします。";
 "HIDE_SHORTS_DOWNLOAD_BUTTON" = "ショートの [ダウンロード] ボタンを非表示";
@@ -263,6 +277,10 @@
 "UI_INTERFACE_OPTIONS" = "UI インターフェースの設定";
 
 "HIDE_HOME_TAB" = "ホームタブを非表示";
+
+"SHOW_NOTIFICATIONS_TAB" = "Enable Notifications Tab";
+"SHOW_NOTIFICATIONS_TAB_DESC" = "Makes the Notifications Tab appear back onto the Pivot Bar, experimental: Testing customization options.";
+"NOTIFICATIONS_TAB_CUSTOMIZATION" = "Notifications Tab nostalgic customization";
 "LOW_CONTRAST_MODE" = "低コントラストモード";
 "LOW_CONTRAST_MODE_DESC" = "テキストとボタンの色のコントラストを下げ、2020 年以前の YouTube アプリのインターフェースに近づけます。";
 "LOW_CONTRAST_MODE_SELECTOR" = "低コントラストモードを選択";
@@ -286,6 +304,8 @@
 
 "ADBLOCK_WORKAROUND_LITE" = "AdBlock 回避策 (Lite)";
 "ADBLOCK_WORKAROUND_LITE_DESC" = "弱い広告ブロックコードを使用します。uYou の広告ブロックオプションを無効にします。";
+"ENABLE_DYNAMIC_ISLAND_FIX" = "Enable Dynamic Island Fix";
+"ENABLE_DYNAMIC_ISLAND_FIX_DESC" = "Off by default. Turn on only if the Dynamic Island expands while using the app on an iPhone 14 Pro or newer (sideloaded). Takes effect after an app restart.";
 "ADBLOCK_WORKAROUND" = "AdBlock 回避策";
 "ADBLOCK_WORKAROUND_DESC" = "より強力な広告ブロックコードを使用します。";
 
@@ -311,11 +331,19 @@
 "AUTO_HIDE_HOME_INDICATOR_DESC" = "アプリを操作していない場合に、iOS のホームインジケーター(画面下部のホームバー)を自動的に非表示にします。";
 "HIDE_INDICATORS" = "インジケーターを非表示";
 "HIDE_INDICATORS_DESC" = "アプリ内の現在のインジケーターをすべて非表示にします。";
-"FIX_CASTING" = "キャストを修正";
-"FIX_CASTING_DESC" = "キャストを修正するために、特定の A/B テストフラグを変更します。";
 "NEW_SETTINGS_UI" = "新しい設定 UI を使用";
 "NEW_SETTINGS_UI_DESC" = "カテゴリを備えた新しい設定 UI を有効にします。";
+
+// YouMod migration
+"YOU_MOD_GITHUB" = "YouMod on GitHub";
+"YOU_MOD_GITHUB_DESC" = "Lightweight alternative — visit the YouMod repo first to prepare!";
+"MIGRATE_TO_YOU_MOD" = "⭐ Migrate to YouMod 2.0.0 (Recommended)";
+"MIGRATE_TO_YOU_MOD_DESC" = "Copies your compatible uYouEnhanced settings over to YouMod 2.0.0. Your uYouEnhanced settings are kept. A HUD message confirms how many keys migrated.";
+"MIGRATE_TO_YOU_MOD_RESET" = "⚠️ Migrate to YouMod 2.0.0 + Reset uYouEnhanced (Advanced)";
+"MIGRATE_TO_YOU_MOD_RESET_DESC" = "Copies your settings to YouMod 2.0.0, then REMOVES all toggled uYouEnhanced settings. Only use this if you fully intend to switch to YouMod 2.0.0.";
 
 "DEFAULT" = "デフォルト";
 "CUSTOM_COLOR" = "カスタムカラー";
 "RESTART_REQUIRED" = "アプリの再起動が必要です。";
+"OK" = "OK";
+"FAILED" = "Failed";
