@@ -116,7 +116,6 @@ static UIImage *YTDefaultAppIcon(void) {
     // difference between "candidates scanned" and "kept" is exactly how many
     // would have been -54-rejected, and logging it makes the decision
     // self-explanatory when reading the next device report.
-    NSUInteger scannedBeforePrune = [merged count];
     NSUInteger keptCount = [merged count];
     UYTDebugInfo(@"[uYouEnhanced] AppIcon picker: %lu candidates, %lu kept after prune (dropped %lu unregistered/unregistered-cap candidate(s) to avoid OSStatus -54)",
                  (unsigned long)scannedBeforePrune, (unsigned long)keptCount,
