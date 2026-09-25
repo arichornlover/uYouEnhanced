@@ -1,4 +1,4 @@
-﻿// DownloadPipeline.xm — modern stream fetcher for YouTube 21.14.4+ (iOS 16–26).
+// DownloadPipeline.xm — modern stream fetcher for YouTube 21.14.4+ (iOS 16–26).
 // Design doc: Docs/DownloadPipeline.md
 
 #import <Foundation/Foundation.h>
