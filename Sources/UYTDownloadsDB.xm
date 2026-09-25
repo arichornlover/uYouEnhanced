@@ -26,7 +26,7 @@ static BOOL UYTDownloadsDBInsertAtPath(NSString *dbPath,
                                        NSString *path) {
     sqlite3 *db = NULL;
     if (sqlite3_open([dbPath UTF8String], &db) != SQLITE_OK) {
-        UYTLog(@"[UYTPipeline] uyoudb.sqlite open failed at %@: %s", dbPath, sqlite3_errmsg(db));
+        UYTDebugErr(@"[UYTPipeline] uyoudb.sqlite open failed at %@: %s", dbPath, sqlite3_errmsg(db));
         if (db) sqlite3_close(db);
         return NO;
     }
@@ -42,7 +42,7 @@ static BOOL UYTDownloadsDBInsertAtPath(NSString *dbPath,
         "duration TEXT, type TEXT, path TEXT, lyrics TEXT, timestamp DATETIME)";
     char *createErr = NULL;
     if (sqlite3_exec(db, createSQL, NULL, NULL, &createErr) != SQLITE_OK) {
-        UYTLog(@"[UYTPipeline] uyoudb.sqlite CREATE TABLE failed: %s", createErr);
+        UYTDebugErr(@"[UYTPipeline] uyoudb.sqlite CREATE TABLE failed: %s", createErr);
         sqlite3_free(createErr);
         sqlite3_close(db);
         return NO;
@@ -55,7 +55,7 @@ static BOOL UYTDownloadsDBInsertAtPath(NSString *dbPath,
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     sqlite3_stmt *stmt = NULL;
     if (sqlite3_prepare_v2(db, insertSQL, -1, &stmt, NULL) != SQLITE_OK) {
-        UYTLog(@"[UYTPipeline] uyoudb.sqlite prepare failed: %s", sqlite3_errmsg(db));
+        UYTDebugErr(@"[UYTPipeline] uyoudb.sqlite prepare failed: %s", sqlite3_errmsg(db));
         sqlite3_close(db);
         return NO;
     }
@@ -87,8 +87,8 @@ static BOOL UYTDownloadsDBInsertAtPath(NSString *dbPath,
     }
 
     BOOL ok = (sqlite3_step(stmt) == SQLITE_DONE);
-    if (!ok) UYTLog(@"[UYTPipeline] uyoudb.sqlite insert failed for %@ at %@: %s", videoID, dbPath, sqlite3_errmsg(db));
-    else UYTLog(@"[UYTPipeline] uyoudb.sqlite insert OK for %@ at %@ -> %@", videoID, dbPath, path);
+    if (!ok) UYTDebugErr(@"[UYTPipeline] uyoudb.sqlite insert failed for %@ at %@: %s", videoID, dbPath, sqlite3_errmsg(db));
+    else UYTDebugInfo(@"[UYTPipeline] uyoudb.sqlite insert OK for %@ at %@ -> %@", videoID, dbPath, path);
 
     sqlite3_finalize(stmt);
     sqlite3_close(db);
