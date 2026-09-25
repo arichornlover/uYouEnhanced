@@ -1122,9 +1122,17 @@ static NSString *UYTResolveVideoID(id param, id item) {
         needsAudioExtraction = [[item valueForKey:@"uYouNeedsAudioExtraction"] boolValue];
     } @catch (NSException *e) {}
 
+    id ui = UYTResolveUYouItem(item);
+    if (!needsAudioExtraction && ui) {
+        NSString *extractionVid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
+        if (extractionVid.length && UYTIsAudioOnly(extractionVid)) {
+            needsAudioExtraction = YES;
+            UYTDebugInfo(@"[uYouPatches] audio-only request for %@ - checking muxed source for extraction", extractionVid);
+        }
+    }
+
     if (needsAudioExtraction) {
         UYTDebugInfo(@"[uYouPatches] Audio-only download needs extraction from muxed video");
-        id ui = UYTResolveUYouItem(item);
         if (ui) {
             NSString *videoPath = nil;
             if ([ui respondsToSelector:@selector(tmpVideoPath)]) videoPath = [ui tmpVideoPath];
@@ -1643,27 +1651,43 @@ static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
 
 @interface YTReelHeaderView : NSObject
 - (void)uYou;
-- (void)setUYOUButton:(id)button;
+- (void)setUYouButton:(id)button;
 - (id)uYouButton;
-- (void)uYouDownloadButtonTapped:(id)sender;
 @end
 
-static void UYTReelsDownloadTapIMP(id self, SEL _cmd, id sender) {
-    @try { UYTReelsHandleDownloadTapFromView((UIView *)self, (UIButton *)sender); } @catch (NSException *e) {}
+static const char UYTReelsTargetKey = 0;
+
+@interface UYTReelsDownloadTarget : NSObject
+@property (nonatomic, weak) UIView *host;
+@end
+
+@implementation UYTReelsDownloadTarget
+- (void)uYouDownloadButtonTapped:(id)sender {
+    UIView *host = self.host;
+    if (!host) return;
+    @try { UYTReelsHandleDownloadTapFromView(host, (UIButton *)sender); } @catch (NSException *e) {}
+}
+@end
+
+static UYTReelsDownloadTarget *UYTReelsTargetForHeader(UIView *header) {
+    UYTReelsDownloadTarget *target = objc_getAssociatedObject(header, &UYTReelsTargetKey);
+    if (![target isKindOfClass:[UYTReelsDownloadTarget class]]) {
+        target = [UYTReelsDownloadTarget new];
+        target.host = header;
+        objc_setAssociatedObject(header, &UYTReelsTargetKey, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    return target;
 }
 
 static void UYTReelsBindVendedButton(YTReelHeaderView *headerView) {
     UIView *header = (UIView *)headerView;
     if (!headerView || ![headerView respondsToSelector:@selector(uYouButton)]) return;
-    if (![headerView respondsToSelector:@selector(uYouDownloadButtonTapped:)]) {
-        class_addMethod([headerView class], @selector(uYouDownloadButtonTapped:),
-                        (IMP)UYTReelsDownloadTapIMP, "v@:@");
-    }
     id button = [headerView uYouButton];
     if (![button isKindOfClass:[UIView class]]) return;
     objc_setAssociatedObject(header, &UYTReelsShortsKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     if ([button isKindOfClass:[UIButton class]]) {
         UIButton *b = (UIButton *)button;
+        UYTReelsDownloadTarget *target = UYTReelsTargetForHeader(header);
         [b removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
         @try {
             if ([b respondsToSelector:@selector(setShowsMenuAsPrimaryAction:)]) {
@@ -1679,7 +1703,7 @@ static void UYTReelsBindVendedButton(YTReelHeaderView *headerView) {
 #pragma clang diagnostic pop
             }
         } @catch (NSException *e) {}
-        [b addTarget:header action:@selector(uYouDownloadButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+        [b addTarget:target action:@selector(uYouDownloadButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
     }
     [header bringSubviewToFront:button];
 }
@@ -1693,7 +1717,7 @@ static void UYTReelsBindVendedButton(YTReelHeaderView *headerView) {
     @try { UYTReelsBindVendedButton(self); } @catch (NSException *e) {}
 }
 
-- (void)setUYOUButton:(id)button {
+- (void)setUYouButton:(id)button {
     %orig(button);
     @try { UYTReelsBindVendedButton(self); } @catch (NSException *e) {}
 }
@@ -1701,10 +1725,6 @@ static void UYTReelsBindVendedButton(YTReelHeaderView *headerView) {
 - (void)layoutSubviews {
     %orig;
     @try { UYTReelsBindVendedButton(self); } @catch (NSException *e) {}
-}
-
-- (void)uYouDownloadButtonTapped:(id)sender {
-    @try { UYTReelsHandleDownloadTapFromView((UIView *)self, (UIButton *)sender); } @catch (NSException *e) {}
 }
 %end
 %end

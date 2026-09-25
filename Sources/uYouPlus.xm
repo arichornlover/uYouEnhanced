@@ -181,14 +181,32 @@ static void UYTAppendSelectorLog(NSString *line) {
     }
 }
 
+static BOOL UYTSelectorIsOurs(NSString *selName) {
+    if (selName.length == 0) return NO;
+    if ([selName hasPrefix:@"uYou"] || [selName hasPrefix:@"uyt_"] ||
+        [selName hasPrefix:@"UYT"] || [selName hasPrefix:@"YT_uYou"]) {
+        return YES;
+    }
+    static NSSet *ours;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        ours = [NSSet setWithArray:@[
+            @"hideMatchingSubviews:", @"applyRedColorToSubscribeButton:",
+            @"uYouDownloadButtonTapped:", @"updateTweakSectionWithEntry:"
+        ]];
+    });
+    return [ours containsObject:selName];
+}
+
 %hook UIResponder
 - (void)doesNotRecognizeSelector:(SEL)aSelector {
     NSString *selName = NSStringFromSelector(aSelector) ?: @"<nil-sel>";
     NSString *clsName = NSStringFromClass([self class]) ?: @"<nil-class>";
+    BOOL ours = UYTSelectorIsOurs(selName);
     NSString *line = [NSString stringWithFormat:
-        @"[uYouButtonForward] UNRECOGNIZED SELECTOR target=%@ (%@) SEL=[%@] inst=%p",
-        clsName, self, selName, self];
-    UYTDebugInfo(@"%@", line);
+        @"[%@] UNRECOGNIZED SELECTOR target=%@ (%@) SEL=[%@] inst=%p",
+        ours ? @"OURS" : @"other-tweak", clsName, self, selName, self];
+    UYTDebugWarn(@"%@", line);
     UYTAppendSelectorLog(line);
     %orig;
 }
@@ -1804,35 +1822,11 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredShortsArray(NSArray <Y
         @try {
             UIView *settingsView = [(UIViewController *)self view];
 
-            UIView *frostedView = nil;
-            @try {
-                Class frostedGlassClass = %c(YTFrostedGlassView);
-                if (frostedGlassClass) {
-                    if ([frostedGlassClass instancesRespondToSelector:@selector(initWithBlurEffectStyle:)]) {
-                        frostedView = [[frostedGlassClass alloc] initWithBlurEffectStyle:1];
-                    } else if ([frostedGlassClass instancesRespondToSelector:@selector(initWithBlurEffectStyle:alpha:)]) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-                        frostedView = [frostedGlassClass performSelector:@selector(initWithBlurEffectStyle:alpha:) withObject:@1 withObject:@1.0];
-#pragma clang diagnostic pop
-                    }
-                }
-                if (frostedView) {
-                    [frostedView setAutoresizingMask:
-                        UIViewAutoresizingFlexibleWidth |
-                        UIViewAutoresizingFlexibleHeight];
-                }
-            } @catch (NSException *e) {
-                frostedView = nil;
-            }
-
-            if (!frostedView) {
-                frostedView = (YTFrostedGlassView *)[[UIVisualEffectView alloc]
-                    initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterial]];
-                frostedView.autoresizingMask =
-                    UIViewAutoresizingFlexibleWidth |
-                    UIViewAutoresizingFlexibleHeight;
-            }
+            UIView *frostedView = [[UIVisualEffectView alloc]
+                initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterial]];
+            frostedView.autoresizingMask =
+                UIViewAutoresizingFlexibleWidth |
+                UIViewAutoresizingFlexibleHeight;
 
             frostedView.frame = settingsView.bounds;
             [settingsView insertSubview:frostedView atIndex:0];
