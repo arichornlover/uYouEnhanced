@@ -17,6 +17,8 @@ NSInteger UYTFFActiveBackend(void);
 
 BOOL UYTFFRun(NSArray<NSString *> *arguments);
 
+BOOL UYTFileLooksLikeWebm(NSString *path);
+
 BOOL UYTFFConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath);
 
 BOOL UYTFFRemuxVideoAudioToMP4(NSString *videoPath, NSString *audioPath, NSString *outputPath);

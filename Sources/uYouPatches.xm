@@ -430,7 +430,7 @@ static id UYTResolveUYouItem(id item) {
 }
 
 static BOOL UYTPathIsWebm(NSString *path) {
-    return path.length > 0 && [path.pathExtension.lowercaseString isEqualToString:@"webm"];
+    return UYTFileLooksLikeWebm(path);
 }
 
 static NSString *UYTAudioPathForItem(id ui) {
@@ -1136,24 +1136,19 @@ static NSString *UYTResolveVideoID(id param, id item) {
                 [[NSFileManager defaultManager] removeItemAtPath:tmpAudio error:nil];
 
                 if (UYTFFActiveBackend() != UYTFFBackendNone) {
-                    BOOL ok = UYTFFRun(@[
-                        @"-i", videoPath,
-                        @"-vn",
-                        @"-acodec", @"aac",
-                        @"-strict", @"-2",
-                        @"-y",
-                        tmpAudio,
-                    ]);
+                    BOOL ok = UYTFFConvertWebmAudioToM4a(videoPath, tmpAudio);
                     if (ok && [[NSFileManager defaultManager] fileExistsAtPath:tmpAudio]) {
                         NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:tmpAudio error:nil];
                         if (attrs && [attrs fileSize] > 0) {
                             [[NSFileManager defaultManager] removeItemAtPath:finalPath error:nil];
                             [[NSFileManager defaultManager] moveItemAtPath:tmpAudio toPath:finalPath error:nil];
                             UYTDebugInfo(@"[uYouPatches] Extracted audio from muxed video for %@", finalPath);
-                            UYTFinalizeItem(item, @"audio extracted from muxed");
+                            if (UYTFinalizeItem(item, @"audio extracted from muxed")) return;
+                            UYTArmStallWatchdog(item, 30.0);
                             return;
                         }
                     }
+                    UYTDebugWarn(@"[uYouPatches] audio extraction from muxed video failed for %@", videoPath.lastPathComponent);
                     [[NSFileManager defaultManager] removeItemAtPath:tmpAudio error:nil];
                 }
             }
@@ -1161,13 +1156,15 @@ static NSString *UYTResolveVideoID(id param, id item) {
     }
 
     if (!UYTEnsureMergeableAudio(item, @"addMetadata")) {
-        UYTFinalizeItem(item, @"no-merge fallback");
+        if (UYTFinalizeItem(item, @"no-merge fallback")) return;
+        UYTArmStallWatchdog(item, 45.0);
         return;
     }
 
     if (UYTAudioStillWebm(item)) {
         UYTDebugWarn(@"[uYouPatches] Audio still WebM after conversion - skipping merge to avoid infinite hang");
-        UYTFinalizeItem(item, @"still-webm skip");
+        if (UYTFinalizeItem(item, @"still-webm skip")) return;
+        UYTArmStallWatchdog(item, 45.0);
         return;
     }
 
@@ -1176,7 +1173,9 @@ static NSString *UYTResolveVideoID(id param, id item) {
         %orig;
     } @catch (NSException *e) {
         UYTDebugWarn(@"[uYouPatches] addMetadataToAudio failed: %@ for item: %@", e, item);
-        UYTFinalizeItem(item, @"metadata exception recovery");
+        if (!UYTFinalizeItem(item, @"metadata exception recovery")) {
+            UYTArmStallWatchdog(item, 45.0);
+        }
         dispatch_async(dispatch_get_main_queue(), ^{
             [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouDownloadMetadataFailed" object:nil];
         });
@@ -1194,12 +1193,14 @@ static NSString *UYTResolveVideoID(id param, id item) {
 
     if (UYTItemIsAudioOnly(item)) {
         UYTDebugInfo(@"[uYouPatches] audio-only item — finalizing without merge");
-        UYTFinalizeItem(item, @"audio-only no-merge");
+        if (UYTFinalizeItem(item, @"audio-only no-merge")) return;
+        UYTArmStallWatchdog(item, 45.0);
         return;
     }
 
     if (!UYTEnsureMergeableAudio(item, @"mergeMP4")) {
-        UYTFinalizeItem(item, @"no-merge fallback");
+        if (UYTFinalizeItem(item, @"no-merge fallback")) return;
+        UYTArmStallWatchdog(item, 45.0);
         return;
     }
 
@@ -1209,7 +1210,8 @@ static NSString *UYTResolveVideoID(id param, id item) {
 
     id ui = UYTResolveUYouItem(item);
     if (UYTRemuxWithFFmpeg(ui, @"mergeMP4")) {
-        UYTFinalizeItem(item, @"ffmpeg remux");
+        if (UYTFinalizeItem(item, @"ffmpeg remux")) return;
+        UYTArmStallWatchdog(item, 45.0);
         return;
     }
 
@@ -1234,12 +1236,14 @@ static NSString *UYTResolveVideoID(id param, id item) {
 
     if (UYTItemIsAudioOnly(item)) {
         UYTDebugInfo(@"[uYouPatches] audio-only item — finalizing without merge");
-        UYTFinalizeItem(item, @"audio-only no-merge");
+        if (UYTFinalizeItem(item, @"audio-only no-merge")) return;
+        UYTArmStallWatchdog(item, 45.0);
         return;
     }
 
     if (!UYTEnsureMergeableAudio(item, @"mergeAudio")) {
-        UYTFinalizeItem(item, @"no-merge fallback");
+        if (UYTFinalizeItem(item, @"no-merge fallback")) return;
+        UYTArmStallWatchdog(item, 45.0);
         return;
     }
 
@@ -1249,7 +1253,8 @@ static NSString *UYTResolveVideoID(id param, id item) {
 
     id ui = UYTResolveUYouItem(item);
     if (UYTRemuxWithFFmpeg(ui, @"mergeAudio")) {
-        UYTFinalizeItem(item, @"ffmpeg remux");
+        if (UYTFinalizeItem(item, @"ffmpeg remux")) return;
+        UYTArmStallWatchdog(item, 45.0);
         return;
     }
 

@@ -3,6 +3,7 @@
 #import <dlfcn.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
+#import <string.h>
 
 static NSInteger UYTFFCachedBackend = -1;
 
@@ -32,56 +33,134 @@ NSInteger UYTFFActiveBackend(void) {
     return UYTFFCachedBackend;
 }
 
+static NSString *UYTFFCommandLine(NSArray<NSString *> *arguments) {
+    NSMutableArray<NSString *> *parts = [NSMutableArray arrayWithCapacity:arguments.count];
+    for (NSString *arg in arguments) {
+        if ([arg hasPrefix:@"-"]) [parts addObject:arg];
+        else if ([arg containsString:@"/"]) [parts addObject:[NSString stringWithFormat:@"\"%@\"", arg.lastPathComponent]];
+        else [parts addObject:arg];
+    }
+    return [parts componentsJoinedByString:@" "];
+}
+
 BOOL UYTFFRun(NSArray<NSString *> *arguments) {
     UYTFFProbe();
 
-    Class kitClass = Nil;
+    NSString *command = UYTFFCommandLine(arguments);
+
+    if (UYTFFCachedBackend == UYTFFBackendNone) {
+        UYTDebugErr(@"[uYouPatches] ffmpeg backend unavailable - command dropped: %@", command);
+        return NO;
+    }
+
+    Class kitClass = objc_getClass(UYTFFCachedBackend == UYTFFBackendKitNext ? "FFmpegKit" : "MobileFFmpeg");
+    if (!kitClass) {
+        UYTDebugErr(@"[uYouPatches] ffmpeg class missing - command dropped: %@", command);
+        return NO;
+    }
+
     BOOL isKitNext = (UYTFFCachedBackend == UYTFFBackendKitNext);
-    if (UYTFFCachedBackend == UYTFFBackendNone) return NO;
-    kitClass = objc_getClass(isKitNext ? "FFmpegKit" : "MobileFFmpeg");
-    if (!kitClass) return NO;
+    BOOL ok = NO;
+    long rc = -1;
 
     @try {
         if (isKitNext) {
             id session = ((id (*)(id, SEL, NSArray *))objc_msgSend)(
                 kitClass, @selector(executeWithArguments:), arguments);
-            if (!session) return NO;
-
-            if ([session respondsToSelector:@selector(getReturnCode)]) {
-                id rc = ((id (*)(id, SEL))objc_msgSend)(session, @selector(getReturnCode));
-                if ([rc respondsToSelector:@selector(isSuccess)]) {
-                    return ((BOOL (*)(id, SEL))objc_msgSend)(rc, @selector(isSuccess));
+            if (session) {
+                if ([session respondsToSelector:@selector(getReturnCode)]) {
+                    id ret = ((id (*)(id, SEL))objc_msgSend)(session, @selector(getReturnCode));
+                    if ([ret respondsToSelector:@selector(isSuccess)]) {
+                        ok = ((BOOL (*)(id, SEL))objc_msgSend)(ret, @selector(isSuccess));
+                    } else if ([ret respondsToSelector:@selector(getIntValue)]) {
+                        rc = (long)((long (*)(id, SEL))objc_msgSend)(ret, @selector(getIntValue));
+                        ok = (rc == 0);
+                    } else if ([ret respondsToSelector:@selector(intValue)]) {
+                        rc = (long)[ret intValue];
+                        ok = (rc == 0);
+                    }
+                } else if ([session respondsToSelector:@selector(getState)]) {
+                    NSString *state = [NSString stringWithFormat:@"%@",
+                        ((id (*)(id, SEL))objc_msgSend)(session, @selector(getState))];
+                    ok = [state containsString:@"COMPLETED"];
+                    if (!ok) rc = -2;
                 }
-                if ([rc respondsToSelector:@selector(getIntValue)]) {
-                    return ((long (*)(id, SEL))objc_msgSend)(rc, @selector(getIntValue)) == 0;
-                }
-                if ([rc respondsToSelector:@selector(intValue)]) {
-                    return [rc intValue] == 0;
-                }
-                return NO;
             }
-            if ([session respondsToSelector:@selector(getState)]) {
-                NSString *state = [NSString stringWithFormat:@"%@",
-                    ((id (*)(id, SEL))objc_msgSend)(session, @selector(getState))];
-                return [state containsString:@"COMPLETED"];
-            }
-            return NO;
+        } else {
+            rc = ((int (*)(id, SEL, NSArray *))objc_msgSend)(
+                kitClass, @selector(executeWithArguments:), arguments);
+            ok = (rc == 0);
         }
-
-        int rc = ((int (*)(id, SEL, NSArray *))objc_msgSend)(
-            kitClass, @selector(executeWithArguments:), arguments);
-        return rc == 0;
     } @catch (NSException *e) {
-        UYTDebugErr(@"UYTMediaKit command failed (%@): %@", arguments.firstObject ?: @"", e);
+        UYTDebugErr(@"[uYouPatches] ffmpeg threw while running: %@ (%@)", command, e);
         return NO;
     }
+
+    if (ok) {
+        UYTDebugInfo(@"[uYouPatches] ffmpeg ok: %@", command);
+    } else {
+        UYTDebugWarn(@"[uYouPatches] ffmpeg FAILED (rc=%ld): %@", rc, command);
+    }
+    return ok;
+}
+
+static BOOL UYTOutputIsUsable(NSString *path) {
+    if (!path.length) return NO;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    if (![fm fileExistsAtPath:path]) return NO;
+    if ([[fm attributesOfItemAtPath:path error:nil] fileSize] > 0) return YES;
+    [fm removeItemAtPath:path error:nil];
+    return NO;
+}
+
+typedef NS_ENUM(NSInteger, UYTContainer) {
+    UYTContainerUnknown = 0,
+    UYTContainerWebm,
+    UYTContainerOgg,
+    UYTContainerMP4,
+};
+
+static UYTContainer UYTProbeContainer(NSString *path) {
+    if (path.length < 1) return UYTContainerUnknown;
+    NSFileHandle *fh = [NSFileHandle fileHandleForReadingAtPath:path];
+    if (!fh) return UYTContainerUnknown;
+    NSData *head = nil;
+    @try {
+        [fh seekToFileOffset:0];
+        head = [fh readDataOfLength:16];
+    } @catch (NSException *e) {
+        head = nil;
+    }
+    @try { [fh closeFile]; } @catch (NSException *e) {}
+    if (head.length < 4) return UYTContainerUnknown;
+    const uint8_t *b = (const uint8_t *)head.bytes;
+    if (b[0] == 0x1A && b[1] == 0x45 && b[2] == 0xDF && b[3] == 0xA3) return UYTContainerWebm;
+    if (b[0] == 'O' && b[1] == 'g' && b[2] == 'g' && b[3] == 'S') return UYTContainerOgg;
+    if (head.length >= 8 && memcmp(b + 4, "ftyp", 4) == 0) return UYTContainerMP4;
+    return UYTContainerUnknown;
+}
+
+BOOL UYTFileLooksLikeWebm(NSString *path) {
+    if (path.length < 1) return NO;
+    UYTContainer c = UYTProbeContainer(path);
+    if (c == UYTContainerWebm || c == UYTContainerOgg) return YES;
+    if (c == UYTContainerMP4) return NO;
+    return [path.pathExtension.lowercaseString isEqualToString:@"webm"];
+}
+
+static BOOL uytPathIsWebm(NSString *path) {
+    return UYTFileLooksLikeWebm(path);
 }
 
 BOOL UYTFFConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
     return UYTFFRun(@[
         @"-i", webmPath,
+        @"-map", @"0:a:0",
         @"-vn",
-        @"-acodec", @"aac",
+        @"-c:a", @"aac",
+        @"-b:a", @"160k",
+        @"-ar", @"44100",
+        @"-ac", @"2",
         @"-strict", @"-2",
         @"-y",
         m4aPath,
@@ -89,19 +168,41 @@ BOOL UYTFFConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
 }
 
 BOOL UYTFFRemuxVideoAudioToMP4(NSString *videoPath, NSString *audioPath, NSString *outputPath) {
-    return UYTFFRun(@[
+    NSFileManager *fm = [NSFileManager defaultManager];
+    if ([fm fileExistsAtPath:outputPath]) [fm removeItemAtPath:outputPath error:nil];
+
+    BOOL ok = UYTFFRun(@[
         @"-i", videoPath,
         @"-i", audioPath,
+        @"-map", @"0:v:0",
+        @"-map", @"1:a:0",
         @"-c", @"copy",
         @"-strict", @"-2",
         @"-movflags", @"+faststart",
         @"-y",
         outputPath,
     ]);
-}
+    if (ok && UYTOutputIsUsable(outputPath)) return YES;
+    if ([fm fileExistsAtPath:outputPath]) [fm removeItemAtPath:outputPath error:nil];
 
-static BOOL uytPathIsWebm(NSString *path) {
-    return path.length > 0 && [path.pathExtension.lowercaseString isEqualToString:@"webm"];
+    ok = UYTFFRun(@[
+        @"-i", videoPath,
+        @"-i", audioPath,
+        @"-map", @"0:v:0",
+        @"-map", @"1:a:0",
+        @"-c:v", @"copy",
+        @"-c:a", @"aac",
+        @"-b:a", @"160k",
+        @"-ar", @"44100",
+        @"-ac", @"2",
+        @"-strict", @"-2",
+        @"-movflags", @"+faststart",
+        @"-y",
+        outputPath,
+    ]);
+    if (ok && UYTOutputIsUsable(outputPath)) return YES;
+    if ([fm fileExistsAtPath:outputPath]) [fm removeItemAtPath:outputPath error:nil];
+    return NO;
 }
 
 BOOL UYTFFConvertWebmVideoToMp4(NSString *webmPath, NSString *mp4Path) {
@@ -112,35 +213,54 @@ BOOL UYTFFConvertWebmVideoToMp4(NSString *webmPath, NSString *mp4Path) {
 
     BOOL ok = UYTFFRun(@[
         @"-i", webmPath,
+        @"-map", @"0:v:0",
+        @"-map", @"0:a:0?",
         @"-c:v", @"libx264",
         @"-preset", @"medium",
         @"-crf", @"22",
         @"-pix_fmt", @"yuv420p",
-        @"-c:a", @"copy",
+        @"-c:a", @"aac",
+        @"-b:a", @"160k",
+        @"-ar", @"44100",
+        @"-ac", @"2",
+        @"-strict", @"-2",
         @"-movflags", @"+faststart",
         @"-y",
         mp4Path,
     ]);
-    if (ok && [fm fileExistsAtPath:mp4Path]) {
-        unsigned long long sz = [[fm attributesOfItemAtPath:mp4Path error:nil] fileSize];
-        if (sz > 0) return YES;
-    }
+    if (ok && UYTOutputIsUsable(mp4Path)) return YES;
     if ([fm fileExistsAtPath:mp4Path]) [fm removeItemAtPath:mp4Path error:nil];
 
     ok = UYTFFRun(@[
         @"-i", webmPath,
+        @"-map", @"0:v:0",
+        @"-map", @"0:a:0?",
         @"-c:v", @"h264_videotoolbox",
         @"-b:v", @"8M",
         @"-pix_fmt", @"yuv420p",
-        @"-c:a", @"copy",
+        @"-c:a", @"aac",
+        @"-b:a", @"160k",
+        @"-ar", @"44100",
+        @"-ac", @"2",
+        @"-strict", @"-2",
         @"-movflags", @"+faststart",
         @"-y",
         mp4Path,
     ]);
-    if (ok && [fm fileExistsAtPath:mp4Path]) {
-        unsigned long long sz = [[fm attributesOfItemAtPath:mp4Path error:nil] fileSize];
-        if (sz > 0) return YES;
-    }
+    if (ok && UYTOutputIsUsable(mp4Path)) return YES;
+    if ([fm fileExistsAtPath:mp4Path]) [fm removeItemAtPath:mp4Path error:nil];
+
+    ok = UYTFFRun(@[
+        @"-i", webmPath,
+        @"-map", @"0:v:0",
+        @"-map", @"0:a:0?",
+        @"-c", @"copy",
+        @"-strict", @"-2",
+        @"-movflags", @"+faststart",
+        @"-y",
+        mp4Path,
+    ]);
+    if (ok && UYTOutputIsUsable(mp4Path)) return YES;
     if ([fm fileExistsAtPath:mp4Path]) [fm removeItemAtPath:mp4Path error:nil];
     return NO;
 }
