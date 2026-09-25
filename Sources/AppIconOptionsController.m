@@ -80,7 +80,47 @@ static UIImage *YTDefaultAppIcon(void) {
         for (NSString *f in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:iconsDir error:nil])
             if ([f.pathExtension.lowercaseString isEqualToString:@"png"]) [merged addObject:[f stringByDeletingPathExtension]];
     }
-    UYTDebugInfo(@"[uYouEnhanced] AppIcon picker: %lu registered, %lu total", (unsigned long)alternate.count, (unsigned long)merged.count);
+    // Snapshot how many candidates we scanned BEFORE the registered-only prune
+    // below - that delta is exactly how many would have been OSStatus -54
+    // rejected, and logging it makes the decision self-explanatory when you
+    // read the next device report.
+    NSUInteger scannedBeforePrune = [merged count];
+
+    // iOS (17+) rejects any alternateIconName that isn't a registered key in
+    // the app's own CFBundleAlternateIcons - offering pngs that were never
+    // registered into Info.plist yields OSStatus -54 for every such name.
+    // Prune the candidate list down to exactly the registered names so we can
+    // never hand the system one it'll reject.
+    if (altDict.count || altDictPad.count) {
+        NSMutableSet *registeredOnly = [NSMutableSet set];
+        for (NSString *k in altDict) [registeredOnly addObject:k];
+        for (NSString *k in altDictPad) [registeredOnly addObject:k];
+        // Only keep what's both registered AND actually present as a png;
+        // the folder may carry extra/unregistered art that must not be offered.
+        NSMutableSet *kept = [NSMutableSet set];
+        NSString *iconsDir = [[[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"] ?: @"" stringByAppendingPathComponent:@"AppIcons"];
+        NSArray *pngs = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:iconsDir error:nil] ?: @[];
+        for (NSString *k in registeredOnly) {
+            BOOL foundPng = NO;
+            for (NSString *f in pngs)
+                if ([f.stringByDeletingPathExtension isEqualToString:k] &&
+                    [f.pathExtension.lowercaseString isEqualToString:@"png"]) { foundPng = YES; break; }
+            if (foundPng) [kept addObject:k];
+        }
+        merged = kept;
+    }
+    // iOS 17+ hands back OSStatus -54 for ANY alternateIconName that isn't a
+    // registered key in CFBundleAlternateIcons. The two prune paths above
+    // (iOS 17 plist-registered-only, and iOS-16 registered-∩png fallback)
+    // guarantee we only ever offer names the system will accept - so the
+    // difference between "candidates scanned" and "kept" is exactly how many
+    // would have been -54-rejected, and logging it makes the decision
+    // self-explanatory when reading the next device report.
+    NSUInteger scannedBeforePrune = [merged count];
+    NSUInteger keptCount = [merged count];
+    UYTDebugInfo(@"[uYouEnhanced] AppIcon picker: %lu candidates, %lu kept after prune (dropped %lu unregistered/unregistered-cap candidate(s) to avoid OSStatus -54)",
+                 (unsigned long)scannedBeforePrune, (unsigned long)keptCount,
+                 (unsigned long)(scannedBeforePrune - keptCount));
     NSArray *alternateAll = [merged allObjects];
     self.appIcons = [alternateAll sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
 
