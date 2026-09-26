@@ -727,24 +727,41 @@ static inline BOOL oledKBDarkMode(UIView *view) {
 - (void)layoutSubviews {
     %orig;
     if (oledKBDarkMode(self)) {
-        self.backgroundEffects = nil;
+        if ([self respondsToSelector:@selector(setBackgroundEffects:)]) {
+            @try { self.backgroundEffects = nil; } @catch (NSException *e) {}
+        }
         self.backgroundColor = [UIColor blackColor];
     }
 }
 %end
 %end
 
+static void UYTApplyCellBackgroundColor(id cell, UIColor *color) {
+    if (!cell || !color) return;
+    @try {
+        UIView *backgroundView = [cell valueForKey:@"_systemBackgroundView"];
+        if (![backgroundView isKindOfClass:[UIView class]]) return;
+        for (NSString *key in @[@"_colorView", @"_backgroundView"]) {
+            @try {
+                UIView *tintView = [backgroundView valueForKey:key];
+                if ([tintView isKindOfClass:[UIView class]]) {
+                    tintView.backgroundColor = color;
+                    return;
+                }
+            } @catch (NSException *e) {}
+        }
+    } @catch (NSException *e) {}
+}
+
 %group gOLEDCellTint
 %hook UITableViewCell
 - (void)_layoutSystemBackgroundView {
     %orig;
-    UIView *systemBackgroundView = [self valueForKey:@"_systemBackgroundView"];
-    NSString *backgroundViewKey = class_getInstanceVariable(systemBackgroundView.class, "_colorView") ? @"_colorView" : @"_backgroundView";
-    ((UIView *)[systemBackgroundView valueForKey:backgroundViewKey]).backgroundColor = [UIColor blackColor];
+    UYTApplyCellBackgroundColor(self, [UIColor blackColor]);
 }
 - (void)_layoutSystemBackgroundView:(BOOL)arg1 {
     %orig;
-    ((UIView *)[[self valueForKey:@"_systemBackgroundView"] valueForKey:@"_colorView"]).backgroundColor = [UIColor blackColor];
+    UYTApplyCellBackgroundColor(self, [UIColor blackColor]);
 }
 %end
 %end
@@ -753,13 +770,11 @@ static inline BOOL oledKBDarkMode(UIView *view) {
 %hook UITableViewCell
 - (void)_layoutSystemBackgroundView {
     %orig;
-    UIView *systemBackgroundView = [self valueForKey:@"_systemBackgroundView"];
-    NSString *backgroundViewKey = class_getInstanceVariable(systemBackgroundView.class, "_colorView") ? @"_colorView" : @"_backgroundView";
-    ((UIView *)[systemBackgroundView valueForKey:backgroundViewKey]).backgroundColor = customHexColor;
+    UYTApplyCellBackgroundColor(self, customHexColor);
 }
 - (void)_layoutSystemBackgroundView:(BOOL)arg1 {
     %orig;
-    ((UIView *)[[self valueForKey:@"_systemBackgroundView"] valueForKey:@"_colorView"]).backgroundColor = customHexColor;
+    UYTApplyCellBackgroundColor(self, customHexColor);
 }
 %end
 %end

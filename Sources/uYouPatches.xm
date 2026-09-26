@@ -470,21 +470,37 @@ static BOOL UYTItemIsAudioOnly(id item) {
     }
 }
 
-static BOOL UYTPointItemAtConvertedAudio(id uyouItem, NSString *webmPath, NSString *m4aPath) {
+static BOOL UYTPointItemAtConvertedMedia(id uyouItem, NSString *formatKey, NSString *formatValue,
+                                         NSString *pathKey, NSString *sourcePath,
+                                         NSString *convertedPath, NSString *label) {
     @try {
-        [uyouItem setValue:@"m4a" forKey:@"audioFormat"];
-        NSString *now = [uyouItem valueForKey:@"tmpAudioPath"];
-        if (![now isEqualToString:m4aPath]) {
-            UYTDebugWarn(@"[uYouPatches] tmpAudioPath is %@ after conversion, expected %@", now, m4aPath);
+        if (!uyouItem) return NO;
+        if (!convertedPath.length || ![[NSFileManager defaultManager] fileExistsAtPath:convertedPath]) {
+            UYTDebugWarn(@"[uYouPatches] %@: converted file missing at %@ - keeping source", label,
+                         convertedPath.length ? convertedPath : @"nil");
             return NO;
         }
-        [[NSFileManager defaultManager] removeItemAtPath:webmPath error:nil];
-        UYTDebugInfo(@"[uYouPatches] item now points at converted audio %@", m4aPath);
+        [uyouItem setValue:formatValue forKey:formatKey];
+        NSString *now = [uyouItem valueForKey:pathKey];
+        if (![now isEqualToString:convertedPath]) {
+            UYTDebugWarn(@"[uYouPatches] %@: %@ is %@ after naming %@, expected %@ - merge would hang",
+                         label, pathKey, now ?: @"nil", formatValue, convertedPath);
+            return NO;
+        }
+        if (sourcePath.length && ![sourcePath isEqualToString:convertedPath]) {
+            [[NSFileManager defaultManager] removeItemAtPath:sourcePath error:nil];
+        }
+        UYTDebugInfo(@"[uYouPatches] %@: item now points at %@ (%@)", label, convertedPath, formatValue);
         return YES;
     } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] could not point item at converted audio: %@", e);
+        UYTDebugWarn(@"[uYouPatches] %@: could not point item at converted media: %@", label, e);
         return NO;
     }
+}
+
+static BOOL UYTPointItemAtConvertedAudio(id uyouItem, NSString *webmPath, NSString *m4aPath) {
+    return UYTPointItemAtConvertedMedia(uyouItem, @"audioFormat", @"m4a", @"tmpAudioPath",
+                                        webmPath, m4aPath, @"audio");
 }
 
 static BOOL UYTEnsureMergeableAudio(id item, NSString *phase) {    @try {
@@ -533,14 +549,11 @@ static BOOL UYTEnsureMergeableVideo(id item, NSString *phase) {
 
         NSString *mp4Path = [[videoPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"mp4"];
         if (uYouConvertWebmVideoToMp4(videoPath, mp4Path)) {
-            @try { [ui setValue:@"mp4" forKey:@"videoFormat"]; } @catch (NSException *e) {}
-            NSString *now = nil;
-            @try { now = [ui valueForKey:@"tmpVideoPath"]; } @catch (NSException *e) {}
-            if (now.length && ![now isEqualToString:mp4Path]) {
-                UYTDebugWarn(@"[uYouPatches] %@: tmpVideoPath is %@ after conversion, expected %@", phase, now, mp4Path);
+            if (!UYTPointItemAtConvertedMedia(ui, @"videoFormat", @"mp4", @"tmpVideoPath",
+                                              videoPath, mp4Path, [NSString stringWithFormat:@"%@ video", phase])) {
+                UYTDebugWarn(@"[uYouPatches] %@: conversion done but could not point item at mp4 - merge may hang", phase);
                 return NO;
             }
-            [[NSFileManager defaultManager] removeItemAtPath:videoPath error:nil];
             UYTDebugInfo(@"[uYouPatches] %@: webm→mp4 video conversion done", phase);
             return YES;
         }

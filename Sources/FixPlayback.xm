@@ -22,101 +22,172 @@
 @interface YTGLMediaPlayerViewFactory : NSObject
 @end
 
-#pragma mark - [1] Root cause: Android VR (Oculus Quest) client spoof
-
+#pragma mark - [1] Root cause: client spoof. TVHTML5_SIMPLY (75) instead of the retired ANDROID_VR (28).
 %group gFixPlaybackNetwork
 
-static NSString *const UYTFixEndpointPlayer = @"/player";
-static NSString *const UYTFixEndpointNext   = @"/next";
-static NSString *const UYTFixEndpointBrowse = @"/browse";
-static NSString *const UYTFixVRClientName   = @"28";
-static NSString *const UYTFixVRClientVersion = @"1.65.10";
-static NSString *const UYTFixVRUserAgent    = @"com.google.android.apps.youtube.vr.oculus/1.65.10 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip";
+static NSString *const UYTFixEndpointPlayer        = @"/player";
+static NSString *const UYTFixEndpointNext          = @"/next";
+static NSString *const UYTFixEndpointBrowse        = @"/browse";
+static NSString *const UYTFixEndpointInitPlayback  = @"/initplayback";
+static NSString *const UYTFixEndpointVideoPlayback = @"/videoplayback";
+static NSString *const UYTFixClientName    = @"75";
+static NSString *const UYTFixClientVersion = @"1.1";
+static NSString *const UYTFixUserAgent     = @"Mozilla/5.0 (PS4; Leanback Shell) Gecko/20100101 Firefox/65.0 LeanbackShell/01.00.01.75 Sony PS4/ (PS4, , no, CH)";
 
-static NSDictionary *UYTFixVRHeaders(NSString *visitorData) {
-    NSMutableDictionary *headers = [NSMutableDictionary dictionary];
-    headers[@"Content-Type"] = @"application/json";
-    headers[@"Accept-Language"] = @"*";
-    headers[@"X-YouTube-Client-Name"] = UYTFixVRClientName;
-    headers[@"X-YouTube-Client-Version"] = UYTFixVRClientVersion;
-    headers[@"User-Agent"] = UYTFixVRUserAgent;
-    headers[@"Origin"] = @"https://www.youtube.com";
-    if (visitorData.length > 0) {
-        headers[@"X-Goog-Visitor-Id"] = visitorData;
+static NSString *gUYTFixVisitorData = nil;
+
+static NSString *UYTFixCurrentVisitorData(void) {
+    @synchronized ([UIApplication class]) {
+        return gUYTFixVisitorData;
     }
-    return headers;
 }
 
-static NSDictionary *UYTFixVRBody(NSDictionary *incomingBody, NSString *visitorData) {
+static void UYTFixRememberVisitorData(NSString *visitorData) {
+    if (!visitorData.length) return;
+    @synchronized ([UIApplication class]) {
+        gUYTFixVisitorData = [visitorData copy];
+    }
+}
+
+static BOOL UYTFixIsInnertubePath(NSString *path) {
+    if (!path.length) return NO;
+    NSString *p = path.lowercaseString;
+    return [p containsString:UYTFixEndpointPlayer.lowercaseString] ||
+           [p containsString:UYTFixEndpointNext.lowercaseString] ||
+           [p containsString:UYTFixEndpointBrowse.lowercaseString] ||
+           [p containsString:UYTFixEndpointInitPlayback.lowercaseString];
+}
+
+static BOOL UYTFixIsVideoPlaybackPath(NSString *path) {
+    if (!path.length) return NO;
+    return [path.lowercaseString containsString:UYTFixEndpointVideoPlayback.lowercaseString];
+}
+
+static NSDictionary *UYTFixClientBlueprint(NSString *visitorData) {
     NSMutableDictionary *client = [NSMutableDictionary dictionary];
-    client[@"clientName"] = @"ANDROID_VR";
-    client[@"clientVersion"] = UYTFixVRClientVersion;
+    client[@"clientName"] = @"TVHTML5_SIMPLY";
+    client[@"clientVersion"] = UYTFixClientVersion;
     client[@"hl"] = @"en";
     client[@"timeZone"] = @"UTC";
     client[@"utcOffsetMinutes"] = @0;
-    client[@"deviceMake"] = @"Oculus";
-    client[@"deviceModel"] = @"Quest 3";
-    client[@"androidSdkVersion"] = @32;
-    client[@"osName"] = @"Android";
-    client[@"osVersion"] = @"12L";
-    client[@"userAgent"] = UYTFixVRUserAgent;
-    if (visitorData.length > 0) {
-        client[@"visitorData"] = visitorData;
-    }
-
-    NSMutableDictionary *body = [NSMutableDictionary dictionary];
-    body[@"context"] = @{ @"client": client };
-
-    if ([incomingBody isKindOfClass:[NSDictionary class]]) {
-        NSArray *keys = @[ @"videoId", @"browseId", @"continuation", @"params" ];
-        for (NSString *key in keys) {
-            id value = incomingBody[key];
-            if (value) body[key] = value;
-        }
-    }
-    return body;
+    client[@"deviceMake"] = @"Sony";
+    client[@"deviceModel"] = @"PS4";
+    client[@"osName"] = @"";
+    client[@"osVersion"] = @"7.20260707.07.00";
+    client[@"clientPlatform"] = @"GAME_CONSOLE";
+    client[@"userAgent"] = UYTFixUserAgent;
+    if (visitorData.length) client[@"visitorData"] = visitorData;
+    return client;
 }
+
+static NSDictionary *UYTFixHeadersForVisitorData(NSString *visitorData, BOOL includeContentType) {
+    NSMutableDictionary *headers = [NSMutableDictionary dictionary];
+    if (includeContentType) headers[@"Content-Type"] = @"application/json";
+    headers[@"Accept-Language"] = @"*";
+    headers[@"X-YouTube-Client-Name"] = UYTFixClientName;
+    headers[@"X-YouTube-Client-Version"] = UYTFixClientVersion;
+    headers[@"User-Agent"] = UYTFixUserAgent;
+    headers[@"Origin"] = @"https://www.youtube.com";
+    if (visitorData.length) headers[@"X-Goog-Visitor-Id"] = visitorData;
+    return headers;
+}
+
+static void UYTFixApplyHeaders(NSMutableURLRequest *request, BOOL includeContentType) {
+    if (!request) return;
+    NSDictionary *headers = UYTFixHeadersForVisitorData(UYTFixCurrentVisitorData(), includeContentType);
+    for (NSString *key in headers) {
+        [request setValue:headers[key] forHTTPHeaderField:key];
+    }
+}
+
+static void UYTFixApplyBody(NSMutableURLRequest *request) {
+    if (!request.HTTPBody) return;
+    if (!UYTFixIsInnertubePath(request.URL.path)) return;
+
+    NSDictionary *incoming = [NSJSONSerialization JSONObjectWithData:request.HTTPBody options:0 error:nil];
+    if (![incoming isKindOfClass:[NSDictionary class]]) return;
+
+    NSDictionary *incomingContext = incoming[@"context"];
+    NSDictionary *incomingClient = [incomingContext isKindOfClass:[NSDictionary class]] ? incomingContext[@"client"] : nil;
+    if ([incomingClient isKindOfClass:[NSDictionary class]]) {
+        id vd = incomingClient[@"visitorData"];
+        if ([vd isKindOfClass:[NSString class]]) UYTFixRememberVisitorData(vd);
+    }
+
+    NSMutableDictionary *body = [incoming mutableCopy];
+    NSMutableDictionary *context = [incomingContext isKindOfClass:[NSDictionary class]] ? [incomingContext mutableCopy] : [NSMutableDictionary dictionary];
+    context[@"client"] = UYTFixClientBlueprint(UYTFixCurrentVisitorData());
+    body[@"context"] = context;
+
+    NSData *rebuilt = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
+    if (rebuilt) request.HTTPBody = rebuilt;
+}
+
+static void UYTFixHandleRequest(NSMutableURLRequest *request) {
+    if (!request.URL) return;
+    NSString *path = request.URL.path;
+    if (UYTFixIsInnertubePath(path)) {
+        UYTFixApplyBody(request);
+        UYTFixApplyHeaders(request, YES);
+    } else if (UYTFixIsVideoPlaybackPath(path)) {
+        UYTFixApplyHeaders(request, NO);
+    }
+}
+
+@interface GTMSessionFetcher : NSObject
+- (id)mutableRequestForTesting;
+@end
 
 %hook NSMutableURLRequest
 
 - (id)initWithURL:(NSURL *)URL cachePolicy:(unsigned long long)cachePolicy timeoutInterval:(double)timeoutInterval {
     self = %orig;
     if (!self || !URL) return self;
-
-    NSString *path = URL.path;
-    if (!([path containsString:UYTFixEndpointPlayer] ||
-          [path containsString:UYTFixEndpointNext] ||
-          [path containsString:UYTFixEndpointBrowse])) {
-        return self;
-    }
-
-    if ([URL.absoluteString containsString:@"youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc"]) {
-        return self;
-    }
-
-    NSString *visitorData = @"";
-    if (self.HTTPBody) {
-        NSDictionary *incoming = [NSJSONSerialization JSONObjectWithData:self.HTTPBody options:0 error:nil];
-        if ([incoming isKindOfClass:[NSDictionary class]]) {
-            NSDictionary *incomingContext = incoming[@"context"];
-            NSDictionary *incomingClient = [incomingContext isKindOfClass:[NSDictionary class]] ? incomingContext[@"client"] : nil;
-            if ([incomingClient isKindOfClass:[NSDictionary class]]) {
-                id vd = incomingClient[@"visitorData"];
-                if ([vd isKindOfClass:[NSString class]]) visitorData = vd;
-            }
-            NSData *rebuilt = [NSJSONSerialization dataWithJSONObject:UYTFixVRBody(incoming, visitorData) options:0 error:nil];
-            if (rebuilt) {
-                self.HTTPBody = rebuilt;
-            }
-        }
-    }
-
-    NSDictionary *headers = UYTFixVRHeaders(visitorData);
-    for (NSString *headerKey in headers) {
-        [self setValue:headers[headerKey] forHTTPHeaderField:headerKey];
-    }
-
+    if ([URL.absoluteString containsString:@"youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc"]) return self;
+    UYTFixHandleRequest(self);
     return self;
+}
+
+%end
+
+%hook GTMSessionFetcher
+
+- (id)initWithRequest:(id)request {
+    if ([request isKindOfClass:[NSURLRequest class]] && request.URL) {
+        NSMutableURLRequest *mutable = [request mutableCopy];
+        UYTFixHandleRequest(mutable);
+        request = mutable;
+    }
+    return %orig(request);
+}
+
+- (id)initWithRequest:(id)request configuration:(id)configuration {
+    if ([request isKindOfClass:[NSURLRequest class]] && request.URL) {
+        NSMutableURLRequest *mutable = [request mutableCopy];
+        UYTFixHandleRequest(mutable);
+        request = mutable;
+    }
+    return %orig(request, configuration);
+}
+
+- (void)updateMutableRequest:(id)request {
+    if ([request isKindOfClass:[NSMutableURLRequest class]]) UYTFixHandleRequest(request);
+    %orig(request);
+}
+
+- (void)setRequestValue:(id)value forHTTPHeaderField:(id)field {
+    %orig(value, field);
+    NSMutableURLRequest *request = [self mutableRequestForTesting];
+    if (![request isKindOfClass:[NSMutableURLRequest class]] || !request.URL) return;
+    NSString *path = request.URL.path;
+    if (UYTFixIsInnertubePath(path)) UYTFixApplyHeaders(request, YES);
+    else if (UYTFixIsVideoPlaybackPath(path)) UYTFixApplyHeaders(request, NO);
+}
+
+- (void)setBodyData:(id)data {
+    %orig(data);
+    NSMutableURLRequest *request = [self mutableRequestForTesting];
+    if ([request isKindOfClass:[NSMutableURLRequest class]]) UYTFixApplyBody(request);
 }
 
 %end
@@ -240,5 +311,5 @@ static NSTimeInterval uytLastPlaybackReload = 0;
     %init(gFixPlaybackNetwork);
     %init(gFixPlaybackRenderer);
     %init(gFixPlayback);
-    UYTDebugInfo(@"[uYouPlus] FixPlayback: root-cause playback fix installed (client=%s)", UYTFixVRClientName.UTF8String);
+    UYTDebugInfo(@"[uYouPlus] FixPlayback: root-cause playback fix installed (client=%s %s)", UYTFixClientName.UTF8String, UYTFixClientVersion.UTF8String);
 }

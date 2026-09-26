@@ -72,10 +72,14 @@ BOOL UYTFFRun(NSArray<NSString *> *arguments) {
                     id ret = ((id (*)(id, SEL))objc_msgSend)(session, @selector(getReturnCode));
                     if ([ret respondsToSelector:@selector(isSuccess)]) {
                         ok = ((BOOL (*)(id, SEL))objc_msgSend)(ret, @selector(isSuccess));
-                    } else if ([ret respondsToSelector:@selector(getIntValue)]) {
+                    }
+                    if ([ret respondsToSelector:@selector(getIntValue)]) {
                         rc = (long)((long (*)(id, SEL))objc_msgSend)(ret, @selector(getIntValue));
-                        ok = (rc == 0);
-                    } else if ([ret respondsToSelector:@selector(intValue)]) {
+                        if (![ret respondsToSelector:@selector(isSuccess)]) {
+                            ok = (rc == 0);
+                        }
+                    } else if (![ret respondsToSelector:@selector(isSuccess)] &&
+                               [ret respondsToSelector:@selector(intValue)]) {
                         rc = (long)[ret intValue];
                         ok = (rc == 0);
                     }

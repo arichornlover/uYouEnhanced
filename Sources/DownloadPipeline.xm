@@ -1,5 +1,6 @@
 
 #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 
 @interface DownloadsManager : NSObject
 + (instancetype)sharedInstance;
@@ -19,6 +20,35 @@
 
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
 static NSString * const UYTClientVersion = @"19.45.1";
+
+static NSString *UYTAppVersion(void) {
+    static NSString *cached = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSString *v = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
+        if (!v.length) v = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"];
+        cached = v.length ? v : UYTClientVersion;
+    });
+    return cached;
+}
+
+static NSString *UYTIOSVersion(void) {
+    static NSString *cached = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        cached = [[UIDevice currentDevice] systemVersion] ?: @"0.0";
+    });
+    return cached;
+}
+
+static NSString *UYTIOSModel(void) {
+    static NSString *cached = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        cached = [[UIDevice currentDevice] model] ?: @"iPhone";
+    });
+    return cached;
+}
 
 void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullable url);
 void UYTStoreResolvedURLs(NSString * _Nullable vid, NSString * _Nullable muxedURL, NSString * _Nullable audioURL, NSString * _Nullable videoURL);
@@ -64,7 +94,7 @@ static UYTStreamFormat *UYTStreamFormatFromDict(NSDictionary *f, NSString *url) 
 
 @implementation UYTDownloadPipeline
 
-static int UYTLastGoodClient = 0;
+static int UYTLastGoodClient = 2;
 
 + (NSDictionary *)clientContextForIndex:(int)idx {
     if (idx <= 0) {
@@ -99,11 +129,11 @@ static int UYTLastGoodClient = 0;
     }
     return @{@"context": @{@"client": @{
         @"clientName": @"IOS",
-        @"clientVersion": UYTClientVersion,
+        @"clientVersion": UYTAppVersion(),
         @"deviceMake": @"Apple",
-        @"deviceModel": @"iPhone15,2",
+        @"deviceModel": UYTIOSModel(),
         @"osName": @"iPhone",
-        @"osVersion": @"17.5.1.21F90",
+        @"osVersion": UYTIOSVersion(),
         @"hl": @"en",
         @"timeZone": @"UTC",
         @"utcOffsetMinutes": @0
@@ -119,7 +149,8 @@ static int UYTLastGoodClient = 0;
     if (idx == 1) {
         return @"com.google.android.youtube/19.09.39 (Linux; U; Android 14; SM-S928B Build/UP1A.231005.007; en_US)";
     }
-    return @"com.google.android.youtube/19.45.1 (iPhone15,2; U; CPU iPhoneOS 17_5_1 like Mac OS X; en_US)";
+    return [NSString stringWithFormat:@"com.google.ios.youtube/%@ (%@; U; CPU iPhone OS %@ like Mac OS X; en_US)",
+            UYTAppVersion(), UYTIOSModel(), [UYTIOSVersion() stringByReplacingOccurrencesOfString:@"." withString:@"_"]];
 }
 
 + (void)tryClient:(int)idx
@@ -140,7 +171,6 @@ static int UYTLastGoodClient = 0;
     if (progress) progress(0.0, 0);
     NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:req
         completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
-            if (progress) progress(1.0, (unsigned long long)data.length);
             if (err || !data) {
                 UYTDebugErr(@"fetch client %d net error for %@: %@", idx, videoID, err.localizedDescription ?: @"empty response");
                 completion(@[], err ?: [NSError errorWithDomain:@"UYTDownload" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"empty response"}]);
