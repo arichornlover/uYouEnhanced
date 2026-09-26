@@ -1,4 +1,4 @@
-#import <ActivityKit/ActivityKit.h> 
+#import <ActivityKit/ActivityKit.h>
 #import <UIKit/UIKit.h>
 #import <HBLog.h>
 #import <Foundation/Foundation.h>
@@ -32,6 +32,7 @@
 #import <YouTubeHeader/YTIGuideResponse.h>
 #import <YouTubeHeader/YTIGuideResponseSupportedRenderers.h>
 #import <YouTubeHeader/YTIMenuConditionalServiceItemRenderer.h>
+#import <YouTubeHeader/YTIItemSectionRenderer.h>
 #import <YouTubeHeader/YTInnerTubeCollectionViewController.h>
 #import <YouTubeHeader/YTInlinePlayerBarContainerView.h>
 #import <YouTubeHeader/YTIShelfRenderer.h>
@@ -49,10 +50,12 @@
 #import <YouTubeHeader/YTNavigationBarTitleView.h>
 #import <YouTubeHeader/YTPlayerBarController.h>
 #import <YouTubeHeader/YTPlayerBarRectangleDecorationView.h>
+#import <YouTubeHeader/YTPlayerBarProgressDecorationView.h>
 #import <YouTubeHeader/YTPlayerOverlay.h>
 #import <YouTubeHeader/YTPlayerOverlayProvider.h>
 #import <YouTubeHeader/QTMIcon.h>
 #import <YouTubeHeader/YTReelModel.h>
+#import <YouTubeHeader/YTReelNonVideoContentModel.h>
 #import <YouTubeHeader/YTReelWatchPlaybackOverlayView.h>
 #import <YouTubeHeader/YTResponder.h>
 #import <YouTubeHeader/YTVideoQualitySwitchOriginalController.h>
@@ -61,7 +64,10 @@
 #import <YouTubeHeader/YTWatchPlayerViewLayoutSource.h>
 #import <YouTubeHeader/YTWatchPullToFullController.h>
 #import <YouTubeHeader/YTWatchViewController.h>
-#import "uYouPlusThemes.h" // uYouPlus Themes
+#import "uYouPlusThemes.h"
+
+@class YTAppViewControllerImpl;
+@class YTTabBarController;
 
 extern NSBundle *tweakBundle;
 
@@ -70,16 +76,12 @@ extern NSBundle *tweakBundle;
 #define APP_THEME_IDX [[NSUserDefaults standardUserDefaults] integerForKey:@"appTheme"]
 #define YT_BUNDLE_ID @"com.google.ios.youtube"
 #define YT_NAME @"YouTube"
-#define DEFAULT_RATE 1.0f // YTSpeed
-#define LOWCONTRASTMODE_CUTOFF_VERSION @"17.38.10" // LowContrastMode (v17.33.2-17.38.10)
+#define DEFAULT_RATE 1.0f
+#define LOWCONTRASTMODE_CUTOFF_VERSION @"17.38.10"
 
-// Keys
-// Copy/Paste Settings
 static NSString *const kReplaceCopyandPasteButtons = @"replaceCopyandPasteButtons_enabled";
-// App appearance
 static NSString *const kAppTheme = @"appTheme";
 static NSString *const kOLEDKeyboard = @"oledKeyBoard_enabled";
-// Video player
 static NSString *const kPortraitFullscreen = @"portraitFullscreen_enabled";
 static NSString *const kFullscreenToTheRight = @"fullscreenToTheRight_enabled";
 static NSString *const kSlideToSeek = @"slideToSeek_enabled";
@@ -94,7 +96,6 @@ static NSString *const kDisablePullToFull = @"disablePullToFull_enabled";
 static NSString *const kDisableChapterSkip = @"disableChapterSkip_enabled";
 static NSString *const kAlwaysShowRemainingTime = @"alwaysShowRemainingTime_enabled";
 static NSString *const kDisableRemainingTime = @"disableRemainingTime_enabled";
-// Video controls overlay
 static NSString *const kEnableShareButton = @"enableShareButton_enabled";
 static NSString *const kEnableSaveToButton = @"enableSaveToButton_enabled";
 static NSString *const kHideYTMusicButton = @"hideYTMusicButton_enabled";
@@ -118,15 +119,15 @@ static NSString *const kHideOverlayDarkBackground = @"hideOverlayDarkBackground_
 static NSString *const kDisableAmbientMode = @"disableAmbientMode_enabled";
 static NSString *const kHideVideosInFullscreen = @"hideVideosInFullscreen_enabled";
 static NSString *const kHideRelatedWatchNexts = @"hideRelatedWatchNexts_enabled";
-// Shorts control overlay
 static NSString *const kHideBuySuperThanks = @"hideBuySuperThanks_enabled";
 static NSString *const kHideSubscriptions = @"hideSubscriptions_enabled";
 static NSString *const kShortsQualityPicker = @"shortsQualityPicker_enabled";
+static NSString *const kShortsProgressBar = @"shortsProgressBar_enabled";
 static NSString *const kHideShortsClipButton = @"hideShortsClipButton_enabled";
 static NSString *const kHideShortsDownloadButton = @"hideShortsDownloadButton_enabled";
 static NSString *const kHideShortsRemixButton = @"hideShortsRemixButton_enabled";
 static NSString *const kHideShortsStatsButton = @"hideShortsStatsButton_enabled";
-// Video player buttons
+static NSString *const kDisableResumeToShorts = @"disableResumeToShorts_enabled";
 static NSString *const kRedSubscribeButton = @"redSubscribeButton_enabled";
 static NSString *const kHideButtonContainers = @"hideButtonContainers_enabled";
 static NSString *const kHideConnectButton = @"hideConnectButton_enabled";
@@ -139,7 +140,6 @@ static NSString *const kHideSaveToPlaylistButton = @"hideSaveToPlaylistButton_en
 static NSString *const kHideReportButton = @"hideReportButton_enabled";
 static NSString *const kHidePreviewCommentSection = @"hidePreviewCommentSection_enabled";
 static NSString *const kHideCommentSection = @"hideCommentSection_enabled";
-// App settings overlay
 static NSString *const kDisableAccountSection = @"disableAccountSection_enabled";
 static NSString *const kDisableAutoplaySection = @"disableAutoplaySection_enabled";
 static NSString *const kDisableTryNewFeaturesSection = @"disableTryNewFeaturesSection_enabled";
@@ -150,15 +150,14 @@ static NSString *const kDisableYourDataInYouTubeSection = @"disableYourDataInYou
 static NSString *const kDisablePrivacySection = @"disablePrivacySection_enabled";
 static NSString *const kDisableLiveChatSection = @"disableLiveChatSection_enabled";
 static NSString *const kHidePremiumPromos = @"hidePremiumPromos_enabled";
-// UI Interface
 static NSString *const kHideHomeTab = @"hideHomeTab_enabled";
 static NSString *const kLowContrastMode = @"lowContrastMode_enabled";
 static NSString *const kClassicVideoPlayer = @"classicVideoPlayer_enabled";
 static NSString *const kDisableModernButtons = @"disableModernButtons_enabled";
 static NSString *const kDisableModernFlags = @"disableModernFlags_enabled";
 static NSString *const kEnableVersionSpoofer = @"enableVersionSpoofer_enabled";
-// Miscellaneous
 static NSString *const kGoogleSignInPatch = @"googleSignInPatch_enabled";
+static NSString *const kEnableDynamicIslandFix = @"enableDynamicIslandFix_enabled";
 static NSString *const kAdBlockWorkaroundLite = @"adBlockWorkaroundLite_enabled";
 static NSString *const kAdBlockWorkaround = @"adBlockWorkaround_enabled";
 static NSString *const kFixPlaybackIssues = @"fixPlaybackIssues_enabled";
@@ -176,36 +175,25 @@ static NSString *const kHidePlayNextInQueue = @"hidePlayNextInQueue_enabled";
 static NSString *const kHideCommunityPosts = @"hideCommunityPosts_enabled";
 static NSString *const kHideChannelHeaderLinks = @"hideChannelHeaderLinks_enabled";
 static NSString *const kiPhoneLayout = @"iPhoneLayout_enabled";
-static NSString *const kBigYTMiniPlayer = @"bigYTMiniPlayer_enabled";
-static NSString *const kReExplore = @"reExplore_enabled";
 static NSString *const kAutoHideHomeBar = @"autoHideHomeBar_enabled";
 static NSString *const kHideSubscriptionsNotificationBadge = @"hideSubscriptionsNotificationBadge_enabled";
 static NSString *const kFixCasting = @"fixCasting_enabled";
 static NSString *const kNewSettingsUI = @"newSettingsUI_enabled";
 static NSString *const kFlex = @"flex_enabled";
-// unused (uYouEnhanced)
 static NSString *const kGoogleSigninFix = @"googleSigninFix_enabled";
 
-// Always show remaining time in video player - @bhackel
-// Header has been moved to https://github.com/PoomSmart/YouTubeHeader/blob/main/YTPlayerBarController.h
-// Header has been moved to https://github.com/PoomSmart/YouTubeHeader/blob/main/YTInlinePlayerBarContainerView.h
-
-// YouMod Migration
 @interface YouModMigrationManager : NSObject
 + (instancetype)sharedManager;
 - (void)migrateToYouModWithReset:(BOOL)shouldReset;
 @end
 
-// IAmYouTube
 @interface SSOConfiguration : NSObject
 @end
 
-// Disable Snap to chapter
 @interface YTSegmentableInlinePlayerBarView : UIView
 @property(nonatomic, assign) BOOL enableSnapToChapter;
 @end
 
-// Hide Double tap to seek Overlay
 @interface YTInlinePlayerDoubleTapIndicatorView : UIView
 @property (nonatomic, strong) UIView *scrimOverlay;
 @property(nonatomic, strong) CABasicAnimation *uYouEnhancedBlankAlphaAnimation;
@@ -213,31 +201,17 @@ static NSString *const kGoogleSigninFix = @"googleSigninFix_enabled";
 - (CABasicAnimation *)uYouEnhancedGetBlankColorAnimation;
 @end
 
-// OLED Live Chat - @bhackel
 @interface YTLUserDefaults : NSUserDefaults
 + (void)exportYtlSettings;
 @end
 
-// Hide Home Tab - @bhackel
 @interface YTPivotBarItemViewAccessibilityControl : UIControl
 @end
-// YTPivotBarItemView Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTPivotBarItemView.h
 
-// YTTapToSeek - https://github.com/bhackel/YTTapToSeek
-// YTMainAppVideoPlayerOverlayViewController Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTMainAppVideoPlayerOverlayViewController.h
-
-// Enable Premium logo - @bhackel
 @interface YTITopbarLogoRenderer : NSObject
 @property(readonly, nonatomic) YTIIcon *iconImage;
 @end
 
-// Hide Premium Promo in You tab - @bhackel
-// YTIIconThumbnailRenderer Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTIIconThumbnailRenderer.h
-// YTICompactListItemThumbnailSupportedRenderers Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTICompactListItemThumbnailSupportedRenderers.h
-// YTICompactListItemRenderer Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTICompactListItemRenderer.h
-// YTIIcon Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTIIcon.h
-// YTICompactLinkRenderer Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTICompactLinkRenderer.h
-// YTIItemSectionSupportedRenderers Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/YTIItemSectionSupportedRenderers.h
 @interface YTAppCollectionViewController : YTInnerTubeCollectionViewController
 - (void)uYouEnhancedFakePremiumModel:(YTISectionListRenderer *)model;
 @end
@@ -245,22 +219,16 @@ static NSString *const kGoogleSigninFix = @"googleSigninFix_enabled";
 @property(readonly, nonatomic) YTISectionListRenderer *model;
 @end
 
-// Disable Pull to Full for landscape videos - @bhackel
-// YTWatchPullToFullController Header has been moved to https://github.com/PoomSmart/YouTubeHeader/blob/main/YTWatchPullToFullController.h
-
-// Fullscreen to the Right (uYouEnhanced Version) - @arichornlover
 @interface YTWatchViewController (uYouEnhanced)
 - (UIInterfaceOrientationMask) supportedInterfaceOrientations;
 - (UIInterfaceOrientation) preferredInterfaceOrientationForPresentation;
 @end
 
-// Center YouTube Logo (Custom Version) - @arichornlover
 @interface YTNavigationBarTitleView (uYouEnhanced)
 @property (nonatomic, strong) UIView *customView;
 - (void)alignCustomViewToCenterOfWindow;
 @end
 
-// uYouPlus
 @interface YTHeaderLogoController : UIView
 @property(readonly, nonatomic) long long pageStyle;
 @end
@@ -271,7 +239,7 @@ static NSString *const kGoogleSigninFix = @"googleSigninFix_enabled";
 @interface YTCountView : UIView
 @end
 
-@interface YTPlayabilityResolutionUserActionUIController : NSObject // Skips content warning before playing *some videos - @PoomSmart
+@interface YTPlayabilityResolutionUserActionUIController : NSObject
 - (void)confirmAlertDidPressConfirm;
 @end
 
@@ -304,7 +272,6 @@ static NSString *const kGoogleSigninFix = @"googleSigninFix_enabled";
 @property UIButton *downloadsButton;
 @end
 
-// Buttons
 @interface YTRightNavigationButtons : UIView
 - (id)_viewControllerForAncestor;
 @property (readonly, nonatomic) NSArray *dynamicButtons;
@@ -326,14 +293,10 @@ static NSString *const kGoogleSigninFix = @"googleSigninFix_enabled";
 - (void)internalSetRate;
 @end
 
-// MLPlayerStickySettings Header has been moved to https://github.com/arichornloverALT/YouTubeHeader/blob/main/MLPlayerStickySettings.h
-// MLPlayerEventCenter Header has been moved to https://github.com/PoomSmart/YouTubeHeader/blob/main/MLPlayerEventCenter.h
-
 @interface HAMPlayerInternal : NSObject
 - (void)setRate:(float)rate;
 @end
 
-// App Theme
 @interface YTColor : NSObject
 + (UIColor *)white1;
 + (UIColor *)white2;
@@ -376,3 +339,4 @@ static NSString *const kGoogleSigninFix = @"googleSigninFix_enabled";
 
 @interface YTPivotBarIndicatorView : UIView
 @end
+

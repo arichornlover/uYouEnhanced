@@ -129,3 +129,4 @@ static NSString* getAppVersionForSpoofedVersion(int spoofedVersion) {
     return appVersion ? appVersion : %orig;
 }
 %end
+

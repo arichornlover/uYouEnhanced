@@ -1,10 +1,10 @@
-Package: com.arichorn.uyouenhanced
+Package: com.arichornlover.uyouenhanced
 Name: uYouEnhanced
 Architecture: iphoneos-arm
-Description: An expanded version of uYouPlus
-Maintainer: arichorn
+Description: The continuation of uYouPlus
+Maintainer: arichornlover
 Author: qnblackcat
 Section: Tweaks
 Depends: mobilesubstrate (>= 0.9.5000), com.miro.uyou
-Conflicts: com.level3tjg.ytminiplayerenabler, com.level3tjg.ytnohovercards, com.ps.noytpremium, com.ps.ytnopaidpromo, com.ps.ytreexplore, com.galacticdev.bigytminiplayer, com.lilacvibes.ytstockvolumehud, net.sarahh12099.youtubereborn, com.twickd.sarahh12099.youtube-reborn, h.ryan.youtubereborn, weeb.lillie.enhancerforyoutubepremium, com.ps.uyoucompat, com.ichitaso.uyouplus
+Conflicts: com.level3tjg.ytminiplayerenabler, com.level3tjg.ytnohovercards, com.ps.noytpremium, com.ps.ytnopaidpromo, com.lilacvibes.ytstockvolumehud, net.sarahh12099.youtubereborn, com.twickd.sarahh12099.youtube-reborn, h.ryan.youtubereborn, weeb.lillie.enhancerforyoutubepremium, com.ps.uyoucompat, com.ichitaso.uyouplus, com.miro.uyouunofficial
 Recommends: com.ps.youmute, com.ps.youpip, com.ps.youquality, com.ps.ytabconfig, com.ps.ytvideooverlay, libflex, weeb.lillie.youtubedislikesreturn

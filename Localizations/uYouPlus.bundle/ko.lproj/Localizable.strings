@@ -1,6 +1,8 @@
 // About
 "ABOUT" = "About";
 
+"APP_NAME" = "uYouEnhanced";
+
 "VERSION" = "uYouPlus 버전: %@";
 "VERSION_CHECK" = "업데이트를 확인하려면 탭하세요!";
 
@@ -13,6 +15,8 @@
 
 // App appearance
 "APP_THEME" = "🎨 앱 테마";
+
+"APP_PERSONALIZATION" = "📺 App Personalization";
 "THEME_OPTIONS" = "테마 설정";
 
 "DARK_THEME" = "다크 모드 테마";
@@ -59,6 +63,9 @@
 
 "STOCK_VOLUME_HUD" = "iOS 기본 음량 표시기 사용";
 "STOCK_VOLUME_HUD_DESC" = "";
+
+"REPLACE_YT_DOWNLOAD_WITH_UYOU" = "Replace YouTube's download with uYou's";
+"REPLACE_YT_DOWNLOAD_WITH_UYOU_DESC" = "";
 
 // Video controls overlay options
 "VIDEO_CONTROLS_OVERLAY_OPTIONS" = "📹 비디오 재생 오버레이 설정";
@@ -118,6 +125,10 @@
 "MSG_YES" = "예";
 "MSG_CANCEL" = "취소";
 
+"MSG_CONFIRM" = "Confirm";
+"MSG_DONE" = "Done";
+"MSG_CONFIRM_PASTE_SETTINGS" = "Are you sure you want to paste the settings?";
+
 "DISABLE_HINTS" = "힌트 표시하지 않음";
 "DISABLE_HINTS_DESC" = "앱을 새로 설치하는 경우 표시되는 앱의 몇몇 기능에 대한 설명이 표시되지 않도록 합니다.";
 
@@ -133,11 +144,7 @@
 "IPHONE_LAYOUT" = "아이폰 화면배치";
 "IPHONE_LAYOUT_DESC" = "";
 
-"NEW_MINIPLAYER_STYLE" = "새로운 스타일의 미니 플레이어 (BigYTMiniPlayer)";
-"NEW_MINIPLAYER_STYLE_DESC" = "";
 
-"YT_RE_EXPLORE" = "Shorts 탭 대신 탐색 탭 보이기 (YTReExplore)";
-"YT_RE_EXPLORE_DESC" = "";
 
 "ENABLE_FLEX" = "FLEX 사용";
 "ENABLE_FLEX_DESC" = "디버그를 위해 FLEX를 사용하도록 설정합니다";
@@ -147,6 +154,8 @@
 
 // uYouEnhanced Localization ➕
 "SUPPORT_THE_DEVELOPERS" = "개발자들을 지원해 주세요";
+
+"SUPPORT_THE_DEVELOPERS_DESC" = "MiRO92, PoomSmart, level3tjg, BandarHL, julioverne & Galactic-dev";
 "COPY_SETTINGS" = "설정 복사";
 "COPY_SETTINGS_DESC" = "현재 설정을 클립보드에 복사합니다";
 "PASTE_SETTINGS" = "설정 붙여넣기";
@@ -159,14 +168,21 @@
 "REPLACE_COPY_AND_PASTE_BUTTONS_DESC" = "버튼을 '설정 내보내기'와 '설정 가져오기'로 바꿉니다";
 
 "UYOUENHANCED_ESSENTIAL_MENU" = "uYouEnhanced 필수 메뉴";
+
+"UYOUENHANCED_ESSENTIAL_MENU_DESC" = "This menu includes App Color Customization 🎨 & Ability to Clear the Cache 🗑️";
+"UYOUENHANCED_SECTION_DESC" = "TITLE DESCRIPTION";
 "CHANGE_APP_ICON" = "앱 아이콘 바꾸기";
 "CLEAR_NOTIFICATIONS" = "알림 지우기";
 "CLEAR_NOTIFICATIONS_DESC" = "모든 앱 알림을 지웁니다 (사이드로드한 앱의 경우에 추천)";
 
 "CUSTOM_DARK_THEME" = "사용자 다크 모드 테마";
 
+"CUSTOM_DARK_THEME_DESC" = "In order to use Custom Themes, go to uYouEnhanced Essential Menu, you will need to press Custom Theme Color and than change the colors.";
+
 "ENABLE_PORTRAIT_FULLSCREEN" = "세로 영상 전체화면 활성화";
 "ENABLE_PORTRAIT_FULLSCREEN_DESC" = "YouTube 앱에서 세로 영상의 전체화면 보기를 활성화합니다. 앱을 다시 시작해야 합니다.";
+"FULLSCREEN_TO_THE_RIGHT" = "Fullscreen to the Right";
+"FULLSCREEN_TO_THE_RIGHT_DESC" = "Force the video to always go to landscape right. App restart is required.";
 "ENABLE_TAP_TO_SEEK" = "탭하여 탐색하기";
 "ENABLE_TAP_TO_SEEK_DESC" = "탐색 막대를 한번 탭하여 원하는 지점으로 이동합니다.";
 "DISABLE_PULL_TO_FULLSCREEN_GESTURE" = "화면 밀어서 전체화면 전환 사용하지 않음";
@@ -212,6 +228,18 @@
 "SHORTS_QUALITY_PICKER" = "쇼츠 화질 설정";
 "SHORTS_QUALITY_PICKER_DESC" = "YouTube 쇼츠에서 화질 선택기를 보여줍니다.";
 
+"SHORTS_PROGRESS_BAR" = "Shorts Progress Bar";
+"SHORTS_PROGRESS_BAR_DESC" = "Enables the progress bar on Shorts videos (YTShortsProgress)";
+
+"HIDE_SHORTS_CLIP_BUTTON" = "Hide Clip Button on Shorts";
+"HIDE_SHORTS_CLIP_BUTTON_DESC" = "Hides the Clip button when a Short is paused.";
+"HIDE_SHORTS_DOWNLOAD_BUTTON" = "Hide Download Button on Shorts";
+"HIDE_SHORTS_DOWNLOAD_BUTTON_DESC" = "Hides the Download button when a Short is paused.";
+"HIDE_SHORTS_REMIX_BUTTON" = "Hide Remix Button on Shorts";
+"HIDE_SHORTS_REMIX_BUTTON_DESC" = "Hides the Remix button when a Short is paused.";
+"HIDE_SHORTS_STATS_BUTTON" = "Hide Stats for Nerds Button on Shorts";
+"HIDE_SHORTS_STATS_BUTTON_DESC" = "Hides the Stats for Nerds button when a Short is paused.";
+
 "VIDEO_PLAYER_BUTTON_OPTIONS" = "비디오 재생 버튼 선택사항";
 
 "RED_SUBSCRIBE_BUTTON" = "빨간색 구독 버튼";
@@ -249,11 +277,17 @@
 "UI_INTERFACE_OPTIONS" = "UI 선택사항";
 
 "HIDE_HOME_TAB" = "홈 탭 숨기기";
+
+"SHOW_NOTIFICATIONS_TAB" = "Enable Notifications Tab";
+"SHOW_NOTIFICATIONS_TAB_DESC" = "Makes the Notifications Tab appear back onto the Pivot Bar, experimental: Testing customization options.";
+"NOTIFICATIONS_TAB_CUSTOMIZATION" = "Notifications Tab nostalgic customization";
 "LOW_CONTRAST_MODE" = "콘트래스트 낮춤 모드";
 "LOW_CONTRAST_MODE_DESC" = "텍스트와 버튼에 사용된 색상의 콘트래스트를 낮추어 2020년 이전 YouTube 앱과 비슷하게 합니다.";
 "LOW_CONTRAST_MODE_SELECTOR" = "콘트래스트 모드 선택";
 "LOW_CONTRAST_MODE_ERROR_1" = "현재 사용중인 v%@ 버전은 더 이상 지원되지 않습니다. 콘트래스트 낮춤 모드를 사용하려면 v17.33.2-17.38.10 버전을 사용하세요.";
 "LOW_CONTRAST_MODE_ERROR_2" = "콘트래스트 낮춤 모드를 사용하려면 v17.33.2-17.38.10을 사용해야 합니다. \n현재 버전은 v%@입니다. \n해결방법: 이 기능을 사용하고 싶으면 \"콘트래스트 낮춤 모드 수정\" 설정을 사용하기를 추천합니다.";
+"CLASSIC_VIDEO_PLAYER" = "Classic Video Player";
+"CLASSIC_VIDEO_PLAYER_DESC" = "Restores the classic video player features from v16.xx.x, including pinch-to-fullscreen.";
 "FIX_LOWCONTRASTMODE" = "콘트래스트 낮춤 모드 수정";
 "FIX_LOWCONTRASTMODE_DESC" = "이 설정은 앱의 버전을 v17.38.10으로 속여 콘트래스트 낮춤 모드를 사용할 수 있게 합니다. 앱을 다시 시작해야 합니다.";
 "DISABLE_MODERN_BUTTONS" = "모던 버튼 사용하지 않음";
@@ -270,8 +304,13 @@
 
 "ADBLOCK_WORKAROUND_LITE" = "AdBlock 해결 (Lite)";
 "ADBLOCK_WORKAROUND_LITE_DESC" = "약한 광고차단 코드를 사용합니다, 이 설정을 사용하면 uYou 광고 차단 옵션을 사용할 수 없습니다.";
+"ENABLE_DYNAMIC_ISLAND_FIX" = "Enable Dynamic Island Fix";
+"ENABLE_DYNAMIC_ISLAND_FIX_DESC" = "Off by default. Turn on only if the Dynamic Island expands while using the app on an iPhone 14 Pro or newer (sideloaded). Takes effect after an app restart.";
 "ADBLOCK_WORKAROUND" = "AdBlock 해결";
 "ADBLOCK_WORKAROUND_DESC" = "더 강력한 광고차단 코드를 사용합니다.";
+
+"FIX_PLAYBACK_ISSUES" = "Fix playback issues";
+"FIX_PLAYBACK_ISSUES_DESC" = "Automatically recovers playback when a video stops or errors out mid-playback (e.g. after about a minute). Recommended for everyone.";
 "FAKE_PREMIUM" = "가짜 Premium";
 "FAKE_PREMIUM_DESC" = "You 탭에 프리미엄 로고와 가짜 버튼을 보여줍니다.";
 "FAKE_PREMIUM_WARNING" = "*You* 탭은 v%@ 버전에는 없으므로 가자 버튼을 표시할 수 없습니다.\n하지만 *가짜 프리미엄 로고*는 보여줍니다.";
@@ -292,11 +331,19 @@
 "AUTO_HIDE_HOME_INDICATOR_DESC" = "앱을 조작하지 않을 때 iOS의 홈 표시기를 자동으로 숨깁니다.";
 "HIDE_INDICATORS" = "표시기 숨기기";
 "HIDE_INDICATORS_DESC" = "앱의 모든 표시기를 숨깁니다.";
-"FIX_CASTING" = "장치전송 문제 수정";
-"FIX_CASTING_DESC" = "다른 장치로 전송기능을 수정하기 위해 A/B 플래그를 변경합니다.";
 "NEW_SETTINGS_UI" = "새로운 설정 UI 사용";
 "NEW_SETTINGS_UI_DESC" = "새로운 설정 UI를 사용합니다.";
+
+// YouMod migration
+"YOU_MOD_GITHUB" = "YouMod on GitHub";
+"YOU_MOD_GITHUB_DESC" = "Lightweight alternative — visit the YouMod repo first to prepare!";
+"MIGRATE_TO_YOU_MOD" = "⭐ Migrate to YouMod 2.0.0 (Recommended)";
+"MIGRATE_TO_YOU_MOD_DESC" = "Copies your compatible uYouEnhanced settings over to YouMod 2.0.0. Your uYouEnhanced settings are kept. A HUD message confirms how many keys migrated.";
+"MIGRATE_TO_YOU_MOD_RESET" = "⚠️ Migrate to YouMod 2.0.0 + Reset uYouEnhanced (Advanced)";
+"MIGRATE_TO_YOU_MOD_RESET_DESC" = "Copies your settings to YouMod 2.0.0, then REMOVES all toggled uYouEnhanced settings. Only use this if you fully intend to switch to YouMod 2.0.0.";
 
 "DEFAULT" = "기본";
 "CUSTOM_COLOR" = "사용자 색상";
 "RESTART_REQUIRED" = "앱을 다시 시작해야 합니다.";
+"OK" = "OK";
+"FAILED" = "Failed";

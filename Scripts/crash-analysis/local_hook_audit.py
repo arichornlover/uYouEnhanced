@@ -8,7 +8,7 @@ Usage: python Scripts/local_hook_audit.py
 """
 import os
 
-REFDIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "crash-analysis-report", "refdata"))
+REFDIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "crash-analysis-report", "refdata"))
 
 DYLIB_NAMES = [
     "YouSpeed", "libcolorpicker", "YouPiP", "YouGroupSettings",
