@@ -153,19 +153,19 @@ static void UYTFixHandleRequest(NSMutableURLRequest *request) {
 %hook GTMSessionFetcher
 
 - (id)initWithRequest:(id)request {
-    if ([request isKindOfClass:[NSURLRequest class]] && request.URL) {
-        NSMutableURLRequest *mutable = [request mutableCopy];
-        UYTFixHandleRequest(mutable);
-        request = mutable;
+    if ([request isKindOfClass:[NSURLRequest class]] && [request URL]) {
+        NSMutableURLRequest *patched = [request mutableCopy];
+        UYTFixHandleRequest(patched);
+        request = patched;
     }
     return %orig(request);
 }
 
 - (id)initWithRequest:(id)request configuration:(id)configuration {
-    if ([request isKindOfClass:[NSURLRequest class]] && request.URL) {
-        NSMutableURLRequest *mutable = [request mutableCopy];
-        UYTFixHandleRequest(mutable);
-        request = mutable;
+    if ([request isKindOfClass:[NSURLRequest class]] && [request URL]) {
+        NSMutableURLRequest *patched = [request mutableCopy];
+        UYTFixHandleRequest(patched);
+        request = patched;
     }
     return %orig(request, configuration);
 }
