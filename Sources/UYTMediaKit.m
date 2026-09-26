@@ -10,70 +10,108 @@ static NSInteger UYTFFCachedBackend = -1;
 
 static NSString *UYTFFLoadFailure = nil;
 static NSString *UYTFFLoadedRoot = nil;
+static BOOL UYTFFProbed = NO;
 
-static void UYTFFProbe(void);
+static NSString *UYTFFUnavailableReason(void);
 
-// Prefer a copy we ship ourselves (Bundles/uYouMedia.bundle/Frameworks) so we do not
-// depend on whatever ffmpeg YouTube happens to vendor, then fall back to YouTube's.
+static NSArray<NSString *> *UYTFFLibraries(void) {
+    return @[@"libavutil", @"libswresample", @"libswscale",
+             @"libavcodec", @"libavformat", @"libavfilter", @"libavdevice"];
+}
+
+static NSString *UYTFFBinaryPath(NSString *root, NSString *name) {
+    return [[root stringByAppendingPathComponent:[name stringByAppendingPathExtension:@"framework"]]
+            stringByAppendingPathComponent:name];
+}
+
+// Our own FFmpegKitNext copy is staged into uYouMedia.bundle at build time by
+// tools/stage-ffmpeg.sh, so nothing here depends on whatever ffmpeg YouTube
+// happens to vendor. Mirrors YouMod's resolver: ask the main bundle first (the
+// Makefile embeds Bundles/*.bundle), then the jailbreak roots, so the same
+// binary works jailed and rootless without taking a jbroot dependency.
+static NSString *UYTMediaBundlePath(void) {
+    static NSString *path = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSString *found = [[NSBundle mainBundle] pathForResource:@"uYouMedia" ofType:@"bundle"];
+        if (!found.length) {
+            for (NSString *candidate in @[@"/var/jb/Library/Application Support/uYouMedia.bundle",
+                                          @"/Library/Application Support/uYouMedia.bundle"]) {
+                if ([[NSFileManager defaultManager] fileExistsAtPath:candidate]) { found = candidate; break; }
+            }
+        }
+        path = found;
+    });
+    return path;
+}
+
 static NSArray<NSString *> *UYTFFCandidateRoots(void) {
     NSMutableArray<NSString *> *roots = [NSMutableArray array];
-    Dl_info info;
-    memset(&info, 0, sizeof(info));
-    if (dladdr((const void *)&UYTFFProbe, &info) && info.dli_fname) {
-        NSString *self = [NSString stringWithUTF8String:info.dli_fname];
-        NSString *dir = [self stringByDeletingLastPathComponent];
-        if (dir.length) {
-            [roots addObject:[dir stringByAppendingPathComponent:@"uYouMedia.bundle/Frameworks"]];
-            [roots addObject:[dir stringByAppendingPathComponent:@"Frameworks"]];
-            [roots addObject:dir];
-        }
-    }
+    NSString *bundle = UYTMediaBundlePath();
+    if (bundle.length) [roots addObject:bundle];
+    // Last resort so a build that never staged our frameworks still works.
     [roots addObject:@"@executable_path/Frameworks"];
     return roots;
 }
 
 static void UYTFFProbe(void) {
-    if (UYTFFCachedBackend != -1) return;
+    if (UYTFFProbed) return;
+    UYTFFProbed = YES;
 
-    NSArray<NSString *> *libs = @[@"libavutil", @"libswresample", @"libavcodec",
-                                  @"libavformat", @"libavdevice", @"libavfilter", @"libswscale"];
-    NSString *firstFailure = nil;
-    NSString *servingRoot = nil;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSMutableArray<NSString *> *problems = [NSMutableArray array];
 
     for (NSString *root in UYTFFCandidateRoots()) {
-        NSString *missing = nil;
-        BOOL complete = YES;
-        for (NSString *lib in libs) {
-            NSString *binary = [NSString stringWithFormat:@"%@/%@.framework/%@", root, lib, lib];
-            if (dlopen(binary.fileSystemRepresentation, RTLD_NOW | RTLD_GLOBAL)) continue;
-            if (!missing) {
-                dlerror();
-                missing = [NSString stringWithFormat:@"dlopen %@ (%s)", lib, dlerror() ?: "unknown"];
+        NSString *failure = nil;
+        BOOL ok = YES;
+        for (NSString *library in UYTFFLibraries()) {
+            NSString *binary = UYTFFBinaryPath(root, library);
+            if (![fm fileExistsAtPath:binary]) {
+                ok = NO;
+                failure = [NSString stringWithFormat:@"missing %@", library];
+                break;
             }
-            complete = NO;
+            if (!dlopen(binary.fileSystemRepresentation, RTLD_NOW | RTLD_GLOBAL)) {
+                ok = NO;
+                failure = [NSString stringWithFormat:@"dlopen %@: %s", library, dlerror() ?: "unknown"];
+                break;
+            }
         }
-        if (complete) { servingRoot = root; break; }
-        if (!firstFailure) firstFailure = missing;
-    }
+        if (!ok) {
+            [problems addObject:[NSString stringWithFormat:@"%@ (%@)", root, failure]];
+            continue;
+        }
 
-    if (servingRoot) {
-        dlopen([NSString stringWithFormat:@"%@/ffmpegkit.framework/ffmpegkit", servingRoot].fileSystemRepresentation,
-               RTLD_NOW | RTLD_GLOBAL);
-        UYTFFLoadedRoot = servingRoot;
-    } else {
-        UYTFFLoadFailure = firstFailure ?: @"no ffmpeg frameworks found in any search root";
+        NSString *facade = UYTFFBinaryPath(root, @"ffmpegkit");
+        if (![fm fileExistsAtPath:facade] ||
+            !dlopen(facade.fileSystemRepresentation, RTLD_NOW | RTLD_GLOBAL)) {
+            [problems addObject:[NSString stringWithFormat:@"%@ (dlopen ffmpegkit: %s)",
+                                 root, dlerror() ?: "unknown"]];
+            continue;
+        }
+
+        UYTFFLoadedRoot = root;
+        break;
     }
 
     if (objc_getClass("FFmpegKit")) UYTFFCachedBackend = UYTFFBackendKitNext;
     else if (objc_getClass("MobileFFmpeg")) UYTFFCachedBackend = UYTFFBackendMobile;
     else UYTFFCachedBackend = UYTFFBackendNone;
+
+    if (UYTFFCachedBackend == UYTFFBackendNone) {
+        UYTFFLoadFailure = problems.count ? [problems componentsJoinedByString:@"; "] : @"no ffmpeg frameworks found";
+    }
 }
 
 NSInteger UYTFFActiveBackend(void) {
     UYTFFProbe();
-    if (UYTFFCachedBackend != UYTFFBackendNone && UYTFFLoadedRoot.length) {
-        UYTDebugInfo(@"[uYouPatches] ffmpeg backend %ld loaded from %@",
-                     (long)UYTFFCachedBackend, UYTFFLoadedRoot);
+    if (UYTFFCachedBackend == UYTFFBackendNone) {
+        UYTDebugWarn(@"[uYouPatches] ffmpeg unavailable: %@", UYTFFUnavailableReason());
+    } else {
+        BOOL ours = ![UYTFFLoadedRoot isEqualToString:@"@executable_path/Frameworks"];
+        UYTDebugInfo(@"[uYouPatches] ffmpeg backend %ld ready from %@ (%@)",
+                     (long)UYTFFCachedBackend, UYTFFLoadedRoot ?: @"?",
+                     ours ? @"our bundle" : @"YouTube fallback");
     }
     return UYTFFCachedBackend;
 }
