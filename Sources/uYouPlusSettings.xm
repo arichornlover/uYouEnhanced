@@ -1,3 +1,4 @@
+#import "UYTFileSize.h"
 #import "uYouPlusSettings.h"
 #import "RootOptionsController.h"
 #import "ColourOptionsController.h"
@@ -54,7 +55,7 @@ static NSString *GetCacheSize() {
     for (NSString *fileName in filesArray) {
         NSString *filePath = [cachePath stringByAppendingPathComponent:fileName];
         NSDictionary *fileAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil];
-        folderSize += [fileAttributes fileSize];
+        folderSize += UYTSizeOfAttrs(fileAttributes);
     }
 
     NSByteCountFormatter *formatter = [[NSByteCountFormatter alloc] init];

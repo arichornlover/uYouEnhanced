@@ -1,5 +1,6 @@
 
 #import <Foundation/Foundation.h>
+#import "UYTFileSize.h"
 #import <UIKit/UIKit.h>
 
 @interface DownloadsManager : NSObject
@@ -542,11 +543,7 @@ void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double fractionComple
 void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
     @try {
         if (!item) return;
-        NSNumber *size = @0;
-        if (filePath.length) {
-            NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil];
-            if (attrs) size = @([attrs fileSize]);
-        }
+        NSNumber *size = @(UYTSizeOfFile(filePath));
         UYTSafeSetValue(item, @"progress", @1.0);
         UYTSafeSetValue(item, @"progressValue", @1.0);
         UYTSafeSetValue(item, @"downloadProgress", @1.0);

@@ -1,3 +1,4 @@
+#import "UYTFileSize.h"
 #import "uYouPlus.h"
 #import "uYouPatches.h"
 #import "UYTMediaKit.h"
@@ -401,7 +402,7 @@ static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
         BOOL ok = UYTFFConvertWebmAudioToM4a(webmPath, m4aPath);
 
         if (ok && [fm fileExistsAtPath:m4aPath]) {
-            unsigned long long fileSize = [[fm attributesOfItemAtPath:m4aPath error:nil] fileSize];
+            unsigned long long fileSize = UYTSizeOfFile(m4aPath);
             if (fileSize > 0) {
                 UYTDebugInfo(@"[uYouPatches] WebM->M4A conversion succeeded: %@ (%llu bytes)", m4aPath, fileSize);
                 return YES;
@@ -593,7 +594,7 @@ static BOOL UYTRemuxWithFFmpeg(id ui, NSString *phase) {
         BOOL ok = UYTFFSmartRemuxToMP4(videoPath, audioPath, tmpOut);
 
         NSDictionary *attrs = [fm attributesOfItemAtPath:tmpOut error:nil];
-        if (ok && attrs && [attrs fileSize] > 0) {
+        if (ok && UYTSizeOfAttrs(attrs) > 0) {
             if ([fm fileExistsAtPath:finalPath]) [fm removeItemAtPath:finalPath error:nil];
             NSError *moveErr = nil;
             if ([fm moveItemAtPath:tmpOut toPath:finalPath error:&moveErr]) {
@@ -635,8 +636,9 @@ static NSDictionary *UYTBestAvailableSource(id ui) {
     void (^checkPath)(NSString *, NSString *) = ^(NSString *path, NSString *label) {
         if (!path.length) return;
         NSDictionary *attrs = [fm attributesOfItemAtPath:path error:nil];
-        if (!attrs || [attrs fileSize] == 0) return;
-        unsigned long long sz = [attrs fileSize];
+        if (!attrs) return;
+        unsigned long long sz = UYTSizeOfAttrs(attrs);
+        if (sz == 0) return;
         if (!UYTPathIsWebm(path) && sz > bestNonWebmSize) {
             bestNonWebmSize = sz;
             bestNonWebm = @{@"path": path, @"label": label};
@@ -675,9 +677,10 @@ static BOOL UYTForceCompleteItem(id ui, NSString *reason) {
         NSFileManager *fm = [NSFileManager defaultManager];
 
         NSDictionary *finalAttrs = [fm attributesOfItemAtPath:filePath error:nil];
-        if (finalAttrs && [finalAttrs fileSize] > 0) {
+        unsigned long long finalSize = UYTSizeOfAttrs(finalAttrs);
+        if (finalSize > 0) {
             UYTDebugWarn(@"[uYouPatches] force-complete (%@): final file already exists (%llu bytes) - keeping",
-                      reason, [finalAttrs fileSize]);
+                      reason, finalSize);
             return YES;
         }
 
@@ -732,7 +735,7 @@ static void UYTInsertDownloadRow(uYouItem *ui) {
             "type TEXT, path TEXT, lyrics TEXT, timestamp DATETIME)",
             NULL, NULL, NULL);
 
-        unsigned long long fileSize = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil].fileSize;
+        unsigned long long fileSize = UYTSizeOfFile(filePath);
         NSString *title = [ui respondsToSelector:@selector(title)] ? [ui title] : @"";
         NSString *channel = [ui respondsToSelector:@selector(channel)] ? [ui channel] : @"";
         NSString *quality = [ui respondsToSelector:@selector(qualityLabel)] ? [ui qualityLabel] : @"";
@@ -873,8 +876,8 @@ static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSSt
         }
         NSString *finalPath = [ui respondsToSelector:@selector(filePath)] ? [ui filePath] : nil;
         NSFileManager *fm = [NSFileManager defaultManager];
-        NSDictionary *attrs = finalPath.length ? [fm attributesOfItemAtPath:finalPath error:nil] : nil;
-        if (finished || (attrs && [attrs fileSize] > 0)) return;
+    NSDictionary *attrs = finalPath.length ? [fm attributesOfItemAtPath:finalPath error:nil] : nil;
+    if (finished || UYTSizeOfAttrs(attrs) > 0) return;
 
         UYTDebugErr(@"[uYouPatches] stall watchdog: download stalled (polls left %ld, vid: %@)",
                     (long)pollsLeft, [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : @"?");
@@ -886,7 +889,7 @@ static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSSt
         }
 
         NSString *bestPath = best[@"path"];
-        unsigned long long bestSize = [[fm attributesOfItemAtPath:bestPath error:nil] fileSize];
+        unsigned long long bestSize = UYTSizeOfFile(bestPath);
         NSNumber *prevSize = lastSizes[bestPath];
         lastSizes[bestPath] = @(bestSize);
         BOOL stillGrowing = prevSize && bestSize > prevSize.unsignedLongLongValue;
@@ -1158,8 +1161,8 @@ static NSString *UYTResolveVideoID(id param, id item) {
                 if (UYTFFActiveBackend() != UYTFFBackendNone) {
                     BOOL ok = UYTFFConvertWebmAudioToM4a(videoPath, tmpAudio);
                     if (ok && [[NSFileManager defaultManager] fileExistsAtPath:tmpAudio]) {
-                        NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:tmpAudio error:nil];
-                        if (attrs && [attrs fileSize] > 0) {
+        NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:tmpAudio error:nil];
+        if (UYTSizeOfAttrs(attrs) > 0) {
                             [[NSFileManager defaultManager] removeItemAtPath:finalPath error:nil];
                             [[NSFileManager defaultManager] moveItemAtPath:tmpAudio toPath:finalPath error:nil];
                             UYTDebugInfo(@"[uYouPatches] Extracted audio from muxed video for %@", finalPath);

@@ -1,3 +1,4 @@
+#import "UYTFileSize.h"
 #import "RootOptionsController.h"
 #import "ColourOptionsController.h"
 #import "ColourOptionsController2.h"
@@ -227,7 +228,7 @@ static UIVisualEffect *UYTLiquidGlassEffect(void) {
     for (NSString *fileName in filesArray) {
         NSString *filePath = [cachePath stringByAppendingPathComponent:fileName];
         NSDictionary *fileAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil];
-        folderSize += [fileAttributes fileSize];
+        folderSize += UYTSizeOfAttrs(fileAttributes);
     }
 
     NSByteCountFormatter *formatter = [[NSByteCountFormatter alloc] init];

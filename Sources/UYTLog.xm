@@ -1,5 +1,6 @@
 
 #import <Foundation/Foundation.h>
+#import "UYTFileSize.h"
 #import <UIKit/UIKit.h>
 #import <unistd.h>
 #import <stdio.h>
@@ -85,7 +86,7 @@ static void UYTRotateLogFile(void) {
     if (!UYTLogFile.length) return;
     @try {
         NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:UYTLogFile error:nil];
-        if (attrs && [attrs fileSize] > 1024 * 1024) {
+        if (UYTSizeOfAttrs(attrs) > 1024 * 1024) {
             UYTCloseLogFile();
             NSString *old = [UYTLogFile stringByAppendingString:@".old"];
             [[NSFileManager defaultManager] removeItemAtPath:old error:nil];

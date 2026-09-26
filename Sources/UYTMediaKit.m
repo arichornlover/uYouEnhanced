@@ -1,5 +1,6 @@
 #import "UYTMediaKit.h"
 #import "UYTLog.h"
+#import "UYTFileSize.h"
 #import <dlfcn.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
@@ -130,7 +131,7 @@ static BOOL UYTOutputIsUsable(NSString *path) {
     if (!path.length) return NO;
     NSFileManager *fm = [NSFileManager defaultManager];
     if (![fm fileExistsAtPath:path]) return NO;
-    if ([[fm attributesOfItemAtPath:path error:nil] fileSize] > 0) return YES;
+    if (UYTSizeOfFile(path) > 0) return YES;
     [fm removeItemAtPath:path error:nil];
     return NO;
 }
