@@ -8,7 +8,7 @@
 static NSInteger UYTFFCachedBackend = -1;
 
 static void UYTFFProbe(void) {
-    if (UYTFFCachedBackend != -1 && UYTFFCachedBackend != UYTFFBackendNone) return;
+    if (UYTFFCachedBackend != -1) return;
 
     const char *libs[] = {
         "libavutil", "libswresample", "libavcodec",
@@ -37,10 +37,14 @@ static NSString *UYTFFCommandLine(NSArray<NSString *> *arguments) {
     NSMutableArray<NSString *> *parts = [NSMutableArray arrayWithCapacity:arguments.count];
     for (NSString *arg in arguments) {
         if ([arg hasPrefix:@"-"]) [parts addObject:arg];
-        else if ([arg containsString:@"/"]) [parts addObject:[NSString stringWithFormat:@"\"%@\"", arg.lastPathComponent]];
+        else if ([arg containsString:@"/"]) [parts addObject:[NSString stringWithFormat:@"\"%@\"", arg]];
         else [parts addObject:arg];
     }
     return [parts componentsJoinedByString:@" "];
+}
+
+static NSString *UYTFFUnavailableReason(void) {
+    return @"ffmpeg frameworks not present in YouTube.app/Frameworks";
 }
 
 BOOL UYTFFRun(NSArray<NSString *> *arguments) {
@@ -49,7 +53,8 @@ BOOL UYTFFRun(NSArray<NSString *> *arguments) {
     NSString *command = UYTFFCommandLine(arguments);
 
     if (UYTFFCachedBackend == UYTFFBackendNone) {
-        UYTDebugErr(@"[uYouPatches] ffmpeg backend unavailable - command dropped: %@", command);
+        UYTDebugErr(@"[uYouPatches] ffmpeg backend unavailable (%@) - command dropped: %@",
+                    UYTFFUnavailableReason(), command);
         return NO;
     }
 
@@ -62,10 +67,11 @@ BOOL UYTFFRun(NSArray<NSString *> *arguments) {
     BOOL isKitNext = (UYTFFCachedBackend == UYTFFBackendKitNext);
     BOOL ok = NO;
     long rc = -1;
+    id session = nil;
 
     @try {
         if (isKitNext) {
-            id session = ((id (*)(id, SEL, NSArray *))objc_msgSend)(
+            session = ((id (*)(id, SEL, NSArray *))objc_msgSend)(
                 kitClass, @selector(executeWithArguments:), arguments);
             if (session) {
                 if ([session respondsToSelector:@selector(getReturnCode)]) {
@@ -103,7 +109,19 @@ BOOL UYTFFRun(NSArray<NSString *> *arguments) {
     if (ok) {
         UYTDebugInfo(@"[uYouPatches] ffmpeg ok: %@", command);
     } else {
-        UYTDebugWarn(@"[uYouPatches] ffmpeg FAILED (rc=%ld): %@", rc, command);
+        NSString *detail = nil;
+        if (session && [session respondsToSelector:@selector(getOutput)]) {
+            id output = ((id (*)(id, SEL))objc_msgSend)(session, @selector(getOutput));
+            if ([output isKindOfClass:[NSString class]] && [(NSString *)output length]) {
+                NSArray<NSString *> *lines = [(NSString *)output
+                    componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
+                NSUInteger take = MIN((NSUInteger)8, lines.count);
+                detail = [[lines subarrayWithRange:NSMakeRange(lines.count - take, take)]
+                    componentsJoinedByString:@" | "];
+            }
+        }
+        UYTDebugWarn(@"[uYouPatches] ffmpeg FAILED (rc=%ld): %@%@", rc, command,
+                     detail.length ? [@" -> " stringByAppendingString:detail] : @"");
     }
     return ok;
 }
@@ -157,7 +175,12 @@ static BOOL uytPathIsWebm(NSString *path) {
 }
 
 BOOL UYTFFConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
-    return UYTFFRun(@[
+    if (!webmPath.length || !m4aPath.length) return NO;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    if (![fm fileExistsAtPath:webmPath]) return NO;
+    if ([fm fileExistsAtPath:m4aPath]) [fm removeItemAtPath:m4aPath error:nil];
+
+    BOOL ok = UYTFFRun(@[
         @"-i", webmPath,
         @"-map", @"0:a:0",
         @"-vn",
@@ -169,6 +192,9 @@ BOOL UYTFFConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
         @"-y",
         m4aPath,
     ]);
+    if (ok && UYTOutputIsUsable(m4aPath)) return YES;
+    if ([fm fileExistsAtPath:m4aPath]) [fm removeItemAtPath:m4aPath error:nil];
+    return NO;
 }
 
 BOOL UYTFFRemuxVideoAudioToMP4(NSString *videoPath, NSString *audioPath, NSString *outputPath) {

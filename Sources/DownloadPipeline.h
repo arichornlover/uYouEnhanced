@@ -21,6 +21,8 @@ NS_ASSUME_NONNULL_BEGIN
 + (nullable UYTStreamFormat *)bestMuxedFormat:(NSArray<UYTStreamFormat *> * _Nullable)formats;
 + (nullable UYTStreamFormat *)bestAudioFormat:(NSArray<UYTStreamFormat *> * _Nullable)formats;
 + (nullable UYTStreamFormat *)bestVideoFormat:(NSArray<UYTStreamFormat *> * _Nullable)formats;
++ (nullable UYTStreamFormat *)bestVideoFormat:(NSArray<UYTStreamFormat *> * _Nullable)formats
+                                qualityLabel:(nullable NSString *)qualityLabel;
 @end
 
 void UYTDriveDownloadItemProgressForVideoID(NSString * _Nullable vid, double fractionComplete, unsigned long long bytesDownloaded);

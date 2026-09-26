@@ -26,8 +26,6 @@
 %group gFixPlaybackNetwork
 
 static NSString *const UYTFixEndpointPlayer        = @"/player";
-static NSString *const UYTFixEndpointNext          = @"/next";
-static NSString *const UYTFixEndpointBrowse        = @"/browse";
 static NSString *const UYTFixEndpointInitPlayback  = @"/initplayback";
 static NSString *const UYTFixEndpointVideoPlayback = @"/videoplayback";
 static NSString *const UYTFixClientName    = @"75";
@@ -49,12 +47,13 @@ static void UYTFixRememberVisitorData(NSString *visitorData) {
     }
 }
 
-static BOOL UYTFixIsInnertubePath(NSString *path) {
+// Only playback endpoints are spoofed. /browse and /next must keep the app's real
+// iOS context: the TVHTML5_SIMPLY client cannot serve browse responses, and
+// rewriting it makes every tab fail with "Error loading - Tap to retry".
+static BOOL UYTFixIsPlayerPath(NSString *path) {
     if (!path.length) return NO;
     NSString *p = path.lowercaseString;
     return [p containsString:UYTFixEndpointPlayer.lowercaseString] ||
-           [p containsString:UYTFixEndpointNext.lowercaseString] ||
-           [p containsString:UYTFixEndpointBrowse.lowercaseString] ||
            [p containsString:UYTFixEndpointInitPlayback.lowercaseString];
 }
 
@@ -102,7 +101,7 @@ static void UYTFixApplyHeaders(NSMutableURLRequest *request, BOOL includeContent
 
 static void UYTFixApplyBody(NSMutableURLRequest *request) {
     if (!request.HTTPBody) return;
-    if (!UYTFixIsInnertubePath(request.URL.path)) return;
+    if (!UYTFixIsPlayerPath(request.URL.path)) return;
 
     NSDictionary *incoming = [NSJSONSerialization JSONObjectWithData:request.HTTPBody options:0 error:nil];
     if (![incoming isKindOfClass:[NSDictionary class]]) return;
@@ -126,7 +125,7 @@ static void UYTFixApplyBody(NSMutableURLRequest *request) {
 static void UYTFixHandleRequest(NSMutableURLRequest *request) {
     if (!request.URL) return;
     NSString *path = request.URL.path;
-    if (UYTFixIsInnertubePath(path)) {
+    if (UYTFixIsPlayerPath(path)) {
         UYTFixApplyBody(request);
         UYTFixApplyHeaders(request, YES);
     } else if (UYTFixIsVideoPlaybackPath(path)) {
@@ -180,7 +179,7 @@ static void UYTFixHandleRequest(NSMutableURLRequest *request) {
     NSMutableURLRequest *request = [self mutableRequestForTesting];
     if (![request isKindOfClass:[NSMutableURLRequest class]] || !request.URL) return;
     NSString *path = request.URL.path;
-    if (UYTFixIsInnertubePath(path)) UYTFixApplyHeaders(request, YES);
+    if (UYTFixIsPlayerPath(path)) UYTFixApplyHeaders(request, YES);
     else if (UYTFixIsVideoPlaybackPath(path)) UYTFixApplyHeaders(request, NO);
 }
 

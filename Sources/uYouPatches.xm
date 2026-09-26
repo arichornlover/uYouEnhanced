@@ -963,14 +963,9 @@ static NSString *UYTResolveVideoID(id param, id item) {
         UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
 
         if (requestedQuality.length) {
-            for (UYTStreamFormat *f in formats) {
-                if (!f.hasVideo) continue;
-                NSString *ql = f.qualityLabel.length ? f.qualityLabel : [NSString stringWithFormat:@"%ldp", (long)f.itag];
-                if ([ql isEqualToString:requestedQuality]) {
-                    video = f;
-                    break;
-                }
-            }
+            UYTStreamFormat *picked = [UYTDownloadPipeline bestVideoFormat:formats
+                                                              qualityLabel:requestedQuality];
+            if (picked) video = picked;
         }
 
         if (requestedAudioOnly) {
@@ -980,8 +975,12 @@ static NSString *UYTResolveVideoID(id param, id item) {
 
         UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
         UYTMarkAudioOnly(vid, requestedAudioOnly);
-        UYTDebugInfo(@"[UYTPipeline] cached URLs for %@ (muxed=%ld, audio=%ld, video=%ld, audioOnly=%d)",
-              vid, (long)muxed.itag, (long)audio.itag, (long)video.itag, requestedAudioOnly);
+        UYTDebugInfo(@"[UYTPipeline] cached URLs for %@ (muxed=%@, audio=%@, video=%@, audioOnly=%d)",
+              vid,
+              muxed.mimeType.length ? muxed.mimeType : @"none",
+              audio.mimeType.length ? audio.mimeType : @"none",
+              video.mimeType.length ? video.mimeType : @"none",
+              requestedAudioOnly);
 
         UYTRegisterVideoIDForURL(vid, video.url);
         UYTRegisterVideoIDForURL(vid, audio.url);

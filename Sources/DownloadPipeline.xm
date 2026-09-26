@@ -92,6 +92,11 @@ static UYTStreamFormat *UYTStreamFormatFromDict(NSDictionary *f, NSString *url) 
 + (UYTStreamFormat *)bestVideoFormat:(NSArray<UYTStreamFormat *> *)formats;
 @end
 
+static NSInteger UYTFormatContainerRank(UYTStreamFormat *f);
+static NSInteger UYTFormatCodecRank(UYTStreamFormat *f);
+static BOOL UYTFormatIsBetter(UYTStreamFormat *candidate, UYTStreamFormat *current);
+static NSString *UYTFormatDesc(UYTStreamFormat *f);
+
 @implementation UYTDownloadPipeline
 
 static int UYTLastGoodClient = 2;
@@ -277,23 +282,75 @@ static int UYTLastGoodClient = 2;
 + (UYTStreamFormat *)bestMuxedFormat:(NSArray<UYTStreamFormat *> *)formats {
     UYTStreamFormat *best = nil;
     for (UYTStreamFormat *f in formats)
-        if (f.hasVideo && f.hasAudio && (!best || f.bitrate > best.bitrate)) best = f;
+        if (f.hasVideo && f.hasAudio && UYTFormatIsBetter(f, best)) best = f;
     return best;
 }
 
 + (UYTStreamFormat *)bestAudioFormat:(NSArray<UYTStreamFormat *> *)formats {
     UYTStreamFormat *best = nil;
     for (UYTStreamFormat *f in formats)
-        if (f.hasAudio && !f.hasVideo && [f.mimeType containsString:@"mp4"]
-            && (!best || f.bitrate > best.bitrate)) best = f;
+        if (f.hasAudio && !f.hasVideo && UYTFormatIsBetter(f, best)) best = f;
     return best;
 }
 
 + (UYTStreamFormat *)bestVideoFormat:(NSArray<UYTStreamFormat *> *)formats {
     UYTStreamFormat *best = nil;
     for (UYTStreamFormat *f in formats)
-        if (f.hasVideo && !f.hasAudio && (!best || f.bitrate > best.bitrate)) best = f;
+        if (f.hasVideo && !f.hasAudio && UYTFormatIsBetter(f, best)) best = f;
     return best;
+}
+
++ (UYTStreamFormat *)bestVideoFormat:(NSArray<UYTStreamFormat *> *)formats
+                       qualityLabel:(NSString *)qualityLabel {
+    if (!qualityLabel.length) return [self bestVideoFormat:formats];
+    UYTStreamFormat *best = nil;
+    for (UYTStreamFormat *f in formats) {
+        if (!f.hasVideo || f.hasAudio) continue;
+        NSString *ql = f.qualityLabel.length ? f.qualityLabel
+            : [NSString stringWithFormat:@"%ldp", (long)f.itag];
+        if ([ql isEqualToString:qualityLabel] && UYTFormatIsBetter(f, best)) best = f;
+    }
+    return best ?: [self bestVideoFormat:formats];
+}
+
+// mp4 (avc1 + mp4a) can be stream-copied into the final .mp4 with `-c copy`.
+// webm (vp9/av01 + opus) forces a transcode that repeatedly failed with ffmpeg rc=1,
+// so rank the mp4/avc1 variants first and only fall back to webm when absent.
+static NSInteger UYTFormatContainerRank(UYTStreamFormat *f) {
+    NSString *m = f.mimeType.lowercaseString ?: @"";
+    if ([m hasPrefix:@"video/mp4"] || [m hasPrefix:@"audio/mp4"]) return 0;
+    if ([m hasPrefix:@"audio/"]) return 1;
+    if ([m hasPrefix:@"video/webm"] || [m hasPrefix:@"audio/webm"]) return 2;
+    return 3;
+}
+
+static NSInteger UYTFormatCodecRank(UYTStreamFormat *f) {
+    NSString *m = f.mimeType.lowercaseString ?: @"";
+    if (f.hasVideo) {
+        if ([m containsString:@"avc1"]) return 0;
+        if ([m containsString:@"hev1"] || [m containsString:@"hvc1"]) return 1;
+        if ([m containsString:@"av01"]) return 2;
+        if ([m containsString:@"vp9"] || [m containsString:@"vp09"]) return 3;
+        return 4;
+    }
+    if ([m containsString:@"mp4a"]) return 0;
+    if ([m containsString:@"opus"]) return 1;
+    return 2;
+}
+
+static BOOL UYTFormatIsBetter(UYTStreamFormat *candidate, UYTStreamFormat *current) {
+    if (!current) return YES;
+    NSInteger cc = UYTFormatContainerRank(candidate), cu = UYTFormatContainerRank(current);
+    if (cc != cu) return cc < cu;
+    NSInteger kc = UYTFormatCodecRank(candidate), ku = UYTFormatCodecRank(current);
+    if (kc != ku) return kc < ku;
+    return candidate.bitrate > current.bitrate;
+}
+
+static NSString *UYTFormatDesc(UYTStreamFormat *f) {
+    if (!f) return @"nil";
+    return [NSString stringWithFormat:@"itag=%ld %@ %@ %lldkbps", (long)f.itag,
+            f.qualityLabel.length ? f.qualityLabel : @"-", f.mimeType ?: @"-", f.bitrate / 1000];
 }
 
 @end
@@ -310,6 +367,8 @@ void UYTRefreshResolvedURLsForVideo(NSString *vid) {
             UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
             UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
             UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
+            UYTDebugInfo(@"[UYTPipeline] refresh pick for %@: muxed=%@ audio=%@ video=%@", vid,
+                         UYTFormatDesc(muxed), UYTFormatDesc(audio), UYTFormatDesc(video));
             UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
             UYTRegisterRemoteURLForVideoID(vid, video.url);
             UYTRegisterRemoteURLForVideoID(vid, audio.url);
