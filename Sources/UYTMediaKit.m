@@ -11,6 +11,8 @@ static NSInteger UYTFFCachedBackend = -1;
 static NSString *UYTFFLoadFailure = nil;
 static NSString *UYTFFLoadedRoot = nil;
 
+static void UYTFFProbe(void);
+
 // Prefer a copy we ship ourselves (Bundles/uYouMedia.bundle/Frameworks) so we do not
 // depend on whatever ffmpeg YouTube happens to vendor, then fall back to YouTube's.
 static NSArray<NSString *> *UYTFFCandidateRoots(void) {
