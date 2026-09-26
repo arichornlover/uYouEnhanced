@@ -24,7 +24,6 @@ BOOL uYouIsSideStore();
 - (void)mergeAudioWithVideoForDownloadItem:(id)item;
 - (int)convertVideo:(id)video toAudio:(id)audio;
 - (void)convertAsyncMkvToMp4:(id)path forUYouItem:(id)item;
-- (int)ffmpegWithArguments:(id)arguments;
 - (void)setupURLSessionConfiguration;
 - (void)createDownloadTask;
 - (void)reloadDownloadedVC;
@@ -84,10 +83,6 @@ BOOL uYouIsSideStore();
 
 @interface HAMPlayerInternal (uYouPatches)
 - (float)rate;
-@end
-
-@interface MobileFFmpeg : NSObject
-+ (int)executeWithArguments:(NSArray *)arguments;
 @end
 
 @interface YTFullScreenEngagementOverlayView : UIView

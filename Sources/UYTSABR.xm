@@ -760,9 +760,10 @@ void UYTSABRFallbackDownloadForVideoID(NSString *videoID,
                     }
                     BOOL muxed = NO;
                     @try {
-                        Class kit = NSClassFromString(@"FFmpegKit");
-                        if (!kit) kit = NSClassFromString(@"MobileFFmpeg");
-                        if (kit) {
+                        // Ask the loader, do not peek for the ObjC class: FFmpegKitNext
+                        // is dlopen'd lazily from our own bundle, so the class is absent
+                        // on a cold launch until something triggers the probe.
+                        if (UYTFFActiveBackend() != UYTFFBackendNone) {
                             muxed = UYTFFSmartRemuxToMP4(videoURL.path, audioURL.path, outPath);
                         }
                     } @catch (NSException *e) {}
