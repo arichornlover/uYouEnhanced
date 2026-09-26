@@ -1,5 +1,6 @@
 
 #import <Foundation/Foundation.h>
+#import "DownloadPipeline.h"
 #import "UYTFileSize.h"
 #import <UIKit/UIKit.h>
 
