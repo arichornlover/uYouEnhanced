@@ -6,6 +6,11 @@ name: Build and Release uYouEnhanced
 on:
   workflow_dispatch:
     inputs:
+      build_ffmpeg:
+        description: "Build FFmpegKit from source (cached; first run takes 30-90 min)"
+        default: true
+        required: false
+        type: boolean
       sdk_version:
         description: "iOS SDK Version"
         default: "26.5"
@@ -78,7 +83,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install ldid dpkg make wget unzip jq pipx meson ninja
+          brew install ldid dpkg make wget unzip jq pipx meson ninja gnu-sed
 
       - name: Set PATH
         run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
@@ -162,6 +167,26 @@ jobs:
 
         env:
           YOUTUBE_URL: ${{ env.URL_YT }}
+
+      - name: Restore FFmpegKit cache
+        id: ffmpeg_cache
+        uses: actions/cache/restore@v6
+        with:
+          path: main/modules/ffmpeg
+          key: ffmpegkit-${{ runner.os }}-${{ hashFiles('main/tools/fetch-ffmpegkit.sh') }}
+
+      - name: Build FFmpegKit from source
+        if: ${{ inputs.build_ffmpeg && steps.ffmpeg_cache.outputs.cache-hit != 'true' }}
+        run: |
+          cd main
+          bash tools/fetch-ffmpegkit.sh
+
+      - name: Save FFmpegKit cache
+        if: ${{ inputs.build_ffmpeg && steps.ffmpeg_cache.outputs.cache-hit != 'true' && hashFiles('main/modules/ffmpeg') != '' }}
+        uses: actions/cache/save@v6
+        with:
+          path: main/modules/ffmpeg
+          key: ${{ steps.ffmpeg_cache.outputs.cache-primary-key }}
 
       - name: Fix compiling & Build Package
         id: build_package
