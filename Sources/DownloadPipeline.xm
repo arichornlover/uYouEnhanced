@@ -58,15 +58,30 @@ static NSString *UYTIOSModel(void) {
 @implementation UYTStreamFormat
 @end
 
-static UYTStreamFormat *UYTStreamFormatFromDict(NSDictionary *f, NSString *url) {
+// hasVideo/hasAudio must come from WHICH LIST the format arrived in, not from a
+// qualityLabel probe: raw Innertube adaptiveFormats have no qualityLabel key at all,
+// so the old `video/ && !qualityLabel` test flagged EVERY video-only format as
+// hasAudio=YES. That made bestVideoFormat always nil and let bestMuxedFormat hand
+// back a video-only URL - which is what ended up in the audio slot for audio-only
+// requests, i.e. "the audio file" silently contained the whole video.
+static UYTStreamFormat *UYTStreamFormatFromDict(NSDictionary *f, NSString *url, BOOL fromMuxedList) {
     UYTStreamFormat *sf = [[UYTStreamFormat alloc] init];
     sf.url = url;
     sf.itag = [f[@"itag"] integerValue];
     sf.mimeType = f[@"mimeType"];
     sf.bitrate = [f[@"bitrate"] longLongValue];
     sf.qualityLabel = f[@"qualityLabel"];
-    sf.hasVideo = [sf.mimeType hasPrefix:@"video"];
-    sf.hasAudio = [sf.mimeType hasPrefix:@"audio"] || ([sf.mimeType hasPrefix:@"video"] && ![f objectForKey:@"qualityLabel"]);
+    NSString *m = (sf.mimeType ?: @"").lowercaseString;
+    if (fromMuxedList) {
+        sf.hasVideo = YES;
+        sf.hasAudio = YES;
+    } else if ([m hasPrefix:@"audio/"]) {
+        sf.hasVideo = NO;
+        sf.hasAudio = YES;
+    } else {
+        sf.hasVideo = YES;
+        sf.hasAudio = NO;
+    }
     return sf;
 }
 
@@ -161,20 +176,25 @@ static int UYTLastGoodClient = 2;
             }
             NSMutableArray *out = [NSMutableArray array];
             NSMutableArray<NSDictionary *> *ciphered = [NSMutableArray array];
+            NSMutableArray<NSNumber *> *cipheredIsMuxed = [NSMutableArray array];
             NSError *jsonErr = nil;
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonErr];
             if (json) {
                 NSArray *streams = json[@"streamingData"][@"adaptiveFormats"];
                 NSArray *muxed = json[@"streamingData"][@"formats"];
-                for (NSArray *list in @[streams ?: @[], muxed ?: @[]]) {
-                    for (NSDictionary *f in list) {
+                NSArray *lists[2] = {streams ?: @[], muxed ?: @[]};
+                for (int li = 0; li < 2; li++) {
+                    for (NSDictionary *f in lists[li]) {
                         NSString *u = f[@"url"];
                         if (u) {
-                            [out addObject:UYTStreamFormatFromDict(f, u)];
+                            [out addObject:UYTStreamFormatFromDict(f, u, li == 1)];
                             continue;
                         }
                         NSString *cipher = f[@"signatureCipher"] ?: f[@"cipher"];
-                        if (cipher) [ciphered addObject:f];
+                        if (cipher) {
+                            [ciphered addObject:f];
+                            [cipheredIsMuxed addObject:@(li == 1)];
+                        }
                     }
                 }
             }
@@ -203,11 +223,13 @@ static int UYTLastGoodClient = 2;
                     return;
                 }
                 NSUInteger deciphered = 0;
-                for (NSDictionary *f in ciphered) {
+                for (NSUInteger ci = 0; ci < ciphered.count; ci++) {
+                    NSDictionary *f = ciphered[ci];
+                    BOOL isMuxed = ci < cipheredIsMuxed.count ? [cipheredIsMuxed[ci] boolValue] : NO;
                     NSString *cipher = f[@"signatureCipher"] ?: f[@"cipher"];
                     NSString *resolved = [UYTSigDecipher resolveURLFromSignatureCipher:cipher usingPlayer:player];
                     if (!resolved.length) continue;
-                    [out addObject:UYTStreamFormatFromDict(f, resolved)];
+                    [out addObject:UYTStreamFormatFromDict(f, resolved, isMuxed)];
                     deciphered++;
                 }
                 UYTDebugInfo(@"[UYTPipeline] deciphered %lu/%lu ciphered for %@", (unsigned long)deciphered,
@@ -587,17 +609,37 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
 
 - (void)setRemoteURL:(NSURL *)url {
     NSString *vid = self.videoID ?: @"";
+    if (!vid.length) { %orig; return; }
+
+    // For an audio-only request uYou hands us the muxed/video stream. Letting that
+    // through writes whole-video bytes into <id>_Audio.m4a, which is exactly the
+    // "audio download that is really the video" bug, so it is filtered here.
+    BOOL audioOnly = UYTIsAudioOnly(vid);
     if (url.absoluteString.length) UYTRegisterRemoteURLForVideoID(vid, url.absoluteString);
-    NSString *working = UYTGetResolvedURL(vid);
+
+    NSString *working = audioOnly ? UYTAudioOnlyURL(vid) : UYTGetResolvedURL(vid);
     if (working.length) {
-        UYTRegisterRemoteURLForVideoID(vid, working);
         NSURL *fixed = [NSURL URLWithString:working];
         if (fixed) {
-            UYTDebugInfo(@"[UYTPipeline] swapped broken task URL -> cached innertube URL for %@", vid);
+            UYTRegisterRemoteURLForVideoID(vid, working);
+            if (audioOnly) {
+                UYTDebugInfo(@"[UYTPipeline] audio-only %@ -> forcing audio stream %@", vid, working);
+            } else {
+                UYTDebugInfo(@"[UYTPipeline] swapped broken task URL -> cached innertube URL for %@", vid);
+            }
             %orig(fixed);
             return;
         }
     }
+
+    if (audioOnly) {
+        // No audio-only stream resolved. Accepting uYou's URL here is the bug, so
+        // refuse; UYTArmStallWatchdog still finalizes the item instead of hanging.
+        UYTDebugErr(@"[UYTPipeline] audio-only %@ has no audio-only stream - refusing %@",
+                    vid, url.path.length ? url.path : @"(nil)");
+        return;
+    }
+
     %orig;
 }
 %end
