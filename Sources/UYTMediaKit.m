@@ -8,21 +8,59 @@
 
 static NSInteger UYTFFCachedBackend = -1;
 
+static NSString *UYTFFLoadFailure = nil;
+static NSString *UYTFFLoadedRoot = nil;
+
+// Prefer a copy we ship ourselves (Bundles/uYouMedia.bundle/Frameworks) so we do not
+// depend on whatever ffmpeg YouTube happens to vendor, then fall back to YouTube's.
+static NSArray<NSString *> *UYTFFCandidateRoots(void) {
+    NSMutableArray<NSString *> *roots = [NSMutableArray array];
+    Dl_info info;
+    memset(&info, 0, sizeof(info));
+    if (dladdr((const void *)&UYTFFProbe, &info) && info.dli_fname) {
+        NSString *self = [NSString stringWithUTF8String:info.dli_fname];
+        NSString *dir = [self stringByDeletingLastPathComponent];
+        if (dir.length) {
+            [roots addObject:[dir stringByAppendingPathComponent:@"uYouMedia.bundle/Frameworks"]];
+            [roots addObject:[dir stringByAppendingPathComponent:@"Frameworks"]];
+            [roots addObject:dir];
+        }
+    }
+    [roots addObject:@"@executable_path/Frameworks"];
+    return roots;
+}
+
 static void UYTFFProbe(void) {
     if (UYTFFCachedBackend != -1) return;
 
-    const char *libs[] = {
-        "libavutil", "libswresample", "libavcodec",
-        "libavformat", "libavdevice", "libavfilter", "libswscale",
-    };
-    for (int i = 0; i < sizeof(libs) / sizeof(libs[0]); i++) {
-        char path[256];
-        snprintf(path, sizeof(path),
-                 "@executable_path/Frameworks/%s.framework/%s", libs[i], libs[i]);
-        dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
+    NSArray<NSString *> *libs = @[@"libavutil", @"libswresample", @"libavcodec",
+                                  @"libavformat", @"libavdevice", @"libavfilter", @"libswscale"];
+    NSString *firstFailure = nil;
+    NSString *servingRoot = nil;
+
+    for (NSString *root in UYTFFCandidateRoots()) {
+        NSString *missing = nil;
+        BOOL complete = YES;
+        for (NSString *lib in libs) {
+            NSString *binary = [NSString stringWithFormat:@"%@/%@.framework/%@", root, lib, lib];
+            if (dlopen(binary.fileSystemRepresentation, RTLD_NOW | RTLD_GLOBAL)) continue;
+            if (!missing) {
+                dlerror();
+                missing = [NSString stringWithFormat:@"dlopen %@ (%s)", lib, dlerror() ?: "unknown"];
+            }
+            complete = NO;
+        }
+        if (complete) { servingRoot = root; break; }
+        if (!firstFailure) firstFailure = missing;
     }
-    dlopen("@executable_path/Frameworks/ffmpegkit.framework/ffmpegkit",
-           RTLD_LAZY | RTLD_GLOBAL);
+
+    if (servingRoot) {
+        dlopen([NSString stringWithFormat:@"%@/ffmpegkit.framework/ffmpegkit", servingRoot].fileSystemRepresentation,
+               RTLD_NOW | RTLD_GLOBAL);
+        UYTFFLoadedRoot = servingRoot;
+    } else {
+        UYTFFLoadFailure = firstFailure ?: @"no ffmpeg frameworks found in any search root";
+    }
 
     if (objc_getClass("FFmpegKit")) UYTFFCachedBackend = UYTFFBackendKitNext;
     else if (objc_getClass("MobileFFmpeg")) UYTFFCachedBackend = UYTFFBackendMobile;
@@ -31,6 +69,10 @@ static void UYTFFProbe(void) {
 
 NSInteger UYTFFActiveBackend(void) {
     UYTFFProbe();
+    if (UYTFFCachedBackend != UYTFFBackendNone && UYTFFLoadedRoot.length) {
+        UYTDebugInfo(@"[uYouPatches] ffmpeg backend %ld loaded from %@",
+                     (long)UYTFFCachedBackend, UYTFFLoadedRoot);
+    }
     return UYTFFCachedBackend;
 }
 
@@ -45,7 +87,7 @@ static NSString *UYTFFCommandLine(NSArray<NSString *> *arguments) {
 }
 
 static NSString *UYTFFUnavailableReason(void) {
-    return @"ffmpeg frameworks not present in YouTube.app/Frameworks";
+    return UYTFFLoadFailure ?: @"no ffmpeg frameworks found in any search root";
 }
 
 BOOL UYTFFRun(NSArray<NSString *> *arguments) {

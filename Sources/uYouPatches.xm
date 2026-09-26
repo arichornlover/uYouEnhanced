@@ -612,7 +612,48 @@ static BOOL UYTRemuxWithFFmpeg(id ui, NSString *phase) {
     return NO;
 }
 
-static NSDictionary *UYTBestAvailableSource(id ui) {
+static NSString *UYTDocsDir(void) {
+    return [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+}
+
+// The final download folder is not stable across YouTube versions ("Downloaded" vs
+// "Downloads") and merged files get extra name decoration, so look for any media file
+// belonging to this video instead of assuming one exact path.
+static void UYTScanForVideoFile(NSString *vid, void (^report)(NSString *path, NSString *label)) {
+    @try {
+        if (!vid.length) return;
+        NSFileManager *fm = [NSFileManager defaultManager];
+        NSString *docs = UYTDocsDir();
+        if (!docs.length) return;
+
+        static NSSet<NSString *> *exts;
+        static dispatch_once_t once;
+        dispatch_once(&once, ^{
+            exts = [NSSet setWithArray:@[@"mp4", @"m4a", @"mp3", @"webm", @"mkv", @"mov", @"m4v"]];
+        });
+
+        NSMutableArray<NSString *> *dirs = [NSMutableArray arrayWithObject:docs];
+        for (NSString *sub in @[@"Downloaded", @"Downloads", @"Download", @"Videos", @"Video"]) {
+            NSString *p = [docs stringByAppendingPathComponent:sub];
+            if ([fm fileExistsAtPath:p]) [dirs addObject:p];
+        }
+
+        for (NSString *dir in dirs) {
+            NSDirectoryEnumerator *e = [fm enumeratorAtPath:dir];
+            e.skipDescendants = ![dir isEqualToString:docs];
+            for (NSString *rel in e) {
+                if (rel.length > 160) continue;
+                NSString *name = rel.lastPathComponent;
+                if (![name containsString:vid]) continue;
+                if (![exts containsObject:name.pathExtension.lowercaseString]) continue;
+                NSString *full = [dir stringByAppendingPathComponent:rel];
+                if (UYTSizeOfFile(full) > 0) report(full, @"scanned download folder");
+            }
+        }
+    } @catch (NSException *e) {}
+}
+
+static NSDictionary *UYTBestAvailableSource(id item, id ui) {
     if (!ui) return nil;
     NSFileManager *fm = [NSFileManager defaultManager];
 
@@ -650,28 +691,42 @@ static NSDictionary *UYTBestAvailableSource(id ui) {
     };
 
     NSString *vid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
+    if (!vid.length && [item respondsToSelector:@selector(videoID)]) vid = [item videoID];
+    NSString *docs = UYTDocsDir();
     if (vid.length) {
-        NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-        checkPath([docs stringByAppendingPathComponent:
-                   [NSString stringWithFormat:@"Downloaded/%@.mp4", vid]],
-                  @"muxed pipeline file");
-        checkPath([docs stringByAppendingPathComponent:
-                   [NSString stringWithFormat:@"Downloaded/%@.m4a", vid]],
-                  @"sabr audio pipeline file");
+        for (NSString *sub in @[@"Downloaded", @"Downloads"]) {
+            for (NSString *ext in @[@"mp4", @"m4a", @"webm"]) {
+                checkPath([docs stringByAppendingPathComponent:
+                           [NSString stringWithFormat:@"%@/%@.%@", sub, vid, ext]],
+                          [NSString stringWithFormat:@"%@ pipeline file", sub]);
+            }
+        }
     }
+
+    // YouTube hands the DownloadItem both a staging (cachedPath) and final (filePath)
+    // location; both are authoritative and are the first thing to check.
+    if ([item respondsToSelector:@selector(cachedPath)]) checkPath([item cachedPath], @"download item cachedPath");
+    if ([item respondsToSelector:@selector(filePath)]) checkPath([item filePath], @"download item filePath");
+    if ([item respondsToSelector:@selector(videoID)] && [item videoID].length) vid = [item videoID];
 
     checkPath(resolvePath(ui, @selector(tmpVideoPath)), @"tmp video stream");
     checkPath(resolvePath(ui, @selector(cachedVideoPath)), @"cached video stream");
     checkPath(resolvePath(ui, @selector(tmpAudioPath)), @"tmp audio stream");
     checkPath(resolvePath(ui, @selector(cachedAudioPath)), @"cached audio stream");
 
+    UYTScanForVideoFile(vid, checkPath);
+
     return bestNonWebm ?: bestAny;
 }
 
-static BOOL UYTForceCompleteItem(id ui, NSString *reason) {
+static BOOL UYTForceCompleteItem(id item, id ui, NSString *reason) {
     @try {
         if (![ui respondsToSelector:@selector(filePath)]) return NO;
-        NSString *filePath = [ui filePath];
+        // The DownloadItem's own filePath is what the Downloading tab reads back, so it
+        // wins over the uYouItem path when the two disagree.
+        NSString *filePath = nil;
+        if ([item respondsToSelector:@selector(filePath)]) filePath = [item filePath];
+        if (!filePath.length) filePath = [ui filePath];
         if (!filePath.length) return NO;
 
         NSFileManager *fm = [NSFileManager defaultManager];
@@ -684,12 +739,16 @@ static BOOL UYTForceCompleteItem(id ui, NSString *reason) {
             return YES;
         }
 
-        NSDictionary *best = UYTBestAvailableSource(ui);
+        NSDictionary *best = UYTBestAvailableSource(item, ui);
         if (!best) {
             UYTDebugWarn(@"[uYouPatches] force-complete (%@): no usable source file yet", reason);
             return NO;
         }
 
+        NSString *destDir = [filePath stringByDeletingLastPathComponent];
+        if (destDir.length && ![fm fileExistsAtPath:destDir]) {
+            [fm createDirectoryAtPath:destDir withIntermediateDirectories:YES attributes:nil error:nil];
+        }
         if ([fm fileExistsAtPath:filePath]) [fm removeItemAtPath:filePath error:nil];
         NSError *err = nil;
         BOOL ok = [fm moveItemAtPath:best[@"path"] toPath:filePath error:&err];
@@ -827,7 +886,7 @@ static BOOL UYTFinalizeItem(id item, NSString *reason) {
             return YES;
         }
 
-        if (!UYTForceCompleteItem(ui, reason)) return NO;
+        if (!UYTForceCompleteItem(item, ui, reason)) return NO;
 
         @try { [ui setValue:@YES forKey:@"isDownloadFinished"]; } @catch (NSException *e) {}
         @try { [ui setValue:@YES forKey:@"finished"]; } @catch (NSException *e) {}
@@ -874,15 +933,19 @@ static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSSt
         if ([ui respondsToSelector:@selector(isDownloadFinished)]) {
             finished = [ui isDownloadFinished];
         }
-        NSString *finalPath = [ui respondsToSelector:@selector(filePath)] ? [ui filePath] : nil;
+        NSString *finalPath = nil;
+        if ([item respondsToSelector:@selector(filePath)]) finalPath = [item filePath];
+        if (!finalPath.length && [ui respondsToSelector:@selector(filePath)]) finalPath = [ui filePath];
         NSFileManager *fm = [NSFileManager defaultManager];
-    NSDictionary *attrs = finalPath.length ? [fm attributesOfItemAtPath:finalPath error:nil] : nil;
-    if (finished || UYTSizeOfAttrs(attrs) > 0) return;
+        NSDictionary *attrs = finalPath.length ? [fm attributesOfItemAtPath:finalPath error:nil] : nil;
+        NSString *cachedPath = [item respondsToSelector:@selector(cachedPath)] ? [item cachedPath] : nil;
+        BOOL haveStaged = cachedPath.length && UYTSizeOfFile(cachedPath) > 0;
+        if (finished || UYTSizeOfAttrs(attrs) > 0 || haveStaged) return;
 
         UYTDebugErr(@"[uYouPatches] stall watchdog: download stalled (polls left %ld, vid: %@)",
                     (long)pollsLeft, [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : @"?");
 
-        NSDictionary *best = UYTBestAvailableSource(ui);
+        NSDictionary *best = UYTBestAvailableSource(item, ui);
         if (!best) {
             UYTScheduleStallCheck(item, 5.0, pollsLeft - 1, lastSizes);
             return;
@@ -1068,11 +1131,16 @@ static NSString *UYTResolveVideoID(id param, id item) {
                         UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:freshFormats];
                         UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:freshFormats];
                         UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:freshFormats];
-                        UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
+                        BOOL audioOnly = UYTIsAudioOnly(vid);
+                        if (audioOnly) {
+                            UYTStoreResolvedURLs(vid, nil, audio.url, nil);
+                        } else {
+                            UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
+                        }
                         UYTRegisterVideoIDForURL(vid, video.url);
                         UYTRegisterVideoIDForURL(vid, audio.url);
                         UYTRegisterVideoIDForURL(vid, muxed.url);
-                        NSString *fresh = UYTResolvedVideoURL(vid);
+                        NSString *fresh = audioOnly ? UYTAudioOnlyURL(vid) : UYTResolvedVideoURL(vid);
                         if (fresh.length) {
                             UYTDebugWarn(@"[uYouPatches] restarting %@ on a fresh URL after (%ld)", vid, code);
                             UYTDebugErr(@"restarting %@ on fresh URL after %ld — new task armed", vid, code);
@@ -1298,30 +1366,24 @@ static NSString *UYTResolveVideoID(id param, id item) {
 - (BOOL)moveItemAtPath:(NSString *)srcPath toPath:(NSString *)dstPath error:(NSError **)error {
     BOOL result = %orig;
 
+    // Only rescue our own download artefacts. A blanket redirect here used to move every
+    // failing move in YouTube into Documents/Downloaded, which YouTube then could not find.
     if (!result && error && *error) {
-        if ([*error code] == NSFileWriteNoPermissionError ||
-            [*error code] == NSFileWriteFileExistsError ||
-            [*error domain] == NSPOSIXErrorDomain) {
-
-            NSString *docsDir = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-            NSString *fallbackName = [dstPath lastPathComponent];
-            NSString *fallbackPath = [docsDir stringByAppendingPathComponent:@"Downloaded"];
-            fallbackPath = [fallbackPath stringByAppendingPathComponent:fallbackName];
-
-            [[NSFileManager defaultManager] createDirectoryAtPath:[fallbackPath stringByDeletingLastPathComponent]
-                                   withIntermediateDirectories:YES
-                                                    attributes:nil
-                                                         error:nil];
-
-            NSError *fallbackError = nil;
-            result = [self moveItemAtPath:srcPath toPath:fallbackPath error:&fallbackError];
-            if (result) {
-                UYTDebugInfo(@"[uYouPatches] File moved to Documents fallback: %@", fallbackPath);
-            } else {
-                result = [self copyItemAtPath:srcPath toPath:fallbackPath error:&fallbackError];
-                if (result) {
-                    UYTDebugInfo(@"[uYouPatches] File copied to Documents fallback: %@", fallbackPath);
-                }
+        BOOL isMedia = [dstPath.pathExtension.lowercaseString isEqualToString:@"mp4"] ||
+                       [dstPath.pathExtension.lowercaseString isEqualToString:@"m4a"] ||
+                       [dstPath.pathExtension.lowercaseString isEqualToString:@"webm"] ||
+                       [dstPath.pathExtension.lowercaseString isEqualToString:@"mp3"];
+        if (isMedia && ([*error code] == NSFileWriteNoPermissionError ||
+                        [*error code] == NSFileWriteFileExistsError ||
+                        [*error domain] == NSPOSIXErrorDomain)) {
+            NSString *dstDir = [dstPath stringByDeletingLastPathComponent];
+            if (![[NSFileManager defaultManager] fileExistsAtPath:dstDir]) {
+                [[NSFileManager defaultManager] createDirectoryAtPath:dstDir
+                                       withIntermediateDirectories:YES
+                                                        attributes:nil
+                                                             error:nil];
+                result = [self moveItemAtPath:srcPath toPath:dstPath error:error];
+                if (result) UYTDebugInfo(@"[uYouPatches] created %@ for download move", dstDir.lastPathComponent);
             }
         }
     }

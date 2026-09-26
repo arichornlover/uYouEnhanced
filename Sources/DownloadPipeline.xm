@@ -370,7 +370,11 @@ void UYTRefreshResolvedURLsForVideo(NSString *vid) {
             UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
             UYTDebugInfo(@"[UYTPipeline] refresh pick for %@: muxed=%@ audio=%@ video=%@", vid,
                          UYTFormatDesc(muxed), UYTFormatDesc(audio), UYTFormatDesc(video));
-            UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
+            if (UYTIsAudioOnly(vid)) {
+                UYTStoreResolvedURLs(vid, nil, audio.url, nil);
+            } else {
+                UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
+            }
             UYTRegisterRemoteURLForVideoID(vid, video.url);
             UYTRegisterRemoteURLForVideoID(vid, audio.url);
             UYTRegisterRemoteURLForVideoID(vid, muxed.url);
@@ -501,7 +505,30 @@ BOOL UYTIsAudioOnly(NSString *vid) {
     }
 }
 
+// Audio-only requests must never be swapped onto a muxed or video stream: doing so
+// downloads the whole video and then fails the audio conversion downstream.
+NSString *UYTAudioOnlyURL(NSString *vid) {
+    @try {
+        if (!vid.length) return nil;
+        NSString *stagedAudio = UYTStagedCanonicalPathFor(vid, @"m4a");
+        if (stagedAudio.length) return UYTFileURLString(stagedAudio);
+        NSDictionary *entry = UYTResolvedEntrySnapshot(vid);
+        if (!entry) return nil;
+        id audio = entry[@"audio"];
+        if ([audio isKindOfClass:[NSString class]] && [audio length]) return audio;
+        return nil;
+    } @catch (NSException *e) {
+        return nil;
+    }
+}
+
 static NSString *UYTGetResolvedURL(NSString *vid) {
+    if (UYTIsAudioOnly(vid)) {
+        NSString *audioOnlyURL = UYTAudioOnlyURL(vid);
+        if (audioOnlyURL.length) return audioOnlyURL;
+        UYTDebugWarn(@"[UYTPipeline] audio-only %@ has no audio URL - refusing muxed/video", vid);
+        return nil;
+    }
     return UYTResolvedVideoURL(vid);
 }
 

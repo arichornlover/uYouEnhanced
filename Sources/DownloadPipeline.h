@@ -31,6 +31,7 @@ void UYTWriteFinalDownloadProgress(id _Nullable item, NSString * _Nullable fileP
 void UYTStoreResolvedURLs(NSString * _Nullable vid, NSString * _Nullable muxedURL, NSString * _Nullable audioURL, NSString * _Nullable videoURL);
 NSString * _Nullable UYTResolvedURLForVideo(NSString * _Nullable vid, BOOL audio);
 NSString * _Nullable UYTResolvedVideoURL(NSString * _Nullable vid);
+NSString * _Nullable UYTAudioOnlyURL(NSString * _Nullable vid);
 
 void UYTMarkAudioOnly(NSString * _Nullable vid, BOOL audioOnly);
 BOOL UYTIsAudioOnly(NSString * _Nullable vid);

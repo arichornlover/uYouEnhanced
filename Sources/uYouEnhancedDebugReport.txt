@@ -1,0 +1,113 @@
+============================================================
+  uYouEnhanced — Debug Report
+============================================================
+  tweak    : 21.20.4-3.0.4
+  device   : iPad
+  iOS      : 27.0
+  bundle   : com.google.ios.youtube v21.20.4
+  exported : 2026-09-25 19:31:03
+  session  : started 19:25:00.107, 162 line(s) in ring (cap 2000)
+------------------------------------------------------------
+
+  SUMMARY
+  ------------------------------------------------------------
+    tweak errors              10 line(s) in 10 distinct message(s)
+    tweak warnings             0 line(s) in 0 distinct message(s)
+    tweak info                13 line(s) in 13 distinct message(s)
+    host signals               3 line(s) in 3 distinct message(s)
+    host noise               124 line(s) in 47 distinct message(s)
+    host other                12 line(s) in 10 distinct message(s)
+    uncaught exceptions        0 line(s) in 0 distinct message(s)
+
+  HOW TO READ
+  ------------------------------------------------------------
+  [UYT-I/W/E] = this tweak. [LOG] = YouTube app or iOS on stderr.
+  xN = that message happened N times.  a -> b = first to last seen.
+  | = a continuation line of the message above it.
+  Host noise is third-party chatter and is collapsed, not dropped.
+  Fix the first tweak error; later repeats are usually its echo.
+
+---- TWEAK ERRORS (10) ----
+  x1   19:27:19.722               fetch client 0 no usable URLs for JPQ8N1ag4X4 (no direct urls)
+  x1   19:27:19.800               fetch client 1 no usable URLs for JPQ8N1ag4X4 (no direct urls)
+  x1   19:27:19.870               fetch client 2 no usable URLs for JPQ8N1ag4X4 (no direct urls)
+  x1   19:27:19.870               all 3 clients failed for JPQ8N1ag4X4 (last: no formats)
+  x1   19:27:19.870               getLinks: no formats for JPQ8N1ag4X4 (no client produced formats)
+  x1   19:28:44.174               fetch client 0 no usable URLs for N0sficpTOfU (no direct urls)
+  x1   19:28:44.246               fetch client 1 no usable URLs for N0sficpTOfU (no direct urls)
+  x1   19:28:44.318               fetch client 2 no usable URLs for N0sficpTOfU (no direct urls)
+  x1   19:28:44.319               all 3 clients failed for N0sficpTOfU (last: no formats)
+  x1   19:28:44.319               getLinks: no formats for N0sficpTOfU (no client produced formats)
+
+---- TWEAK WARNINGS (0) ----
+  (none)
+
+---- HOST SIGNALS (3, third-party) ----
+  x1   19:25:13.447               [8748:1246651:20260925,192513.447384:WARNING exception_processor.mm:301] Handling Objective-C exception name: NSInvalidArgumentException reason: YTIIcon.iconType: Attempt to set an unknown enum value (37) with sinkhole: <+11 chars>
+  x1   19:25:13.520               [8748:1246651:20260925,192513.519541:WARNING exception_processor.mm:301] Handling Objective-C exception name: NSInvalidArgumentException reason: YTIIcon.iconType: Attempt to set an unknown enum value (506) with sinkhole: <+12 chars>
+  x1   19:27:15.197               This NSLayoutConstraint is being configured with a constant that exceeds internal limits. A smaller value will be substituted, but this problem should be fixed. Break on BOOL _NSLayoutConstraintNumberExceedsLimit(void) t <+69 chars>
+
+---- HOST NOISE (124 line(s), 47 distinct, third-party, benign, most frequent first) ----
+  x59  19:27:16.648 -> 19:28:55.386 PINDiskCache.m (1229) ERROR: The folder “https%3A%2F%2Fi%2Eytimg%2Ecom%2Fsb%2FJPQ8N1ag4X4%2Fstoryboard3_L3%2FM0%2Ejpg?sqp=-oaymwGhAUg48quKqQOYAYgBAZUB <+271 chars>
+  x5   19:25:01.057 -> 19:25:01.058 +[LOTShapeGroup shapeItemWithJSON:]: Warning: gradient strokes are not supported
+  x5   19:25:01.058 -> 19:27:21.740 +[LOTShapeGroup shapeItemWithJSON:]: Warning: merge shape is not supported. name: Merge Paths 1
+  x4   19:27:21.752 -> 19:28:45.835 [UIMotionEffects][UIMotionEffectBody 0x14de432a0] _startUpdatingBodyToken: token=<CMBodyToken: 0x14de34f50> bodyID=(null) thread=<_NSMainThread: 0x112 <+32 chars>
+  x4   19:27:21.772 -> 19:28:46.527 [UIMotionEffects][UIMotionEffectBody 0x14de432a0] _stopUpdatingBodyToken: token=<CMBodyToken: 0x14de34f50>
+  x3   19:25:05.283 -> 19:25:05.284 -canOpenURL: failed for URL: "snapchat://://" - error: "The operation couldn’t be completed. (OSStatus error -10814.)"
+  x2   19:25:14.248 -> 19:31:01.817 Unbalanced calls to begin/end appearance transitions for <YTHeaderViewController: 0x1350a9800>.
+  x2   19:27:21.772 -> 19:28:45.835 [UIMotionEffects][UIMotionEffectBody 0x14de41e00] bodyID (null) -> (null), angle 0.000 -> 90.000
+  x2   19:27:21.773 -> 19:28:45.835 [UIMotionEffects][UIMotionEffectBody 0x14de41e00] calling _didUpdateBody: token=(null)
+  x1   19:25:01.111               -canOpenURL: failed for URL: "vnd.youtube.kids://" - error: "The operation couldn’t be completed. (OSStatus error -10814.)"
+  x1   19:25:01.112               -canOpenURL: failed for URL: "vnd.youtube.tv://" - error: "The operation couldn’t be completed. (OSStatus error -10814.)"
+  x1   19:25:05.281               -canOpenURL: failed for URL: "reddit://://" - error: "The operation couldn’t be completed. (OSStatus error -10814.)"
+  ... and 35 more distinct message(s)
+
+---- HOST OTHER (10 distinct, unclassified) ----
+  x1   19:25:09.720               [_UINavigationParallaxTransition interruptibleAnimatorForTransition:] returned nil. Falling back to old interactive transition logic.
+  x1   19:27:24.026               :))))) <UILabel: 0x14d562a00; frame = (10 -3.55271e-15; 128 44); transform = [0.90000000000000002, 0, 0, 0.90000000000000002, 0, 0]; text = 'D...g' (l <+154 chars>
+  x1   19:27:24.026               :))))) <UILabel: 0x153e90000; frame = (148 -3.55271e-15; 128 44); transform = [0.90000000000000002, 0, 0, 0.90000000000000002, 0, 0]; text = 'A...l' ( <+154 chars>
+  x1   19:27:24.026               :))))) <UILabel: 0x153e901c0; frame = (286 -3.55271e-15; 128 44); transform = [0.90000000000000002, 0, 0, 0.90000000000000002, 0, 0]; text = 'A...s' ( <+154 chars>
+  x1   19:27:24.026               :))))) <UILabel: 0x153e90380; frame = (424 -3.55271e-15; 128 44); transform = [0.90000000000000002, 0, 0, 0.90000000000000002, 0, 0]; text = 'V...s' ( <+154 chars>
+  x1   19:27:24.026               :))))) <UILabel: 0x153e90540; frame = (562 -3.55271e-15; 128 44); transform = [0.90000000000000002, 0, 0, 0.90000000000000002, 0, 0]; text = 'S...s' ( <+154 chars>
+  x3   19:27:24.031 -> 19:27:47.363 finish....
+  x1   19:27:24.032               left tab offset = 10.000000,right tab offset = 138.000000
+  x1   19:27:47.003               left tab offset = 145.111111,right tab offset = 138.000000
+  x1   19:27:47.363               left tab offset = 10.000000,right tab offset = 130.888889
+
+---- RECENT TWEAK ACTIVITY (13 distinct) ----
+  x1   19:25:00.107               [uYouEnhanced] [uYouEnhanced] == session start 2026-09-25 19:25:00 (tweak 21.20.4-3.0.4) ==
+  x1   19:25:04.916               YTX getAdString kind=2 match=17 chars renderer=YTIElementRenderer
+  x1   19:25:17.549               [uYouEnhanced] [uYouEnhanced] AppIcon picker: 19 candidates, 19 usable (dropped 0 that iOS rejects with OSStatus -54)
+  x1   19:27:17.884               [uYouPlus] [uYouPlus] Save reroute attached via overlay scan (id.player.addto.button / add to…)
+  x1   19:27:19.534               [uYouPatches] [uYouPatches] download requested (vid: JPQ8N1ag4X4, shorts: NO)
+  x1   19:27:19.870               [UYTPipeline] [UYTPipeline] cached URLs for JPQ8N1ag4X4 (muxed=0, audio=0, video=0, audioOnly=0)
+  x1   19:27:21.753               [UYTPipeline] [UYTPipeline] DownloadItem init vid=JPQ8N1ag4X4 downloadID=JPQ8N1ag4X4_C193BBFD-6DDD-47FF-BF39-10F9599098DB_Audio file=/var/mobile/Containers/Data/Application/83A26E80-CC5F-4FF0-AC01-141DB6E0E878/Library/Caches/uYou/JPQ8N1ag4X4_C193BBFD-6DDD-47FF-BF39-10F9599098DB_Audio.webm cached=/var/mobile/Conta <+157 chars>
+  x1   19:28:43.311               YTX getAdString kind=4 match=16 chars renderer=YTIElementRenderer
+  x1   19:28:44.101               [uYouPatches] [uYouPatches] download requested (vid: N0sficpTOfU, shorts: NO)
+  x1   19:28:44.319               [UYTPipeline] [UYTPipeline] cached URLs for N0sficpTOfU (muxed=0, audio=0, video=0, audioOnly=0)
+  x1   19:28:45.794               [UYTPipeline] [UYTPipeline] DownloadItem init vid=N0sficpTOfU downloadID=N0sficpTOfU_51321865-413E-4E2C-A439-5E88A0F2033D_Audio file=/var/mobile/Containers/Data/Application/83A26E80-CC5F-4FF0-AC01-141DB6E0E878/Library/Caches/uYou/N0sficpTOfU_51321865-413E-4E2C-A439-5E88A0F2033D_Audio.webm cached=/var/mobile/Conta <+174 chars>
+  x1   19:28:45.799               [UYTPipeline] [UYTPipeline] DownloadItem init vid=N0sficpTOfU downloadID=N0sficpTOfU_51321865-413E-4E2C-A439-5E88A0F2033D_Video file=/var/mobile/Containers/Data/Application/83A26E80-CC5F-4FF0-AC01-141DB6E0E878/Library/Caches/uYou/N0sficpTOfU_51321865-413E-4E2C-A439-5E88A0F2033D_Video.mp4 cached=/var/mobile/Contai <+173 chars>
+  x1   19:31:03.273               [uYouEnhanced] [uYouEnhanced] exporting debug report (161 line(s), 10 error(s))
+
+---- UNRECOGNIZED SELECTORS (crash evidence) ----
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTShortsPlayerViewController (<YTShortsPlayerViewController: 0x135812a00>) SEL=[activeReelPlaybackVideoID] inst=0x135812a00
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTFrostedGlassView (<YTFrostedGlassView: 0x15902be00; frame = (0 0; 0 0); transform = [0, 0, 0, 0, 0, 0]; anchorPoint = (0, 0); alpha = 0; opaque = NO; layer = (null)>) SEL=[initWithBlurEffectStyle:] inst=0x15902be00
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTFrostedGlassView (<YTFrostedGlassView: 0x15934de00; frame = (0 0; 0 0); transform = [0, 0, 0, 0, 0, 0]; anchorPoint = (0, 0); alpha = 0; opaque = NO; layer = (null)>) SEL=[initWithBlurEffectStyle:] inst=0x15934de00
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTFrostedGlassView (<YTFrostedGlassView: 0x15a722c00; frame = (0 0; 0 0); transform = [0, 0, 0, 0, 0, 0]; anchorPoint = (0, 0); alpha = 0; opaque = NO; layer = (null)>) SEL=[initWithBlurEffectStyle:] inst=0x15a722c00
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTShortsPlayerViewController (<YTShortsPlayerViewController: 0x140addc00>) SEL=[activeReelPlaybackVideoID] inst=0x140addc00
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTShortsPlayerViewController (<YTShortsPlayerViewController: 0x144da3100>) SEL=[activeReelPlaybackVideoID] inst=0x144da3100
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTReelHeaderView (<YTReelHeaderView: 0x13bcf4000; frame = (0 32; 1194 48); layer = <CALayer: 0x13a917480>>) SEL=[uYouDownloadButtonTapped:] inst=0x13bcf4000
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTFrostedGlassView (<YTFrostedGlassView: 0x176f4e800; frame = (0 0; 0 0); transform = [0, 0, 0, 0, 0, 0]; anchorPoint = (0, 0); alpha = 0; opaque = NO; layer = (null)>) SEL=[initWithBlurEffectStyle:] inst=0x176f4e800
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTFrostedGlassView (<YTFrostedGlassView: 0x177264800; frame = (0 0; 0 0); transform = [0, 0, 0, 0, 0, 0]; anchorPoint = (0, 0); alpha = 0; opaque = NO; layer = (null)>) SEL=[initWithBlurEffectStyle:] inst=0x177264800
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTFrostedGlassView (<YTFrostedGlassView: 0x139ba1200; frame = (0 0; 0 0); transform = [0, 0, 0, 0, 0, 0]; anchorPoint = (0, 0); alpha = 0; opaque = NO; layer = (null)>) SEL=[initWithBlurEffectStyle:] inst=0x139ba1200
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTReelHeaderView (<YTReelHeaderView: 0x13401b200; frame = (0 32; 1194 48); layer = <CALayer: 0x13e6f75a0>>) SEL=[uYouDownloadButtonTapped:] inst=0x13401b200
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTFrostedGlassView (<YTFrostedGlassView: 0x13de26800; frame = (0 0; 0 0); transform = [0, 0, 0, 0, 0, 0]; anchorPoint = (0, 0); alpha = 0; opaque = NO; layer = (null)>) SEL=[initWithBlurEffectStyle:] inst=0x13de26800
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTFrostedGlassView (<YTFrostedGlassView: 0x13e11c800; frame = (0 0; 0 0); transform = [0, 0, 0, 0, 0, 0]; anchorPoint = (0, 0); alpha = 0; opaque = NO; layer = (null)>) SEL=[initWithBlurEffectStyle:] inst=0x13e11c800
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTFrostedGlassView (<YTFrostedGlassView: 0x13ddf5000; frame = (0 0; 0 0); transform = [0, 0, 0, 0, 0, 0]; anchorPoint = (0, 0); alpha = 0; opaque = NO; layer = (null)>) SEL=[initWithBlurEffectStyle:] inst=0x13ddf5000
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTFrostedGlassView (<YTFrostedGlassView: 0x13e114000; frame = (0 0; 0 0); transform = [0, 0, 0, 0, 0, 0]; anchorPoint = (0, 0); alpha = 0; opaque = NO; layer = (null)>) SEL=[initWithBlurEffectStyle:] inst=0x13e114000
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTFrostedGlassView (<YTFrostedGlassView: 0x13de13200; frame = (0 0; 0 0); transform = [0, 0, 0, 0, 0, 0]; anchorPoint = (0, 0); alpha = 0; opaque = NO; layer = (null)>) SEL=[initWithBlurEffectStyle:] inst=0x13de13200
+[uYouButtonForward] UNRECOGNIZED SELECTOR target=YTFrostedGlassView (<YTFrostedGlassView: 0x140c9e600; frame = (0 0; 0 0); transform = [0, 0, 0  <+18829 chars>
+
+============================================================
+  END OF REPORT
+============================================================
