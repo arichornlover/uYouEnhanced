@@ -83,7 +83,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install ldid dpkg make wget unzip jq pipx meson ninja gnu-sed
+          brew install ldid dpkg make wget unzip jq pipx meson ninja gnu-sed autoconf automake libtool pkgconf
 
       - name: Set PATH
         run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
