@@ -34,6 +34,39 @@ BUILD_ARGS=(
 die()  { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 info() { printf '\033[36m==>\033[0m %s\n' "$*"; }
 
+# Check every tool the iOS build needs BEFORE cloning/compiling. ffmpeg-kit-next
+# shells out to autoreconf; without it "configure" is never generated, the build
+# still compiles the ffmpeg libraries, and only dies hours later at the
+# xcframework step with a confusing "cp: .../ffmpeg-kit/include/*: No such
+# file". Report every missing tool at once so one run fixes all of them.
+require_tools() {
+  local required=(
+    "xcodebuild:"
+    "install_name_tool:"
+    "autoreconf:autoconf"
+    "automake:automake"
+    "libtool:libtool"
+    "pkg-config:pkgconf"
+  )
+  local missing=() entry tool formula
+  for entry in "${required[@]}"; do
+    tool="${entry%%:*}"
+    formula="${entry#*:}"
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      if [ -n "$formula" ]; then
+        missing+=("$tool  ->  brew install $formula")
+      else
+        missing+=("$tool  ->  install Xcode and run xcode-select --install")
+      fi
+    fi
+  done
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    printf '\033[31merror:\033[0m missing required build tools:\n' >&2
+    printf '  - %s\n' "${missing[@]}" >&2
+    die "install the above, then re-run: bash tools/fetch-ffmpegkit.sh"
+  fi
+}
+
 resolve_gnu_sed() {
   [[ -n "${SED:-}" ]] && return 0
   local candidate
@@ -114,10 +147,9 @@ if [[ $force -eq 0 ]] && have_complete_install; then
   exit 0
 fi
 
-command -v xcodebuild >/dev/null || die "xcodebuild not found (install Xcode)"
+require_tools
 resolve_gnu_sed
 info "using GNU sed at $SED"
-
 fetch_source
 
 if [[ $force -eq 1 ]]; then
