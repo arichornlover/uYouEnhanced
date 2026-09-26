@@ -609,7 +609,10 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
 
 - (void)setRemoteURL:(NSURL *)url {
     NSString *vid = self.videoID ?: @"";
-    if (!vid.length) { %orig; return; }
+    if (!vid.length) {
+        %orig;
+        return;
+    }
 
     // For an audio-only request uYou hands us the muxed/video stream. Letting that
     // through writes whole-video bytes into <id>_Audio.m4a, which is exactly the
