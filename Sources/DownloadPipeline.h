@@ -18,6 +18,8 @@ NS_ASSUME_NONNULL_BEGIN
                     isShorts:(BOOL)isShorts
                     progress:(void (^_Nullable)(double fractionComplete, unsigned long long bytesDownloaded))progress
                     completion:(void (^)(NSArray<UYTStreamFormat *> * _Nullable formats, NSError * _Nullable error))completion;
++ (void)fetchFormatsForVideoID:(NSString *)videoID
+                    completion:(void (^)(NSArray<UYTStreamFormat *> * _Nullable formats, NSError * _Nullable error))completion;
 + (nullable UYTStreamFormat *)bestMuxedFormat:(NSArray<UYTStreamFormat *> * _Nullable)formats;
 + (nullable UYTStreamFormat *)bestAudioFormat:(NSArray<UYTStreamFormat *> * _Nullable)formats;
 + (nullable UYTStreamFormat *)bestVideoFormat:(NSArray<UYTStreamFormat *> * _Nullable)formats;
