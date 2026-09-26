@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       build_ffmpeg:
-        description: "Build FFmpegKit from source (cached; first run takes 30-90 min)"
+        description: "Build FFmpegKit from source (+ cached)"
         default: true
         required: false
         type: boolean
