@@ -619,9 +619,12 @@ static NSString *UYTDocsDir(void) {
 // The final download folder is not stable across YouTube versions ("Downloaded" vs
 // "Downloads") and merged files get extra name decoration, so look for any media file
 // belonging to this video instead of assuming one exact path.
+// NSDirectoryEnumerator has no settable skip flag, so walk the tree manually. This also
+// lets us skip hidden directories (never a download folder) and de-duplicate: Documents
+// is walked recursively, so its subfolders must not also be queued by name.
 static void UYTScanForVideoFile(NSString *vid, void (^report)(NSString *path, NSString *label)) {
+    if (!vid.length) return;
     @try {
-        if (!vid.length) return;
         NSFileManager *fm = [NSFileManager defaultManager];
         NSString *docs = UYTDocsDir();
         if (!docs.length) return;
@@ -632,24 +635,37 @@ static void UYTScanForVideoFile(NSString *vid, void (^report)(NSString *path, NS
             exts = [NSSet setWithArray:@[@"mp4", @"m4a", @"mp3", @"webm", @"mkv", @"mov", @"m4v"]];
         });
 
-        NSMutableArray<NSString *> *dirs = [NSMutableArray arrayWithObject:docs];
-        for (NSString *sub in @[@"Downloaded", @"Downloads", @"Download", @"Videos", @"Video"]) {
-            NSString *p = [docs stringByAppendingPathComponent:sub];
-            if ([fm fileExistsAtPath:p]) [dirs addObject:p];
-        }
+        NSMutableArray<NSString *> *queue = [NSMutableArray arrayWithObject:docs];
+        NSMutableSet<NSString *> *seen = [NSMutableSet set];
+        NSString *best = nil;
+        unsigned long long bestSize = 0;
+        NSUInteger budget = 4000;
 
-        for (NSString *dir in dirs) {
-            NSDirectoryEnumerator *e = [fm enumeratorAtPath:dir];
-            e.skipDescendants = ![dir isEqualToString:docs];
-            for (NSString *rel in e) {
-                if (rel.length > 160) continue;
-                NSString *name = rel.lastPathComponent;
-                if (![name containsString:vid]) continue;
+        while (queue.count && budget-- > 0) {
+            NSString *dir = [queue firstObject];
+            [queue removeObjectAtIndex:0];
+            if ([seen containsObject:dir]) continue;
+            [seen addObject:dir];
+
+            NSArray<NSString *> *names = [fm contentsOfDirectoryAtPath:dir error:NULL];
+            if (!names.count) continue;
+            for (NSString *name in names) {
+                if ([name hasPrefix:@"."]) continue;
+                NSString *full = [dir stringByAppendingPathComponent:name];
+                BOOL isDir = NO;
+                if (![fm fileExistsAtPath:full isDirectory:&isDir]) continue;
+                if (isDir) {
+                    [queue addObject:full];
+                    continue;
+                }
                 if (![exts containsObject:name.pathExtension.lowercaseString]) continue;
-                NSString *full = [dir stringByAppendingPathComponent:rel];
-                if (UYTSizeOfFile(full) > 0) report(full, @"scanned download folder");
+                if ([name rangeOfString:vid options:NSCaseInsensitiveSearch].location == NSNotFound) continue;
+                unsigned long long size = UYTSizeOfFile(full);
+                if (size > bestSize) { bestSize = size; best = full; }
             }
         }
+
+        if (best) report(best, @"scanned download folder");
     } @catch (NSException *e) {}
 }
 
