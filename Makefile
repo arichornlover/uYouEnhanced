@@ -123,3 +123,6 @@ else
 before-package::
 	@mkdir -p $(THEOS_STAGING_DIR)/Library/Application\ Support; cp -r Localizations/uYouPlus.bundle $(THEOS_STAGING_DIR)/Library/Application\ Support/
 endif
+after-stage::
+	@bash tools/stage-ffmpeg.sh "$(THEOS_STAGING_DIR)"
+
