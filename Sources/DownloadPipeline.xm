@@ -52,20 +52,8 @@ static NSString *UYTIOSModel(void) {
     return cached;
 }
 
-void UYTRegisterRemoteURLForVideoID(NSString * _Nullable vid, NSString * _Nullable url);
-void UYTStoreResolvedURLs(NSString * _Nullable vid, NSString * _Nullable muxedURL, NSString * _Nullable audioURL, NSString * _Nullable videoURL);
 #import "UYTLog.h"
 #import "YTSigDecipher.h"
-
-@interface UYTStreamFormat : NSObject
-@property (nonatomic, copy) NSString *url;
-@property (nonatomic, assign) NSInteger itag;
-@property (nonatomic, copy) NSString *mimeType;
-@property (nonatomic, assign) BOOL hasVideo;
-@property (nonatomic, assign) BOOL hasAudio;
-@property (nonatomic, assign) long long bitrate;
-@property (nonatomic, copy) NSString *qualityLabel;
-@end
 
 @implementation UYTStreamFormat
 @end
@@ -81,18 +69,6 @@ static UYTStreamFormat *UYTStreamFormatFromDict(NSDictionary *f, NSString *url) 
     sf.hasAudio = [sf.mimeType hasPrefix:@"audio"] || ([sf.mimeType hasPrefix:@"video"] && ![f objectForKey:@"qualityLabel"]);
     return sf;
 }
-
-@interface UYTDownloadPipeline : NSObject
-+ (void)fetchFormatsForVideoID:(NSString *)videoID
-                     isShorts:(BOOL)isShorts
-                     progress:(void (^)(double frac, unsigned long long bytes))progress
-                   completion:(void (^)(NSArray<UYTStreamFormat *> *formats, NSError *error))completion;
-+ (void)fetchFormatsForVideoID:(NSString *)videoID
-                    completion:(void (^)(NSArray<UYTStreamFormat *> *formats, NSError *error))completion;
-+ (UYTStreamFormat *)bestMuxedFormat:(NSArray<UYTStreamFormat *> *)formats;
-+ (UYTStreamFormat *)bestAudioFormat:(NSArray<UYTStreamFormat *> *)formats;
-+ (UYTStreamFormat *)bestVideoFormat:(NSArray<UYTStreamFormat *> *)formats;
-@end
 
 static NSInteger UYTFormatContainerRank(UYTStreamFormat *f);
 static NSInteger UYTFormatCodecRank(UYTStreamFormat *f);
