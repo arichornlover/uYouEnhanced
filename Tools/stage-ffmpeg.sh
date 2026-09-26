@@ -13,13 +13,18 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 
 BUNDLE_NAME="uYouMedia.bundle"
+# No Info.plist on purpose: this bundle only ever holds frameworks, and the
+# runtime resolver only calls -pathForResource:ofType: and -fileExistsAtPath: on
+# it. A .gitkeep keeps the directory tracked, since git cannot track empty dirs.
 FRAMEWORKS=(ffmpegkit libavcodec libavdevice libavfilter libavformat libavutil libswresample libswscale)
 
 info() { printf '\033[36m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[33mwarning:\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
-# Pick a source directory that actually holds the frameworks.
+# Primary source is modules/ffmpeg, which tools/fetch-ffmpegkit.sh builds and CI
+# caches. Vendor/ is kept only as a legacy local-dev fallback for machines that
+# have not run the source build; CI is expected to populate modules/ffmpeg.
 resolve_modules() {
   local candidate
   for candidate in "$ROOT/modules/ffmpeg" "$ROOT/Vendor"; do
@@ -39,8 +44,13 @@ if [ -z "$MODULES" ]; then
   # Nothing to stage. The runtime loader falls back to YouTube's own vendored
   # frameworks, so this is a degraded build and not a hard failure - the tweak
   # still compiles and installs, it just cannot transcode on its own.
-  warn "no FFmpegKit frameworks in $ROOT/modules/ffmpeg or $ROOT/Vendor - skipping ffmpeg staging"
-  warn "the tweak will fall back to YouTube's vendored ffmpeg at runtime"
+  warn "==============================================================="
+  warn "no FFmpegKit frameworks in $ROOT/modules/ffmpeg or $ROOT/Vendor"
+  warn "SKIPPING ffmpeg staging - the tweak will fall back to YouTube's"
+  warn "vendored ffmpeg at runtime and cannot remux on its own."
+  warn "In CI this means the fetch-ffmpegkit.sh build step failed."
+  warn "Locally, run: bash tools/fetch-ffmpegkit.sh"
+  warn "==============================================================="
   exit 0
 fi
 
