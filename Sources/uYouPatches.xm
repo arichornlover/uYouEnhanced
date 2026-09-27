@@ -927,7 +927,53 @@ static BOOL UYTFinalizeItem(id item, NSString *reason) {
         return NO;
     }
 }
-
+ 
+// Unified merge handler — both mergeAudioWithMP4VideoForDownloadItem and
+// mergeAudioWithVideoForDownloadItem delegate here. Returns YES if the item
+// was finalized (success or fallback), NO if the caller should re-try later.
+static BOOL UYTPerformMergeIfNeeded(id item, NSString *phase) {
+    UYTDebugInfo(@"[uYouPatches] %@: merge handler entered", phase);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouConversionStarted" object:item];
+    });
+ 
+    if (UYTItemIsAudioOnly(item)) {
+        UYTDebugInfo(@"[uYouPatches] %@: audio-only item — finalizing without merge", phase);
+        if (UYTFinalizeItem(item, [NSString stringWithFormat:@"%@ audio-only no-merge", phase])) return YES;
+        UYTArmStallWatchdog(item, 45.0);
+        return YES;
+    }
+ 
+    if (!UYTEnsureMergeableAudio(item, phase)) {
+        if (UYTFinalizeItem(item, [NSString stringWithFormat:@"%@ no-merge fallback", phase])) return YES;
+        UYTArmStallWatchdog(item, 45.0);
+        return YES;
+    }
+ 
+    if (!UYTEnsureMergeableVideo(item, phase)) {
+        UYTDebugWarn(@"[uYouPatches] %@: video not pre-mergeable — continuing (best-effort)", phase);
+    }
+ 
+    id ui = UYTResolveUYouItem(item);
+    if (UYTRemuxWithFFmpeg(ui, phase)) {
+        if (UYTFinalizeItem(item, [NSString stringWithFormat:@"%@ ffmpeg remux", phase])) return YES;
+        UYTArmStallWatchdog(item, 45.0);
+        return YES;
+    }
+ 
+    NSString *vid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
+    @try {
+        if (vid.length && UYTSABRHasValidCaptureForVideoID(vid)) {
+            UYTSABRRecoverItemForVideo(vid, UYTIsAudioOnly(vid));
+            return YES;
+        }
+    } @catch (NSException *e) {}
+ 
+    if (UYTFinalizeItem(item, [NSString stringWithFormat:@"%@ no-merge fallback", phase])) return YES;
+    UYTArmStallWatchdog(item, 45.0);
+    return YES;
+}
+ 
 static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSString *, NSNumber *> *lastSizes);
 
 static void UYTScheduleStallCheck(id item, NSTimeInterval delay, NSInteger pollsLeft,
@@ -1053,6 +1099,13 @@ static NSString *UYTResolveVideoID(id param, id item) {
         if (requestedAudioOnly) {
             video = nil;
             muxed = nil;
+            if (!audio || !audio.url.length) {
+                UYTDebugErr(@"getLinks: audio-only requested for %@ but no audio format available - failing", vid);
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    UYTFinalizeItem(item, @"audio format unavailable");
+                });
+                return;
+            }
         }
 
         UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
@@ -1064,9 +1117,9 @@ static NSString *UYTResolveVideoID(id param, id item) {
               video.mimeType.length ? video.mimeType : @"none",
               requestedAudioOnly);
 
-        UYTRegisterVideoIDForURL(vid, video.url);
-        UYTRegisterVideoIDForURL(vid, audio.url);
-        UYTRegisterVideoIDForURL(vid, muxed.url);
+        if (video.url.length) UYTRegisterVideoIDForURL(vid, video.url);
+        if (audio.url.length) UYTRegisterVideoIDForURL(vid, audio.url);
+        if (muxed.url.length) UYTRegisterVideoIDForURL(vid, muxed.url);
         @try {
             NSString *original = [item respondsToSelector:@selector(remoteURL)] ?
                 [item remoteURL] : [item valueForKey:@"remoteURL"];
@@ -1292,89 +1345,11 @@ static NSString *UYTResolveVideoID(id param, id item) {
 
 %hook DownloadsManager
 - (void)mergeAudioWithMP4VideoForDownloadItem:(id)item {
-    UYTDebugInfo(@"[uYouPatches] mergeAudioWithMP4Video entered");
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouConversionStarted" object:item];
-    });
-    UYTDebugInfo(@"merge hook: mergeAudioWithMP4Video entered");
-
-    if (UYTItemIsAudioOnly(item)) {
-        UYTDebugInfo(@"[uYouPatches] audio-only item — finalizing without merge");
-        if (UYTFinalizeItem(item, @"audio-only no-merge")) return;
-        UYTArmStallWatchdog(item, 45.0);
-        return;
-    }
-
-    if (!UYTEnsureMergeableAudio(item, @"mergeMP4")) {
-        if (UYTFinalizeItem(item, @"no-merge fallback")) return;
-        UYTArmStallWatchdog(item, 45.0);
-        return;
-    }
-
-    if (!UYTEnsureMergeableVideo(item, @"mergeMP4")) {
-        UYTDebugWarn(@"[uYouPatches] mergeAudioWithMP4Video: video not pre-mergeable — continuing (best-effort below)");
-    }
-
-    id ui = UYTResolveUYouItem(item);
-    if (UYTRemuxWithFFmpeg(ui, @"mergeMP4")) {
-        if (UYTFinalizeItem(item, @"ffmpeg remux")) return;
-        UYTArmStallWatchdog(item, 45.0);
-        return;
-    }
-
-    NSString *vid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
-    @try {
-        if (vid.length && UYTSABRHasValidCaptureForVideoID(vid)) {
-            UYTSABRRecoverItemForVideo(vid, UYTIsAudioOnly(vid));
-            return;
-        }
-    } @catch (NSException *e) {}
-
-    if (UYTFinalizeItem(item, @"no-merge fallback")) return;
-    UYTArmStallWatchdog(item, 45.0);
+    UYTPerformMergeIfNeeded(item, @"mergeMP4");
 }
 
 - (void)mergeAudioWithVideoForDownloadItem:(id)item {
-    UYTDebugInfo(@"[uYouPatches] mergeAudioWithVideo entered");
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouConversionStarted" object:item];
-    });
-    UYTDebugInfo(@"merge hook: mergeAudioWithVideo entered");
-
-    if (UYTItemIsAudioOnly(item)) {
-        UYTDebugInfo(@"[uYouPatches] audio-only item — finalizing without merge");
-        if (UYTFinalizeItem(item, @"audio-only no-merge")) return;
-        UYTArmStallWatchdog(item, 45.0);
-        return;
-    }
-
-    if (!UYTEnsureMergeableAudio(item, @"mergeAudio")) {
-        if (UYTFinalizeItem(item, @"no-merge fallback")) return;
-        UYTArmStallWatchdog(item, 45.0);
-        return;
-    }
-
-    if (!UYTEnsureMergeableVideo(item, @"mergeAudio")) {
-        UYTDebugWarn(@"[uYouPatches] mergeAudioWithVideo: video not pre-mergeable — continuing (best-effort below)");
-    }
-
-    id ui = UYTResolveUYouItem(item);
-    if (UYTRemuxWithFFmpeg(ui, @"mergeAudio")) {
-        if (UYTFinalizeItem(item, @"ffmpeg remux")) return;
-        UYTArmStallWatchdog(item, 45.0);
-        return;
-    }
-
-    NSString *vid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
-    @try {
-        if (vid.length && UYTSABRHasValidCaptureForVideoID(vid)) {
-            UYTSABRRecoverItemForVideo(vid, UYTIsAudioOnly(vid));
-            return;
-        }
-    } @catch (NSException *e) {}
-
-    if (UYTFinalizeItem(item, @"no-merge fallback")) return;
-    UYTArmStallWatchdog(item, 45.0);
+    UYTPerformMergeIfNeeded(item, @"mergeAudio");
 }
 %end
 

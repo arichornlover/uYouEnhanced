@@ -11,6 +11,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) BOOL hasAudio;
 @property (nonatomic, assign) long long bitrate;
 @property (nonatomic, copy) NSString *qualityLabel;
+@property (nonatomic, assign) NSInteger containerRank; // cached
+@property (nonatomic, assign) NSInteger codecRank;     // cached
 @end
 
 @interface UYTDownloadPipeline : NSObject

@@ -94,9 +94,11 @@ static NSString *UYTFormatDesc(UYTStreamFormat *f);
 
 static int UYTLastGoodClient = 2;
 
-+ (NSDictionary *)clientContextForIndex:(int)idx {
-    if (idx <= 0) {
-        return @{@"context": @{@"client": @{
+static NSArray *UYTClientContexts(void) {
+    static NSArray *contexts = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSDictionary *android15 = @{@"context": @{@"client": @{
             @"clientName": @"ANDROID",
             @"clientVersion": UYTClientVersion,
             @"deviceMake": @"samsung",
@@ -107,11 +109,8 @@ static int UYTLastGoodClient = 2;
             @"timeZone": @"UTC",
             @"utcOffsetMinutes": @0
         }},
-        @"contentCheckOk": @YES,
-        @"racyCheckOk": @YES};
-    }
-    if (idx == 1) {
-        return @{@"context": @{@"client": @{
+        @"contentCheckOk": @YES, @"racyCheckOk": @YES};
+        NSDictionary *android14 = @{@"context": @{@"client": @{
             @"clientName": @"ANDROID",
             @"clientVersion": @"19.09.39",
             @"deviceMake": @"samsung",
@@ -122,33 +121,46 @@ static int UYTLastGoodClient = 2;
             @"timeZone": @"UTC",
             @"utcOffsetMinutes": @0
         }},
-        @"contentCheckOk": @YES,
-        @"racyCheckOk": @YES};
-    }
-    return @{@"context": @{@"client": @{
-        @"clientName": @"IOS",
-        @"clientVersion": UYTAppVersion(),
-        @"deviceMake": @"Apple",
-        @"deviceModel": UYTIOSModel(),
-        @"osName": @"iPhone",
-        @"osVersion": UYTIOSVersion(),
-        @"hl": @"en",
-        @"timeZone": @"UTC",
-        @"utcOffsetMinutes": @0
-    }},
-    @"contentCheckOk": @YES,
-    @"racyCheckOk": @YES};
+        @"contentCheckOk": @YES, @"racyCheckOk": @YES};
+        NSDictionary *ios = @{@"context": @{@"client": @{
+            @"clientName": @"IOS",
+            @"clientVersion": UYTAppVersion(),
+            @"deviceMake": @"Apple",
+            @"deviceModel": UYTIOSModel(),
+            @"osName": @"iPhone",
+            @"osVersion": UYTIOSVersion(),
+            @"hl": @"en",
+            @"timeZone": @"UTC",
+            @"utcOffsetMinutes": @0
+        }},
+        @"contentCheckOk": @YES, @"racyCheckOk": @YES};
+        contexts = @[android15, android14, ios];
+    });
+    return contexts;
+}
+
+static NSArray *UYTClientUserAgents(void) {
+    static NSArray *agents = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        agents = @[
+            @"com.google.android.youtube/19.45.1 (Linux; U; Android 15; SM-S928B Build/BP1A.250305.009; en_US)",
+            @"com.google.android.youtube/19.09.39 (Linux; U; Android 14; SM-S928B Build/UP1A.231005.007; en_US)",
+            [NSString stringWithFormat:@"com.google.ios.youtube/%@ (%@; U; CPU iPhone OS %@ like Mac OS X; en_US)",
+             UYTAppVersion(), UYTIOSModel(), [UYTIOSVersion() stringByReplacingOccurrencesOfString:@"." withString:@"_"]]
+        ];
+    });
+    return agents;
+}
+
++ (NSDictionary *)clientContextForIndex:(int)idx {
+    NSArray *contexts = UYTClientContexts();
+    return contexts[idx >= 0 && idx < contexts.count ? idx : 0];
 }
 
 + (NSString *)userAgentForClientIndex:(int)idx {
-    if (idx <= 0) {
-        return @"com.google.android.youtube/19.45.1 (Linux; U; Android 15; SM-S928B Build/BP1A.250305.009; en_US)";
-    }
-    if (idx == 1) {
-        return @"com.google.android.youtube/19.09.39 (Linux; U; Android 14; SM-S928B Build/UP1A.231005.007; en_US)";
-    }
-    return [NSString stringWithFormat:@"com.google.ios.youtube/%@ (%@; U; CPU iPhone OS %@ like Mac OS X; en_US)",
-            UYTAppVersion(), UYTIOSModel(), [UYTIOSVersion() stringByReplacingOccurrencesOfString:@"." withString:@"_"]];
+    NSArray *agents = UYTClientUserAgents();
+    return agents[idx >= 0 && idx < agents.count ? idx : 0];
 }
 
 + (void)tryClient:(int)idx
@@ -338,6 +350,34 @@ static NSInteger UYTFormatCodecRank(UYTStreamFormat *f) {
     return 2;
 }
 
+static NSInteger UYTFormatContainerRank(UYTStreamFormat *f) {
+    if (f.containerRank >= 0) return f.containerRank;
+    NSString *m = f.mimeType.lowercaseString ?: @"";
+    NSInteger r = 3;
+    if ([m hasPrefix:@"video/mp4"] || [m hasPrefix:@"audio/mp4"]) r = 0;
+    else if ([m hasPrefix:@"audio/"]) r = 1;
+    else if ([m hasPrefix:@"video/webm"] || [m hasPrefix:@"audio/webm"]) r = 2;
+    f.containerRank = r;
+    return r;
+}
+
+static NSInteger UYTFormatCodecRank(UYTStreamFormat *f) {
+    if (f.codecRank >= 0) return f.codecRank;
+    NSString *m = f.mimeType.lowercaseString ?: @"";
+    NSInteger r = 2;
+    if (f.hasVideo) {
+        if ([m containsString:@"avc1"]) r = 0;
+        else if ([m containsString:@"hev1"] || [m containsString:@"hvc1"]) r = 1;
+        else if ([m containsString:@"av01"]) r = 2;
+        else if ([m containsString:@"vp9"] || [m containsString:@"vp09"]) r = 3;
+        else r = 4;
+    } else if ([m containsString:@"mp4a"]) r = 0;
+    else if ([m containsString:@"opus"]) r = 1;
+    else r = 2;
+    f.codecRank = r;
+    return r;
+}
+
 static BOOL UYTFormatIsBetter(UYTStreamFormat *candidate, UYTStreamFormat *current) {
     if (!current) return YES;
     NSInteger cc = UYTFormatContainerRank(candidate), cu = UYTFormatContainerRank(current);
@@ -465,14 +505,10 @@ NSString *UYTResolvedURLForVideo(NSString *vid, BOOL audio) {
                 NSString *audioURL = entry[@"audio"];
                 if ([audioURL isKindOfClass:[NSString class]] && [audioURL length]) return audioURL;
             }
+            if (UYTIsAudioOnly(vid)) return nil;
         }
         NSString *videoURL = UYTResolvedVideoURL(vid);
         if (videoURL.length) return videoURL;
-        NSDictionary *entry = UYTResolvedEntrySnapshot(vid);
-        if (entry) {
-            NSString *audioURL = entry[@"audio"];
-            if ([audioURL isKindOfClass:[NSString class]] && [audioURL length]) return audioURL;
-        }
         return nil;
     } @catch (NSException *e) {
         return nil;
@@ -554,11 +590,18 @@ void UYTDriveDownloadItemProgressForVideoID(NSString *vid, double fractionComple
                     NSString *iv = nil;
                     @try { iv = [item respondsToSelector:@selector(videoID)] ? [item videoID] : [item valueForKey:@"videoID"]; } @catch (NSException *e) {}
                     if (![iv isKindOfClass:[NSString class]] || ![iv isEqualToString:vid]) continue;
-                    UYTSafeSetValue(item, @"progress", frac);
-                    UYTSafeSetValue(item, @"progressValue", frac);
-                    UYTSafeSetValue(item, @"downloadProgress", frac);
-                    UYTSafeSetValue(item, @"bytesDownloaded", bytes);
-                    UYTSafeSetValue(item, @"downloadedBytes", bytes);
+                    static NSArray *UYTProgressKeys = nil;
+                    static dispatch_once_t once;
+                    dispatch_once(&once, ^{
+                        UYTProgressKeys = @[@"progress", @"progressValue", @"downloadProgress"];
+                    });
+                    for (NSString *k in UYTProgressKeys) UYTSafeSetValue(item, k, frac);
+                    static NSArray *UYTBytesKeys = nil;
+                    static dispatch_once_t once2;
+                    dispatch_once(&once2, ^{
+                        UYTBytesKeys = @[@"bytesDownloaded", @"downloadedBytes"];
+                    });
+                    for (NSString *k in UYTBytesKeys) UYTSafeSetValue(item, k, bytes);
                     break;
                 }
             } @catch (NSException *e) {}
@@ -570,12 +613,18 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
     @try {
         if (!item) return;
         NSNumber *size = @(UYTSizeOfFile(filePath));
-        UYTSafeSetValue(item, @"progress", @1.0);
-        UYTSafeSetValue(item, @"progressValue", @1.0);
-        UYTSafeSetValue(item, @"downloadProgress", @1.0);
-        UYTSafeSetValue(item, @"bytesDownloaded", size);
-        UYTSafeSetValue(item, @"downloadedBytes", size);
-        UYTSafeSetValue(item, @"size", size);
+        static NSArray *UYTProgressKeys = nil;
+        static dispatch_once_t once;
+        dispatch_once(&once, ^{
+            UYTProgressKeys = @[@"progress", @"progressValue", @"downloadProgress"];
+        });
+        for (NSString *k in UYTProgressKeys) UYTSafeSetValue(item, k, @1.0);
+        static NSArray *UYTBytesKeys = nil;
+        static dispatch_once_t once2;
+        dispatch_once(&once2, ^{
+            UYTBytesKeys = @[@"bytesDownloaded", @"downloadedBytes", @"size"];
+        });
+        for (NSString *k in UYTBytesKeys) UYTSafeSetValue(item, k, size);
         dispatch_async(dispatch_get_main_queue(), ^{
             @try {
                 id manager = [%c(DownloadsManager) sharedInstance];
