@@ -12,7 +12,7 @@
 - **Fully open source** (GPLv3) — unlike uYou 3.0.4 (closed source), YouMod's entire codebase makes more sense for doing PRs and etc.
 - **Lightweight architecture** — single tweak with fewer dependencies, less chance of tweak conflicts.
 - **UI customization** — OLED theme, OLED keyboard, tab bar reordering, navigation bar and player element hiding.
-- **Built-in downloading** — supports video and audio downloads with quality selection.
+- **Built-in & better downloading** — supports video and audio downloads with quality selection, much better than uYouEnhanced rigid downloading system.
 - **Element hiding** — hide Shorts, posts, premium upsells, fullscreen action buttons, and more.
 - **Modern feature set** — recreates many YTLite-era features (feed mods, player controls, Shorts customization). And features are more stable than uYouEnahanced!
 
@@ -317,9 +317,6 @@
 
 # Frequently asked questions
 
-**Q: Google Sign-In fails with "Google can't confirm that this app is safe".**
-If the app was installed via **TrollStore**, open uYouEnhanced's settings and enable **Fix Google Sign in (for TrollStore user only)**, then restart the app. Keep this option disabled if you can already sign in normally. For other sideloading methods (AltStore, Sideloadly, etc.), sign-in can also break when the bundle ID used at signing time doesn't match — re-signing with a consistent bundle ID usually resolves it.
-
 **Q: Casting to a TV/Chromecast stopped working.**
 Enable **Fix Casting** in uYouEnhanced's settings and restart the app. It adjusts the A/B flags that currently break casting in recent YouTube versions.
 
@@ -328,9 +325,6 @@ Enable **Enable App Version Spoofer** in uYouEnhanced's settings, pick a newer Y
 
 **Q: The app crashes on launch or misbehaves after an update.**
 Make sure you are on the [latest release](https://github.com/arichornlover/uYouEnhanced/releases/latest) and that your YouTube version matches the [version information](#download) table. Note that some **uYou** features do not work on newer YouTube versions (see the news note in the Download section).
-
-**Q: Is uYouEnhanced available for AltStore?**
-Yes — use the official AltStore source listed in the [Download](#download) section: `https://raw.githubusercontent.com/arichornlover/arichornlover.github.io/main/apps.json`
 
 **Q: Where should I file a bug report?**
 On [this repo's issue tracker](https://github.com/arichornlover/uYouEnhanced/issues/) — including uYou-specific bugs. Please search the open issues first; many reports (sign-in, casting, update screen) are covered by the answers above.
