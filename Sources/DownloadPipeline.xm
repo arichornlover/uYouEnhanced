@@ -326,59 +326,37 @@ static NSArray *UYTClientUserAgents(void) {
 }
 
 // mp4 (avc1 + mp4a) can be stream-copied into the final .mp4 with `-c copy`.
-// webm (vp9/av01 + opus) forces a transcode that repeatedly failed with ffmpeg rc=1,
-// so rank the mp4/avc1 variants first and only fall back to webm when absent.
-static NSInteger UYTFormatContainerRank(UYTStreamFormat *f) {
-    NSString *m = f.mimeType.lowercaseString ?: @"";
-    if ([m hasPrefix:@"video/mp4"] || [m hasPrefix:@"audio/mp4"]) return 0;
-    if ([m hasPrefix:@"audio/"]) return 1;
-    if ([m hasPrefix:@"video/webm"] || [m hasPrefix:@"audio/webm"]) return 2;
-    return 3;
-}
+ // webm (vp9/av01 + opus) forces a transcode that repeatedly failed with ffmpeg rc=1,
+ // so rank the mp4/avc1 variants first and only fall back to webm when absent.
+ static NSInteger UYTFormatContainerRank(UYTStreamFormat *f) {
+     if (f.containerRank >= 0) return f.containerRank;
+     NSString *m = f.mimeType.lowercaseString ?: @"";
+     NSInteger r = 3;
+     if ([m hasPrefix:@"video/mp4"] || [m hasPrefix:@"audio/mp4"]) r = 0;
+     else if ([m hasPrefix:@"audio/"]) r = 1;
+     else if ([m hasPrefix:@"video/webm"] || [m hasPrefix:@"audio/webm"]) r = 2;
+     f.containerRank = r;
+     return r;
+ }
 
-static NSInteger UYTFormatCodecRank(UYTStreamFormat *f) {
-    NSString *m = f.mimeType.lowercaseString ?: @"";
-    if (f.hasVideo) {
-        if ([m containsString:@"avc1"]) return 0;
-        if ([m containsString:@"hev1"] || [m containsString:@"hvc1"]) return 1;
-        if ([m containsString:@"av01"]) return 2;
-        if ([m containsString:@"vp9"] || [m containsString:@"vp09"]) return 3;
-        return 4;
-    }
-    if ([m containsString:@"mp4a"]) return 0;
-    if ([m containsString:@"opus"]) return 1;
-    return 2;
-}
+ static NSInteger UYTFormatCodecRank(UYTStreamFormat *f) {
+     if (f.codecRank >= 0) return f.codecRank;
+     NSString *m = f.mimeType.lowercaseString ?: @"";
+     NSInteger r = 2;
+     if (f.hasVideo) {
+         if ([m containsString:@"avc1"]) r = 0;
+         else if ([m containsString:@"hev1"] || [m containsString:@"hvc1"]) r = 1;
+         else if ([m containsString:@"av01"]) r = 2;
+         else if ([m containsString:@"vp9"] || [m containsString:@"vp09"]) r = 3;
+         else r = 4;
+     } else if ([m containsString:@"mp4a"]) r = 0;
+     else if ([m containsString:@"opus"]) r = 1;
+     else r = 2;
+     f.codecRank = r;
+     return r;
+ }
 
-static NSInteger UYTFormatContainerRank(UYTStreamFormat *f) {
-    if (f.containerRank >= 0) return f.containerRank;
-    NSString *m = f.mimeType.lowercaseString ?: @"";
-    NSInteger r = 3;
-    if ([m hasPrefix:@"video/mp4"] || [m hasPrefix:@"audio/mp4"]) r = 0;
-    else if ([m hasPrefix:@"audio/"]) r = 1;
-    else if ([m hasPrefix:@"video/webm"] || [m hasPrefix:@"audio/webm"]) r = 2;
-    f.containerRank = r;
-    return r;
-}
-
-static NSInteger UYTFormatCodecRank(UYTStreamFormat *f) {
-    if (f.codecRank >= 0) return f.codecRank;
-    NSString *m = f.mimeType.lowercaseString ?: @"";
-    NSInteger r = 2;
-    if (f.hasVideo) {
-        if ([m containsString:@"avc1"]) r = 0;
-        else if ([m containsString:@"hev1"] || [m containsString:@"hvc1"]) r = 1;
-        else if ([m containsString:@"av01"]) r = 2;
-        else if ([m containsString:@"vp9"] || [m containsString:@"vp09"]) r = 3;
-        else r = 4;
-    } else if ([m containsString:@"mp4a"]) r = 0;
-    else if ([m containsString:@"opus"]) r = 1;
-    else r = 2;
-    f.codecRank = r;
-    return r;
-}
-
-static BOOL UYTFormatIsBetter(UYTStreamFormat *candidate, UYTStreamFormat *current) {
+ static BOOL UYTFormatIsBetter(UYTStreamFormat *candidate, UYTStreamFormat *current) {
     if (!current) return YES;
     NSInteger cc = UYTFormatContainerRank(candidate), cu = UYTFormatContainerRank(current);
     if (cc != cu) return cc < cu;
