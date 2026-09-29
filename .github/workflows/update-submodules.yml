@@ -16,6 +16,15 @@ jobs:
            git config --global user.email "actions@github.com"
            git config --global user.name "GitHub Actions"
 
+      - name: Add uYouEnhanced submodules
+        run: |
+          git submodule add https://github.com/aricloverEXTRA/YTAmbientLight.git Tweaks/YTAmbientLight
+          git add .
+          ln -s ../Tweaks/YTAmbientLight/layout/Library/Application\ Support/YTAmbientLight.bundle YTAmbientLight.bundle
+          git add .
+          git commit -m "added YTAmbientLight submodule"
+          git push origin
+
       - name: Update submodules
         run: |
           git submodule update --init --recursive --remote Tweaks/Alderis
@@ -57,6 +66,8 @@ jobs:
           git submodule update --init --recursive --remote Tweaks/YouTubeLegacy
           git add .
           git submodule update --init --recursive --remote Tweaks/YTABConfig
+          git add .
+          git submodule update --init --recursive --remote Tweaks/YTAmbientLight
           git add .
           git submodule update --init --recursive --remote Tweaks/YTClassicVideoQuality
           git add .
