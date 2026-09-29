@@ -1012,7 +1012,9 @@ static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSSt
 
         NSDictionary *best = UYTBestAvailableSource(item, ui);
         if (!best) {
-            UYTScheduleStallCheck(item, 5.0, pollsLeft - 1, lastSizes);
+            if (pollsLeft > 1) {
+                UYTScheduleStallCheck(item, 10.0, pollsLeft - 1, lastSizes); // 10 sec interval (was 5)
+            }
             return;
         }
 
@@ -1024,20 +1026,41 @@ static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSSt
         if (stillGrowing && pollsLeft > 1) {
             UYTDebugInfo(@"[uYouPatches] stall recovery deferred - %@ is still growing (%llu bytes)",
                       bestPath.lastPathComponent, bestSize);
-            UYTScheduleStallCheck(item, 5.0, pollsLeft - 1, lastSizes);
+            UYTScheduleStallCheck(item, 10.0, pollsLeft - 1, lastSizes); // 10 sec interval
             return;
         }
 
         if (UYTFinalizeItem(item, @"stall watchdog")) {
             return;
         }
-        UYTScheduleStallCheck(item, 5.0, pollsLeft - 1, lastSizes);
+        if (pollsLeft > 1) {
+            UYTScheduleStallCheck(item, 10.0, pollsLeft - 1, lastSizes); // 10 sec interval
+        }
     } @catch (NSException *e) {}
 }
 
 static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
-    UYTScheduleStallCheck(item, seconds, 8, [NSMutableDictionary dictionary]);
+    // Coalesce: cancel existing watchdog for this item before starting new one
+    static const void *UYTStallWatchdogKey = &UYTArmStallWatchdog;
+    NSObject *existingTimer = objc_getAssociatedObject(item, UYTStallWatchdogKey);
+    if (existingTimer) {
+        // Cancel existing timer
+        [NSObject cancelPreviousPerformRequestsWithTarget:existingTimer selector:@selector(fire) object:nil];
+    }
+    
+    // Create new timer object for tracking
+    NSTimer *timer = [NSTimer scheduledTimerWithTimeInterval:seconds
+                                                      target:self
+                                                    selector:@selector(fire)
+                                                    userInfo:nil
+                                                     repeats:NO];
+    objc_setAssociatedObject(item, UYTStallWatchdogKey, timer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    
+    // Use longer interval, fewer polls: 10 sec × 4 polls = 20 sec max (was 5s × 8 = 40s)
+    UYTScheduleStallCheck(item, seconds, 4, [NSMutableDictionary dictionary]);
 }
+
+static const void *UYTStallWatchdogKey = &UYTArmStallWatchdog;
 
 static NSString *UYTNonEmptyID(id value) {
     if (![value isKindOfClass:[NSString class]]) return nil;
