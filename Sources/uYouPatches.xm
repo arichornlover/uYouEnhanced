@@ -10,6 +10,9 @@
 #import <sqlite3.h>
 #include <string.h>
 
+// Forward declarations for static functions used before their definitions
+static void UYTArmStallWatchdog(id item, NSTimeInterval seconds);
+
 # pragma mark - uYou Patches
 
 static NSString *uYouAccessGroupIDInternal() {
