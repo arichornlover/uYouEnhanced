@@ -1041,7 +1041,7 @@ static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSSt
 
 static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     // Coalesce: cancel existing watchdog for this item before starting new one
-    static const void *UYTStallWatchdogKey = &UYTArmStallWatchdog;
+    static const char *UYTStallWatchdogKey = "UYTArmStallWatchdogKey";
     NSObject *existingTimer = objc_getAssociatedObject(item, UYTStallWatchdogKey);
     if (existingTimer) {
         // Cancel existing timer
@@ -1050,17 +1050,15 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
     
     // Create new timer object for tracking
     NSTimer *timer = [NSTimer scheduledTimerWithTimeInterval:seconds
-                                                      target:self
-                                                    selector:@selector(fire)
+                                                      target:[NSObject class]
+                                                    selector:@selector(initialize)
                                                     userInfo:nil
                                                      repeats:NO];
-    objc_setAssociatedObject(item, UYTStallWatchdogKey, timer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(item, "UYTStallWatchdogKey", timer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     
     // Use longer interval, fewer polls: 10 sec × 4 polls = 20 sec max (was 5s × 8 = 40s)
     UYTScheduleStallCheck(item, seconds, 4, [NSMutableDictionary dictionary]);
 }
-
-static const void *UYTStallWatchdogKey = &UYTArmStallWatchdog;
 
 static NSString *UYTNonEmptyID(id value) {
     if (![value isKindOfClass:[NSString class]]) return nil;
