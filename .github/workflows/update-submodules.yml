@@ -16,6 +16,14 @@ jobs:
            git config --global user.email "actions@github.com"
            git config --global user.name "GitHub Actions"
 
+      - name: Make .bundle files
+        run: |
+          cd Bundles
+          ln -s ../Tweaks/YTAmbientMode/layout/Library/Application\ Support/YTAmbientMode.bundle YTAmbientMode.bundle
+          git add .
+          git commit -m "Added YTAmbientMode bundle"
+          git push origin
+
       - name: Update submodules
         run: |
           git submodule update --init --recursive --remote Tweaks/Alderis
