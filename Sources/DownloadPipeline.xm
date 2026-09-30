@@ -689,6 +689,14 @@ void UYTStoreResolvedURLs(NSString *vid, NSString *muxedURL, NSString *audioURL,
     } @catch (NSException *e) {}
 }
 
+void UYTRegisterRemoteURLForVideoID(NSString *vid, NSString *url) {
+    @try {
+        if (vid.length && url.length) {
+            UYTResolvedEntrySet(vid, @"remote", url);
+        }
+    } @catch (NSException *e) {}
+}
+
 NSString *UYTResolvedVideoURL(NSString *vid) {
     @try {
         if (!vid.length) return nil;
