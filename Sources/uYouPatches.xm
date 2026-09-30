@@ -33,7 +33,7 @@
 // of a %group, so a declaration inside one is not visible to the code that
 // follows it and clang reports "no visible @interface".
 @interface UYTRemoteMobileFFmpeg : NSObject
-+ (int)executeWithArguments:(NSArray<NSString *> *)arguments;
+- (int)executeWithArguments:(NSArray<NSString *> *)arguments;
 @end
 
 # pragma mark - uYou Patches
