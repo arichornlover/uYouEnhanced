@@ -300,6 +300,18 @@ static NSInteger uYouActiveDownloadCount = 0;
 // AVAssetExportSession which CANNOT merge mp4 video + webm audio,
 // causing downloads to hang forever at "conversion" or "Adding metadata".
 // Fix: detect webm audio and convert it to m4a via MobileFFmpeg before merge.
+// MobileFFmpeg ships inside uYou.dylib's payload and is NOT linked against
+// this tweak, so it cannot be imported - a bare [MobileFFmpeg ...] reference
+// would emit _OBJC_CLASS_$_MobileFFmpeg and fail at link time. %c() resolves
+// the class at runtime from uYou's own copy instead.
+//
+// %c() is typed as Class, and sending an unknown selector to a Class yields
+// `id`, so `int rc = [cls executeWithArguments:]` fails to compile. Declaring
+// the single selector we need gives the compiler the real `int` return type.
+@interface UYTRemoteMobileFFmpeg : NSObject
++ (int)executeWithArguments:(NSArray<NSString *> *)arguments;
+@end
+
 static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
     if (!webmPath || !m4aPath) return NO;
 
@@ -322,16 +334,15 @@ static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
             m4aPath
         ];
 
-        // IMPORTANT: MobileFFmpeg ships inside uYou.dylib's payload and is NOT
-        // linked against this tweak. A bare [MobileFFmpeg ...] reference emits
-        // _OBJC_CLASS_$_MobileFFmpeg and breaks linking; %c() resolves the
-        // class at runtime from uYou's own copy instead.
-        Class mobileFFmpegClass = %c(MobileFFmpeg);
-        if (!mobileFFmpegClass) {
-            HBLogWarn(@"[uYouPatches] MobileFFmpeg not found in app payload; skipping WebM→M4A conversion");
+        // See UYTRemoteMobileFFmpeg above: resolve at runtime, and go through
+        // `id` for the cast so clang never has to relate Class to a concrete
+        // object pointer type.
+        Class ffmpegClass = %c(MobileFFmpeg);
+        if (!ffmpegClass) {
+            HBLogWarn(@"[uYouPatches] MobileFFmpeg not found in app payload; skipping WebM->M4A conversion");
             return NO;
         }
-        int returnCode = [mobileFFmpegClass executeWithArguments:arguments];
+        int returnCode = [(UYTRemoteMobileFFmpeg *)(id)ffmpegClass executeWithArguments:arguments];
 
         if (returnCode == 0 && [fm fileExistsAtPath:m4aPath]) {
             unsigned long long fileSize = [[fm attributesOfItemAtPath:m4aPath error:nil] fileSize];
