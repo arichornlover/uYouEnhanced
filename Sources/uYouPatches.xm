@@ -339,13 +339,6 @@ static NSInteger uYouActiveDownloadCount = 0;
 // this tweak, so it cannot be imported - a bare [MobileFFmpeg ...] reference
 // would emit _OBJC_CLASS_$_MobileFFmpeg and fail at link time. %c() resolves
 // the class at runtime from uYou's own copy instead.
-//
-// %c() is typed as Class, and sending an unknown selector to a Class yields
-// `id`, so `int rc = [cls executeWithArguments:]` fails to compile. Declaring
-// the single selector we need gives the compiler the real `int` return type.
-@interface UYTRemoteMobileFFmpeg : NSObject
-+ (int)executeWithArguments:(NSArray<NSString *> *)arguments;
-@end
 
 static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
     if (!webmPath || !m4aPath) return NO;
