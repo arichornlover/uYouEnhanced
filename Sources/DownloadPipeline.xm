@@ -21,7 +21,11 @@
 @end
 
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
-static NSString * const UYTClientVersion = @"19.45.1";
+// Used only if the bundle has no CFBundleShortVersionString. This is an iOS
+// version string and must NEVER be reused as an ANDROID clientVersion: that
+// mismatch makes Innertube answer HTTP 400, which is the -1002 "no formats"
+// dead end reported in #1010.
+static NSString * const UYTFallbackAppVersion = @"20.10.4";
 
 static NSString *UYTAppVersion(void) {
     static NSString *cached = nil;
@@ -29,7 +33,7 @@ static NSString *UYTAppVersion(void) {
     dispatch_once(&once, ^{
         NSString *v = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
         if (!v.length) v = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"];
-        cached = v.length ? v : UYTClientVersion;
+        cached = v.length ? v : UYTFallbackAppVersion;
     });
     return cached;
 }
@@ -92,81 +96,243 @@ static NSString *UYTFormatDesc(UYTStreamFormat *f);
 
 @implementation UYTDownloadPipeline
 
-static int UYTLastGoodClient = 2;
+// ============================================================================
+// Innertube client table
+// ============================================================================
+// Innertube only accepts a client when the whole TRIPLE is self-consistent:
+// clientName + clientVersion + User-Agent must all belong to the same app.
+// The old code kept contexts and User-Agents in two separate arrays, and the
+// ANDROID context was filled with the iOS version 19.45.1 - so every download
+// first burned a round-trip on an HTTP 400 before rotation kicked in.
+//
+// One record per client now, so a name/version/UA triple cannot drift apart.
 
-static NSArray *UYTClientContexts(void) {
-    static NSArray *contexts = nil;
+static NSArray<NSDictionary *> *UYTClientProfiles(void) {
+    static NSArray *profiles = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        NSDictionary *android15 = @{@"context": @{@"client": @{
-            @"clientName": @"ANDROID",
-            @"clientVersion": UYTClientVersion,
-            @"deviceMake": @"samsung",
-            @"deviceModel": @"SM-S928B",
-            @"osName": @"Android",
-            @"osVersion": @"15",
-            @"hl": @"en",
-            @"timeZone": @"UTC",
-            @"utcOffsetMinutes": @0
-        }},
-        @"contentCheckOk": @YES, @"racyCheckOk": @YES};
-        NSDictionary *android14 = @{@"context": @{@"client": @{
-            @"clientName": @"ANDROID",
-            @"clientVersion": @"19.09.39",
-            @"deviceMake": @"samsung",
-            @"deviceModel": @"SM-S928B",
-            @"osName": @"Android",
-            @"osVersion": @"14",
-            @"hl": @"en",
-            @"timeZone": @"UTC",
-            @"utcOffsetMinutes": @0
-        }},
-        @"contentCheckOk": @YES, @"racyCheckOk": @YES};
-        NSDictionary *ios = @{@"context": @{@"client": @{
-            @"clientName": @"IOS",
-            @"clientVersion": UYTAppVersion(),
-            @"deviceMake": @"Apple",
-            @"deviceModel": UYTIOSModel(),
-            @"osName": @"iPhone",
-            @"osVersion": UYTIOSVersion(),
-            @"hl": @"en",
-            @"timeZone": @"UTC",
-            @"utcOffsetMinutes": @0
-        }},
-        @"contentCheckOk": @YES, @"racyCheckOk": @YES};
-        contexts = @[android15, android14, ios];
+        NSString *iosVersion = UYTAppVersion();
+        NSString *iosUA = [NSString stringWithFormat:
+            @"com.google.ios.youtube/%@ (%@; U; CPU iPhone OS %@ like Mac OS X; en_US)",
+            iosVersion, UYTIOSModel(),
+            [UYTIOSVersion() stringByReplacingOccurrencesOfString:@"." withString:@"_"]];
+
+        // Ordered best -> worst. Rotation walks this list in this order.
+        NSArray *rows = @[
+            // 0 - the running app's own identity. Only client guaranteed to
+            //     match the installed binary, so it goes first.
+            @{@"name": @"IOS", @"version": iosVersion, @"ua": iosUA,
+              @"make": @"Apple", @"model": UYTIOSModel(),
+              @"osName": @"iPhone", @"osVersion": UYTIOSVersion()},
+
+            // 1 - current Android release. Version MUST be an Android version.
+            @{@"name": @"ANDROID", @"version": @"20.10.38",
+              @"ua": @"com.google.android.youtube/20.10.38 (Linux; U; Android 15; SM-S928B Build/BP1A.250305.009; en_US)",
+              @"make": @"samsung", @"model": @"SM-S928B",
+              @"osName": @"Android", @"osVersion": @"15"},
+
+            // 2 - older Android release, throttled on a different schedule.
+            @{@"name": @"ANDROID", @"version": @"19.09.39",
+              @"ua": @"com.google.android.youtube/19.09.39 (Linux; U; Android 14; SM-S928B Build/UP1A.231005.007; en_US)",
+              @"make": @"samsung", @"model": @"SM-S928B",
+              @"osName": @"Android", @"osVersion": @"14"},
+
+            // 3 - Android VR is a separate client with its own format ladder,
+            //     so it still works when ANDROID starts returning 400.
+            @{@"name": @"ANDROID_VR", @"version": @"1.60.19",
+              @"ua": @"com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 12; SM-G991B Build/SQ3A.220605.009.A1; en_US)",
+              @"make": @"samsung", @"model": @"SM-G991B",
+              @"osName": @"Android", @"osVersion": @"12"},
+
+            // 4 - Android test harness. Rarely rate-limited: a good backstop
+            //     when every real client has started 400ing.
+            @{@"name": @"ANDROID_TESTSUITE", @"version": @"1.9",
+              @"ua": @"com.google.android.youtube/1.9 (Linux; U; Android 14; Pixel 7 Build/UQ1A.240105.004; en_US)",
+              @"make": @"Google", @"model": @"Pixel 7",
+              @"osName": @"Android", @"osVersion": @"14"},
+
+            // 5 - TV web player. hls/m3u8 heavy, so it still returns something
+            //     useful when the mobile clients are gated behind a PO token.
+            @{@"name": @"TVHTML5_SIMPLY_EMBEDDED_PLAYER", @"version": @"2.0",
+              @"ua": @"Mozilla/5.0 (PlayStation; PlayStation 4/12.00) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15",
+              @"make": @"Sony", @"model": @"PlayStation 4",
+              @"osName": @"PlayStation", @"osVersion": @"12.00"},
+
+            // 6 - mobile web. Most likely to need a PO token, hence last.
+            @{@"name": @"MWEB", @"version": iosVersion, @"ua": iosUA,
+              @"make": @"Apple", @"model": UYTIOSModel(),
+              @"osName": @"iPhone", @"osVersion": UYTIOSVersion()},
+        ];
+
+        NSMutableArray *built = [NSMutableArray arrayWithCapacity:rows.count];
+        for (NSDictionary *r in rows) {
+            [built addObject:@{
+                @"name": r[@"name"],
+                @"version": r[@"version"],
+                @"userAgent": r[@"ua"],
+                @"context": @{
+                    @"context": @{@"client": @{
+                        @"clientName": r[@"name"],
+                        @"clientVersion": r[@"version"],
+                        @"deviceMake": r[@"make"],
+                        @"deviceModel": r[@"model"],
+                        @"osName": r[@"osName"],
+                        @"osVersion": r[@"osVersion"],
+                        @"hl": @"en",
+                        @"timeZone": @"UTC",
+                        @"utcOffsetMinutes": @0
+                    }},
+                    @"contentCheckOk": @YES,
+                    @"racyCheckOk": @YES
+                }
+            }];
+        }
+        profiles = built;
     });
-    return contexts;
+    return profiles;
 }
 
-static NSArray *UYTClientUserAgents(void) {
-    static NSArray *agents = nil;
+// ============================================================================
+// Per-client health
+// ============================================================================
+// A client that answers 400/403 is useless for the next few minutes. Remember
+// that and skip it, so a retry rotates onto a working client instead of
+// re-paying the same doomed round-trip on every single download.
+
+static const NSTimeInterval UYTClientCooldown = 120.0;
+
+static NSMutableDictionary<NSNumber *, NSNumber *> *UYTClientStrikes; // idx -> strikes
+static NSMutableDictionary<NSNumber *, NSDate *> *UYTClientRetryAfter; // idx -> date
+static NSObject *UYTClientHealthLock;
+static int UYTLastGoodClient = 0;
+
+static void UYTEnsureClientHealth(void) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        agents = @[
-            @"com.google.android.youtube/19.45.1 (Linux; U; Android 15; SM-S928B Build/BP1A.250305.009; en_US)",
-            @"com.google.android.youtube/19.09.39 (Linux; U; Android 14; SM-S928B Build/UP1A.231005.007; en_US)",
-            [NSString stringWithFormat:@"com.google.ios.youtube/%@ (%@; U; CPU iPhone OS %@ like Mac OS X; en_US)",
-             UYTAppVersion(), UYTIOSModel(), [UYTIOSVersion() stringByReplacingOccurrencesOfString:@"." withString:@"_"]]
-        ];
+        UYTClientStrikes = [NSMutableDictionary dictionary];
+        UYTClientRetryAfter = [NSMutableDictionary dictionary];
+        UYTClientHealthLock = [NSObject new];
     });
-    return agents;
+}
+
+static void UYTPenalizeClient(int idx, NSInteger weight) {
+    UYTEnsureClientHealth();
+    @synchronized(UYTClientHealthLock) {
+        NSNumber *k = @(idx);
+        NSInteger strikes = UYTClientStrikes[k].integerValue + weight;
+        UYTClientStrikes[k] = @(strikes);
+        // Exponential backoff, capped at 4 strikes: a transient blip recovers
+        // in ~2 min, a client YouTube retired is only re-probed every ~16 min.
+        NSInteger shift = strikes - 1;
+        if (shift < 0) shift = 0;
+        if (shift > 3) shift = 3;
+        UYTClientRetryAfter[k] = [NSDate dateWithTimeIntervalSinceNow:UYTClientCooldown * (1 << shift)];
+    }
+}
+
+static void UYTRewardClient(int idx) {
+    UYTEnsureClientHealth();
+    @synchronized(UYTClientHealthLock) {
+        [UYTClientStrikes removeObjectForKey:@(idx)];
+        [UYTClientRetryAfter removeObjectForKey:@(idx)];
+        UYTLastGoodClient = idx;
+    }
+}
+
+static int UYTLastGoodClientIndex(void) {
+    UYTEnsureClientHealth();
+    @synchronized(UYTClientHealthLock) {
+        return UYTLastGoodClient;
+    }
+}
+
+static BOOL UYTClientInCooldown(int idx) {
+    UYTEnsureClientHealth();
+    @synchronized(UYTClientHealthLock) {
+        NSNumber *k = @(idx);
+        NSDate *retry = UYTClientRetryAfter[k];
+        if (!retry) return NO;
+        if ([retry timeIntervalSinceNow] <= 0) {
+            // Cooldown expired: forget the strikes so a recovered client
+            // starts from a clean slate.
+            [UYTClientRetryAfter removeObjectForKey:k];
+            [UYTClientStrikes removeObjectForKey:k];
+            return NO;
+        }
+        return YES;
+    }
+}
+
+// Rotation order: the client that worked last goes first, then every client
+// that is not in cooldown, then - only when nothing else is left - the ones
+// still cooling down. Degraded clients are kept, just pushed to the back.
+static NSArray<NSNumber *> *UYTClientOrder(void) {
+    NSInteger count = (NSInteger)UYTClientProfiles().count;
+    NSMutableArray<NSNumber *> *ready = [NSMutableArray array];
+    NSMutableArray<NSNumber *> *cooling = [NSMutableArray array];
+
+    int lastGood = UYTLastGoodClientIndex();
+    if (lastGood >= 0 && lastGood < count) [ready addObject:@(lastGood)];
+    for (NSInteger i = 0; i < count; i++) {
+        if (i == lastGood) continue;
+        if (UYTClientInCooldown((int)i)) [cooling addObject:@(i)];
+        else [ready addObject:@(i)];
+    }
+    [ready addObjectsFromArray:cooling];
+    return ready;
+}
+
++ (NSDictionary *)clientProfileForIndex:(int)idx {
+    NSArray *profiles = UYTClientProfiles();
+    return profiles[idx >= 0 && idx < (int)profiles.count ? idx : 0];
 }
 
 + (NSDictionary *)clientContextForIndex:(int)idx {
-    NSArray *contexts = UYTClientContexts();
-    return contexts[idx >= 0 && idx < contexts.count ? idx : 0];
+    return [self clientProfileForIndex:idx][@"context"];
 }
 
 + (NSString *)userAgentForClientIndex:(int)idx {
-    NSArray *agents = UYTClientUserAgents();
-    return agents[idx >= 0 && idx < agents.count ? idx : 0];
+    return [self clientProfileForIndex:idx][@"userAgent"];
+}
+
++ (NSString *)clientNameForIndex:(int)idx {
+    NSString *n = [self clientProfileForIndex:idx][@"name"];
+    return n.length ? n : @"?";
+}
+
+// Innertube reports *why* it refused in the body: playabilityStatus.status /
+// .reason, or error.errors[].message. Surfacing it turns an opaque 400 into
+// something diagnosable from the device log.
++ (NSString *)hintFromResponseData:(NSData *)data {
+    if (!data.length) return @"empty body";
+    @try {
+        id json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        if (![json isKindOfClass:[NSDictionary class]]) return @"unparseable body";
+        id play = ((NSDictionary *)json)[@"playabilityStatus"];
+        if ([play isKindOfClass:[NSDictionary class]]) {
+            NSString *status = ((NSDictionary *)play)[@"status"];
+            NSString *reason = ((NSDictionary *)play)[@"reason"];
+            if (status.length) return reason.length
+                ? [NSString stringWithFormat:@"%@ (%@)", status, reason] : status;
+        }
+        id errors = nil;
+        id top = ((NSDictionary *)json)[@"error"];
+        if ([top isKindOfClass:[NSDictionary class]]) errors = ((NSDictionary *)top)[@"errors"];
+        if ([errors isKindOfClass:[NSArray class]] && ((NSArray *)errors).count) {
+            id msg = ((NSDictionary *)((NSArray *)errors).firstObject)[@"message"];
+            if ([msg isKindOfClass:[NSString class]]) return msg;
+        }
+        return @"no streamingData";
+    } @catch (NSException *e) {
+        return @"unparseable body";
+    }
 }
 
 + (void)tryClient:(int)idx
           onVideo:(NSString *)videoID
          progress:(void (^)(double frac, unsigned long long bytes))progress
        completion:(void (^)(NSArray<UYTStreamFormat *> *formats, NSError *error))completion {
+    NSString *clientName = [self clientNameForIndex:idx];
     NSMutableDictionary *body = [[self clientContextForIndex:idx] mutableCopy];
     body[@"videoId"] = videoID;
     body[@"playbackContext"] = @{@"contentPlaybackContext": @{@"html5Preference": @"HTML5_PREF_WANTS"}};
@@ -181,16 +347,49 @@ static NSArray *UYTClientUserAgents(void) {
     if (progress) progress(0.0, 0);
     NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:req
         completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
+            NSInteger status = [resp isKindOfClass:[NSHTTPURLResponse class]]
+                ? (NSInteger)((NSHTTPURLResponse *)resp).statusCode : 200;
+
             if (err || !data) {
-                UYTDebugErr(@"fetch client %d net error for %@: %@", idx, videoID, err.localizedDescription ?: @"empty response");
+                UYTPenalizeClient(idx, 1);
+                UYTDebugErr(@"fetch %@ (client %d) network error for %@: %@", clientName, idx, videoID,
+                            err.localizedDescription ?: @"empty response");
                 completion(@[], err ?: [NSError errorWithDomain:@"UYTDownload" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"empty response"}]);
+                return;
+            }
+
+            // 400/403 means Innertube refused the client triple itself - a
+            // mismatched name/version/UA, a throttled client, or a client
+            // YouTube retired. That is a dead client, not a bad video, so
+            // penalise it hard and let rotation move straight on.
+            if (status == 400 || status == 401 || status == 403) {
+                UYTPenalizeClient(idx, 2);
+                UYTDebugErr(@"fetch %@ (client %d) REJECTED HTTP %ld for %@: %@", clientName, idx,
+                            (long)status, videoID, [self hintFromResponseData:data]);
+                completion(@[], [NSError errorWithDomain:@"UYTDownload" code:-1002 userInfo:@{
+                    NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Innertube rejected %@ (HTTP %ld)", clientName, (long)status],
+                    @"UYTHTTPStatus": @(status),
+                    @"UYTClientName": clientName
+                }]);
+                return;
+            }
+
+            if (status >= 500) {
+                // Server-side: penalise softly, these often recover on their own.
+                UYTPenalizeClient(idx, 1);
+                UYTDebugErr(@"fetch %@ (client %d) server error HTTP %ld for %@", clientName, idx,
+                            (long)status, videoID);
+                completion(@[], [NSError errorWithDomain:@"UYTDownload" code:-1 userInfo:@{
+                    NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Innertube HTTP %ld", (long)status],
+                    @"UYTHTTPStatus": @(status),
+                    @"UYTClientName": clientName
+                }]);
                 return;
             }
             NSMutableArray *out = [NSMutableArray array];
             NSMutableArray<NSDictionary *> *ciphered = [NSMutableArray array];
             NSMutableArray<NSNumber *> *cipheredIsMuxed = [NSMutableArray array];
-            NSError *jsonErr = nil;
-            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonErr];
+            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
             if (json) {
                 NSArray *streams = json[@"streamingData"][@"adaptiveFormats"];
                 NSArray *muxed = json[@"streamingData"][@"formats"];
@@ -211,26 +410,42 @@ static NSArray *UYTClientUserAgents(void) {
                 }
             }
             if (!out.count && !ciphered.count) {
-                UYTDebugErr(@"fetch client %d no usable URLs for %@ (%@)", idx, videoID,
-                            jsonErr ? jsonErr.localizedDescription : (json ? @"no direct urls" : @"bad response"));
-                completion(out, json ? nil : (jsonErr ?: [NSError errorWithDomain:@"UYTDownload" code:-11 userInfo:@{NSLocalizedDescriptionKey: @"bad player response"}]));
+                // A 200 that carries no streamingData is still a dead client
+                // (usually throttling or a silent PO-token gate), so feed it
+                // into the same rotation bookkeeping.
+                UYTPenalizeClient(idx, 1);
+                UYTDebugErr(@"fetch %@ (client %d) no usable URLs for %@: %@", clientName, idx, videoID,
+                            [self hintFromResponseData:data]);
+                completion(@[], [NSError errorWithDomain:@"UYTDownload" code:-1002 userInfo:@{
+                    NSLocalizedDescriptionKey: [NSString stringWithFormat:@"%@ returned no playable formats", clientName],
+                    @"UYTHTTPStatus": @(status),
+                    @"UYTClientName": clientName
+                }]);
                 return;
             }
             if (!ciphered.count) {
-                UYTDebugInfo(@"fetch client %d OK: %lu formats for %@", idx, (unsigned long)out.count, videoID);
+                UYTDebugInfo(@"fetch %@ (client %d) OK: %lu formats for %@", clientName, idx,
+                             (unsigned long)out.count, videoID);
                 completion(out, nil);
                 return;
             }
-            UYTDebugInfo(@"[UYTPipeline] client %d: %lu direct + %lu ciphered for %@", idx,
-                         (unsigned long)out.count, (unsigned long)ciphered.count, videoID);
+            UYTDebugInfo(@"[UYTPipeline] client %d (%@): %lu direct + %lu ciphered for %@", idx,
+                         clientName, (unsigned long)out.count, (unsigned long)ciphered.count, videoID);
             [UYTSigDecipher playerContextForVideoID:videoID completion:^(UYTPlayerJSContext *player, NSError *sigErr) {
                 if (!player) {
                     UYTDebugErr(@"[UYTPipeline] decipher unavailable for %@ (%@)", videoID,
                                 sigErr.localizedDescription ?: @"no player context");
+                    // Deliberately NOT penalising the client here: the player JS
+                    // fetch is client-independent, so a decipher failure fails
+                    // identically on every client. Rotating would just burn
+                    // round-trips and delay the real error.
                     if (out.count) {
                         completion(out, nil);
                     } else {
-                        completion(@[], sigErr ?: [NSError errorWithDomain:@"UYTDownload" code:-1002 userInfo:@{NSLocalizedDescriptionKey: @"signature decipher unavailable"}]);
+                        completion(@[], sigErr ?: [NSError errorWithDomain:@"UYTDownload" code:-1002 userInfo:@{
+                            NSLocalizedDescriptionKey: @"signature decipher unavailable",
+                            @"UYTClientName": clientName
+                        }]);
                     }
                     return;
                 }
@@ -257,22 +472,37 @@ static NSArray *UYTClientUserAgents(void) {
     [task resume];
 }
 
-+ (void)attempt:(int)n first:(int)first onVideo:(NSString *)videoID
+// Walk the rotation order until a client yields formats. `order` is snapshotted
+// per download so a client that just got penalised mid-attempt does not extend
+// this attempt forever, and so every client is tried at most once.
++ (void)attempt:(NSUInteger)n
+          order:(NSArray<NSNumber *> *)order
+        onVideo:(NSString *)videoID
        progress:(void (^)(double frac, unsigned long long bytes))progress
      completion:(void (^)(NSArray<UYTStreamFormat *> *formats, NSError *error))completion
-    lastError:(NSError *)lastError {
-    if (n > 2) {
-        UYTDebugErr(@"all %d clients failed for %@ (last: %@)", 3, videoID, lastError.localizedDescription ?: @"no formats");
-        completion(@[], lastError ?: [NSError errorWithDomain:@"UYTDownload" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"no client produced formats"}]);
+     lastError:(NSError *)lastError {
+    if (n >= order.count) {
+        NSString *tried = [order componentsJoinedByString:@", "];
+        UYTDebugErr(@"all %lu clients failed for %@ (tried indices: %@; last: %@)",
+                    (unsigned long)order.count, videoID, tried,
+                    lastError.localizedDescription ?: @"no formats");
+        completion(@[], lastError ?: [NSError errorWithDomain:@"UYTDownload" code:-1 userInfo:@{
+            NSLocalizedDescriptionKey: @"no client produced formats"
+        }]);
         return;
     }
-    int idx = (first + n) % 3;
+    int idx = order[n].intValue;
     [self tryClient:idx onVideo:videoID progress:progress completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
         if (formats.count) {
-            UYTLastGoodClient = idx;
+            // This client works: clear its strikes so the next download starts
+            // from it first and the cooldown budget is released.
+            UYTRewardClient(idx);
+            UYTDebugInfo(@"[UYTPipeline] %@ (client %d) served %@ with %lu formats",
+                         [self clientNameForIndex:idx], idx, videoID, (unsigned long)formats.count);
             completion(formats, nil);
         } else {
-            [self attempt:(n + 1) first:first onVideo:videoID progress:progress completion:completion lastError:error ?: lastError];
+            [self attempt:(n + 1) order:order onVideo:videoID progress:progress
+                completion:completion lastError:error ?: lastError];
         }
     }];
 }
@@ -282,8 +512,12 @@ static NSArray *UYTClientUserAgents(void) {
                      progress:(void (^)(double frac, unsigned long long bytes))progress
                    completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
     (void)isShorts;
-    int first = UYTLastGoodClient % 3;
-    [self attempt:0 first:first onVideo:videoID progress:progress completion:completion lastError:nil];
+    // The order is recomputed on every call, so a retry after a failure lands
+    // on a different client instead of repeating the one that just 400ed.
+    NSArray<NSNumber *> *order = UYTClientOrder();
+    UYTDebugInfo(@"[UYTPipeline] resolving %@ via clients: %@", videoID,
+                 [order componentsJoinedByString:@", "]);
+    [self attempt:0 order:order onVideo:videoID progress:progress completion:completion lastError:nil];
 }
 
 + (void)fetchFormatsForVideoID:(NSString *)videoID
