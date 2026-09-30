@@ -1,6 +1,41 @@
 #import "uYouPlus.h"
 #import "uYouPatches.h"
 
+// ---------------------------------------------------------------------------
+// UYTLog compat
+// ---------------------------------------------------------------------------
+// uYouEnhanced buffers its own log and builds the in-app report out of it, so
+// a download failure is only diagnosable if these calls reach UYTLog. Prefer
+// UYTDebug* when the header is there and fall back to the hooking logger
+// otherwise - a missing log must never be what breaks a download or a build.
+// Both sinks are written on purpose: syslog for the user, the buffer for us.
+#if __has_include("UYTLog.h")
+#import "UYTLog.h"
+#define UYTPatchInfo(fmt, ...) do { UYTDebugInfo(fmt, ##__VA_ARGS__); HBLogInfo(fmt, ##__VA_ARGS__); } while (0)
+#define UYTPatchWarn(fmt, ...) do { UYTDebugWarn(fmt, ##__VA_ARGS__); HBLogWarn(fmt, ##__VA_ARGS__); } while (0)
+#define UYTPatchErr(fmt, ...)  do { UYTDebugErr(fmt, ##__VA_ARGS__);  HBLogError(fmt, ##__VA_ARGS__); } while (0)
+#else
+#define UYTPatchInfo(fmt, ...) HBLogInfo(fmt, ##__VA_ARGS__)
+#define UYTPatchWarn(fmt, ...) HBLogWarn(fmt, ##__VA_ARGS__)
+#define UYTPatchErr(fmt, ...)  HBLogError(fmt, ##__VA_ARGS__)
+#endif
+
+// MobileFFmpeg ships inside uYou.dylib's payload and is NOT linked against
+// this tweak, so it cannot be imported - a bare [MobileFFmpeg ...] reference
+// would emit _OBJC_CLASS_$_MobileFFmpeg and fail at link time. %c() resolves
+// the class at runtime from uYou's own copy instead.
+//
+// %c() is typed as Class, and sending an unknown selector to a Class yields
+// `id`, so `int rc = [cls executeWithArguments:]` fails to compile. Declaring
+// the single selector we need gives the compiler the real `int` return type.
+//
+// This MUST stay at file scope, above every %group. Logos relocates the body
+// of a %group, so a declaration inside one is not visible to the code that
+// follows it and clang reports "no visible @interface".
+@interface UYTRemoteMobileFFmpeg : NSObject
++ (int)executeWithArguments:(NSArray<NSString *> *)arguments;
+@end
+
 # pragma mark - uYou Patches
 // Uses reverse-engineered uYou 3.0.4 source for reference.
 //
