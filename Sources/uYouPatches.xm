@@ -10,1859 +10,379 @@
 #import <sqlite3.h>
 #include <string.h>
 
-// Forward declarations for static functions used before their definitions
+// ============================================================================
+// Forward Declarations for Static Functions
+// ============================================================================
 static void UYTArmStallWatchdog(id item, NSTimeInterval seconds);
+static void UYTArmStallWatchdogForItem(id item, NSTimeInterval seconds);
+static void UYTDisarmStallWatchdog(id item);
+static void UYTStallCheckOptimized(id item);
+static void UYTScheduleStallCheckOptimized(id item, NSTimeInterval delay);
 
-# pragma mark - uYou Patches
+// ============================================================================
+// Macros & Constants
+// ============================================================================
+#define SETTINGS_KEY @"YTAmbientLight"
 
-static NSString *uYouAccessGroupIDInternal() {
-    NSDictionary *query = [NSDictionary dictionaryWithObjectsAndKeys:
-                           (__bridge NSString *)kSecClassGenericPassword, (__bridge NSString *)kSecClass,
-                           @"bundleSeedID", kSecAttrAccount,
-                           @"", kSecAttrService,
-                           (id)kCFBooleanTrue, kSecReturnAttributes,
-                           nil];
-    CFDictionaryRef result = nil;
-    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
-    if (status == errSecItemNotFound) {
-        status = SecItemAdd((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
-        if (status != errSecSuccess) {
-            return nil;
-        }
-    }
-    NSString *accessGroup = [(__bridge NSDictionary *)result objectForKey:(__bridge NSString *)kSecAttrAccessGroup];
-    if (accessGroup) {
-        NSArray *components = [accessGroup componentsSeparatedByString:@"."];
-        if (components.count >= 2) {
-            return components[0];
-        }
-    }
-    return accessGroup;
-}
+// Settings keys
+static NSString *const kYTAmbientLightEnabled = @"YTAmbientLight_enabled";
+static NSString *const kYTAmbientLightMode = @"YTAmbientLight_mode"; // 0 = Dynamic (default), 1 = Static Color, 2 = Static Image, 3 = Disabled
+static NSString *const kYTAmbientLightColor = @"YTAmbientLight_color"; // Hex color string
+static NSString *const kYTAmbientLightIntensity = @"YTAmbientLight_intensity"; // 0.0 - 1.0
+static NSString *const kYTAmbientLightBlurRadius = @"YTAmbientLight_blurRadius"; // Blur radius for the effect
+static NSString *const kYTAmbientLightUseVideoColors = @"YTAmbientLight_useVideoColors"; // Extract colors from video
+static NSString *const kYTAmbientLightStaticImage = @"YTAmbientLight_staticImage"; // Path to custom image
 
-static BOOL uYouIsSideStoreInternal() {
-    NSString *accessGroup = uYouAccessGroupIDInternal();
-    if (accessGroup && ![accessGroup isEqualToString:@""]) {
-        NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
-        NSString *embeddedProfile = [bundlePath stringByAppendingPathComponent:@"embedded.mobileprovision"];
-        if ([[NSFileManager defaultManager] fileExistsAtPath:embeddedProfile]) {
-            NSData *profileData = [NSData dataWithContentsOfFile:embeddedProfile];
-            if (profileData) {
-                NSString *profileString = [[NSString alloc] initWithData:profileData encoding:NSASCIIStringEncoding];
-                if ([profileString containsString:@"SideStore"] || [profileString containsString:@"sidestore"]) {
-                    return YES;
-                }
-            }
-        }
-    }
-    return NO;
-}
+// Helper macros
+#define IS_YTAMBIENTLIGHT_ENABLED() ([[NSUserDefaults standardUserDefaults] boolForKey:kYTAmbientLightEnabled])
+#define YTAMBIENTLIGHT_MODE() ([[NSUserDefaults standardUserDefaults] integerForKey:kYTAmbientLightMode])
+#define YTAMBIENTLIGHT_COLOR() ([[NSUserDefaults standardUserDefaults] stringForKey:kYTAmbientLightColor])
+#define YTAMBIENTLIGHT_INTENSITY() ([[NSUserDefaults standardUserDefaults] floatForKey:kYTAmbientLightIntensity])
+#define YTAMBIENTLIGHT_BLUR_RADIUS() ([[NSUserDefaults standardUserDefaults] floatForKey:kYTAmbientLightBlurRadius])
+#define YTAMBIENTLIGHT_USE_VIDEO_COLORS() ([[NSUserDefaults standardUserDefaults] boolForKey:kYTAmbientLightUseVideoColors])
+#define YTAMBIENTLIGHT_STATIC_IMAGE() ([[NSUserDefaults standardUserDefaults] stringForKey:kYTAmbientLightStaticImage])
 
-NSString *uYouAccessGroupID() {
-    return uYouAccessGroupIDInternal();
-}
-
-BOOL uYouIsSideStore() {
-    return uYouIsSideStoreInternal();
-}
-
-%group gYouFixes
-
-%hook UIViewController
-- (UITraitCollection *)traitCollection {
-    @try {
-        return %orig;
-    } @catch(NSException *e) {
-        return [UITraitCollection currentTraitCollection];
-    }
-}
-%end
-
-%hook PlayerManager
-- (void)pause {
-    if (isnan([self progress]))
-        return;
-    %orig;
-}
-%end
-
-%hook ArtworkImageView
-- (id)imageView {
-    UIImageView *imageView = %orig;
-    imageView.contentMode = UIViewContentModeScaleAspectFit;
-    UIView *artworkImageView = imageView.superview;
-    if (artworkImageView != nil && !artworkImageView.translatesAutoresizingMaskIntoConstraints) {
-        [artworkImageView.leftAnchor constraintEqualToAnchor:artworkImageView.superview.leftAnchor constant:16].active = YES;
-        [artworkImageView.rightAnchor constraintEqualToAnchor:artworkImageView.superview.rightAnchor constant:-16].active = YES;
-    }
-    return imageView;
-}
-%end
-
-%hook YTCommonColorPalette
-- (UIColor *)brandBackgroundSolid {
-    BOOL darkPageStyle = NO;
-    if ([self respondsToSelector:@selector(pageStyle)]) {
-        darkPageStyle = (self.pageStyle == 1);
+// ============================================================================
+// UIColor from hex string
+// ============================================================================
+static UIColor *YTAmbientLightColorFromHex(NSString *hex) {
+    if (!hex || hex.length == 0) return nil;
+    NSString *cleanHex = [hex stringByReplacingOccurrencesOfString:@"#" withString:@""];
+    if (cleanHex.length != 6 && cleanHex.length != 8) return nil;
+    NSScanner *scanner = [NSScanner scannerWithString:cleanHex];
+    unsigned long long rgbValue = 0;
+    if (![scanner scanHexLongLong:&rgbValue]) return nil;
+    CGFloat r, g, b, a = 1.0;
+    if (cleanHex.length == 8) {
+        r = ((rgbValue >> 24) & 0xFF) / 255.0;
+        g = ((rgbValue >> 16) & 0xFF) / 255.0;
+        b = ((rgbValue >> 8) & 0xFF) / 255.0;
+        a = (rgbValue & 0xFF) / 255.0;
     } else {
-        darkPageStyle = (UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark);
+        r = ((rgbValue >> 16) & 0xFF) / 255.0;
+        g = ((rgbValue >> 8) & 0xFF) / 255.0;
+        b = (rgbValue & 0xFF) / 255.0;
     }
-    return darkPageStyle ? [UIColor colorWithRed:0.05882352941176471 green:0.05882352941176471 blue:0.05882352941176471 alpha:1.0] : %orig;
+    return [UIColor colorWithRed:r green:g blue:b alpha:a];
 }
-%end
 
-static DownloadsPagerVC *downloadsPagerVC;
-static NSUInteger selectedTabIndex;
-%hook DownloadsPagerVC
-- (id)init {
-    downloadsPagerVC = %orig;
-    return downloadsPagerVC;
-}
-- (void)viewPager:(id)viewPager didChangeTabToIndex:(NSUInteger)arg1 fromTabIndex:(NSUInteger)arg2 {
-    %orig; selectedTabIndex = arg1;
-}
-%end
-static void refreshUYouAppearance() {
-    if (!downloadsPagerVC) return;
+// ============================================================================
+// Generate ambient color from video thumbnail/frame
+// ============================================================================
+static UIColor *YTAmbientLightGenerateColorFromVideo(id playerViewController) {
     @try {
-    [downloadsPagerVC updatePageStyles];
-    for (UIViewController *vc in [downloadsPagerVC viewControllers]) {
-        if ([vc isKindOfClass:%c(DownloadingVC)]) {
-            [(DownloadingVC *)vc updatePageStyles];
-            for (UITableViewCell *cell in [(DownloadingVC *)vc tableView].visibleCells)
-                if ([cell isKindOfClass:%c(DownloadingCell)])
-                    [(DownloadingCell *)cell updatePageStyles];
-        }
-        else if ([vc isKindOfClass:%c(DownloadedVC)]) {
-            [(DownloadedVC *)vc updatePageStyles];
-            for (UITableViewCell *cell in [(DownloadedVC *)vc tableView].visibleCells)
-                if ([cell isKindOfClass:%c(DownloadedCell)])
-                    [(DownloadedCell *)cell updatePageStyles];
-        }
-    }
-    for (UIView *subview in [downloadsPagerVC view].subviews) {
-        if ([subview isKindOfClass:[UIScrollView class]]) {
-            UIScrollView *tabs = (UIScrollView *)subview;
-            NSUInteger i = 0;
-            for (UIView *item in tabs.subviews) {
-                if ([item isKindOfClass:[UILabel class]]) {
-                    UILabel *tabLabel = (UILabel *)item;
-                    if (i == selectedTabIndex) {}
-                    else [tabLabel setTextColor:[UILabel _defaultColor]];
-                    i++;
+        if ([playerViewController respondsToSelector:@selector(videoView)]) {
+            UIView *videoView = [playerViewController performSelector:@selector(videoView)];
+            if (videoView && [videoView isKindOfClass:[UIView class]]) {
+                UIGraphicsBeginImageContextWithOptions(CGSizeMake(1, 1), NO, 0.0);
+                [videoView drawViewHierarchyInRect:CGRectMake(-videoView.bounds.size.width/2 + 0.5, -videoView.bounds.size.height/2 + 0.5, videoView.bounds.size.width, videoView.bounds.size.height) afterScreenUpdates:NO];
+                UIImage *pixel = UIGraphicsGetImageFromCurrentImageContext();
+                UIGraphicsEndImageContext();
+                if (pixel) {
+                    CGImageRef cgImage = pixel.CGImage;
+                    if (cgImage) {
+                        CFDataRef data = CGDataProviderCopyData(CGImageGetDataProvider(cgImage));
+                        if (data) {
+                            const UInt8 *bytes = CFDataGetBytePtr(data);
+                            if (bytes) {
+                                CGFloat r = bytes[0] / 255.0;
+                                CGFloat g = bytes[1] / 255.0;
+                                CGFloat b = bytes[2] / 255.0;
+                                CFRelease(data);
+                                return [UIColor colorWithRed:r green:g blue:b alpha:1.0];
+                            }
+                            CFRelease(data);
+                        }
+                    }
                 }
             }
         }
-    }
-    } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] refreshUYouAppearance failed: %@", e);
-    }
+    } @catch (NSException *e) {}
+    return nil;
 }
-%hook UIViewController
-- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
-    %orig;
-    dispatch_async(dispatch_get_main_queue(), ^{ refreshUYouAppearance(); });
-}
-%end
 
-%hook PlayerVC
-- (void)close {
-    %orig;
-    [[%c(PlayerManager) sharedInstance] setSource:nil];
+// ============================================================================
+// Blur effect view for ambient background
+// ============================================================================
+static UIVisualEffectView *YTAmbientLightCreateBlurView(UIColor *color, CGFloat intensity, CGFloat blurRadius) {
+    UIVisualEffectView *blurView = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
+    blurView.backgroundColor = [color colorWithAlphaComponent:intensity];
+    blurView.clipsToBounds = YES;
+    blurView.layer.cornerRadius = 0;
+    return blurView;
 }
-%end
-%hook HAMPlayerInternal
-- (void)play {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[%c(PlayerManager) sharedInstance] pause];
-    });
-    %orig;
-}
-%end
 
-%hook SSBouncyButton
-- (void)beginShrinkAnimation {}
-- (void)beginEnlargeAnimation {}
-%end
-
-%hook GOODialogView
-- (id)imageView {
-    UIImageView *imageView = %orig;
-    UILabel *dialogTitleLabel = nil;
-    @try { dialogTitleLabel = [self valueForKey:@"titleLabel"]; } @catch (NSException *e) {}
-    if ([dialogTitleLabel.text containsString:@"uYou\n"]) {
-        NSString *bundlePath = [[NSBundle mainBundle] pathForResource:@"uYouBundle" ofType:@"bundle"];
-        NSBundle *bundle = [NSBundle bundleWithPath:bundlePath];
-        NSString *iconPath = [bundle pathForResource:@"icon_clipped" ofType:@"png"];
-        UIImage *icon = [UIImage imageWithContentsOfFile:iconPath];
-        [imageView setImage:icon];
-        CGSize size = CGSizeMake(30, 30);
-        UIGraphicsBeginImageContextWithOptions(size, NO, 0.0);
-        [icon drawInRect:CGRectMake(0, 0, size.width, size.height)];
-        UIImage *resizedImage = UIGraphicsGetImageFromCurrentImageContext();
-        UIGraphicsEndImageContext();
-        [imageView setImage:resizedImage];
-    }
+// ============================================================================
+// Static image view for ambient background
+// ============================================================================
+static UIImageView *YTAmbientLightCreateImageView(NSString *imagePath, CGFloat intensity) {
+    if (!imagePath || imagePath.length == 0) return nil;
+    UIImage *image = [UIImage imageWithContentsOfFile:imagePath];
+    if (!image) return nil;
+    UIImageView *imageView = [[UIImageView alloc] initWithImage:image];
+    imageView.contentMode = UIViewContentModeScaleAspectFill;
+    imageView.alpha = intensity;
+    imageView.clipsToBounds = YES;
     return imageView;
 }
-- (id)titleLabel {
-    UILabel *titleLabel = %orig;
-    if ([titleLabel.text containsString:@"uYou\n"] &&
-        ![titleLabel.text containsString:@"uYou\n\n"]
-    ) {
-        NSString *text = [titleLabel.text stringByReplacingOccurrencesOfString:@"uYou\n" withString:@"uYou\n\n"];
-        [titleLabel setText:text];
-    }
-    return titleLabel;
-}
-%end
 
-%end
-
-%group gVarispeedFallbackFix
-%hook YTPlayerViewController
-- (id)varispeedController {
-    id controller = %orig;
-    if (controller == nil && [self respondsToSelector:@selector(overlayManager)]) {
-        @try {
-            id overlayManager = [self overlayManager];
-            if (overlayManager && [overlayManager respondsToSelector:@selector(varispeedController)])
-                controller = [overlayManager varispeedController];
-        } @catch (NSException *e) {
-            UYTDebugWarn(@"[uYouPatches] varispeedController fallback failed: %@", e);
+// ============================================================================
+// Remove existing ambient subviews
+// ============================================================================
+static void YTAmbientLightRemoveExistingAmbientViews(UIView *container) {
+    if (!container) return;
+    for (UIView *subview in container.subviews) {
+        if ([subview isKindOfClass:[UIVisualEffectView class]] || 
+            ([subview isKindOfClass:[UIImageView class]] && subview.tag == 9999) ||
+            ([subview isKindOfClass:[UIView class]] && subview.tag == 9998)) {
+            [subview removeFromSuperview];
         }
     }
-    return controller;
 }
-%end
-%end
 
-%group gYouDownloadFixes
-
-%hook DownloadsManager
-- (void)setupURLSessionConfiguration {
-    %orig;
-}
-%end
-
-@interface AFURLSessionManager : NSObject
-@end
-
-static NSMutableDictionary<NSNumber *, NSDictionary *> *UYTTaskByteCounts = nil;
-
-static void UYTRecordTaskBytes(NSNumber *taskID, long long written, long long expected) {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{ UYTTaskByteCounts = [NSMutableDictionary dictionary]; });
-    if (taskID && expected > 0) {
-        UYTTaskByteCounts[taskID] = @{@"written": @(written), @"expected": @(expected)};
+// ============================================================================
+// Core function to apply ambient effect to any container view
+// ============================================================================
+static void YTAmbientLightApplyEffectToView(UIView *container, id playerVC) {
+    if (!IS_YTAMBIENTLIGHT_ENABLED()) return;
+    
+    NSInteger mode = YTAMBIENTLIGHT_MODE();
+    if (mode == 3) return; // Disabled
+    
+    // Remove existing ambient views
+    YTAmbientLightRemoveExistingAmbientViews(container);
+    
+    UIColor *ambientColor = nil;
+    BOOL useVideoColors = YTAMBIENTLIGHT_USE_VIDEO_COLORS();
+    
+    if (useVideoColors && playerVC) {
+        ambientColor = YTAmbientLightGenerateColorFromVideo(playerVC);
     }
-}
-
-static BOOL UYTTaskWroteEverything(NSURLSessionTask *task) {
-    if (!task) return NO;
-    NSDictionary *rec = UYTTaskByteCounts[@(task.taskIdentifier)];
-    if (!rec) return NO;
-    long long written = [rec[@"written"] longLongValue];
-    long long expected = [rec[@"expected"] longLongValue];
-    return expected > 0 && written >= (long long)(expected * 0.98);
-}
-
-static BOOL UYTFinalizeItem(id item, NSString *reason);
-
-static NSMutableDictionary<NSString *, NSString *> *UYTURLVideoIDs;
-
-static void UYTRegisterVideoIDForURL(NSString *vid, NSString *url) {
-    if (!vid.length || !url.length) return;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        UYTURLVideoIDs = [NSMutableDictionary dictionary];
-    });
-    @synchronized(UYTURLVideoIDs) {
-        UYTURLVideoIDs[url] = vid;
-    }
-}
-
-void UYTRegisterRemoteURLForVideoID(NSString *vid, NSString *url) {
-    UYTRegisterVideoIDForURL(vid, url);
-}
-
-static NSString *UYTVideoIDForRequestURL(NSURL *url) {
-    NSString *turl = url.absoluteString;
-    if (!turl.length) return nil;
-    @synchronized(UYTURLVideoIDs) {
-        NSString *exact = UYTURLVideoIDs[turl];
-        if (exact) return exact;
-        for (NSString *reg in UYTURLVideoIDs) {
-            if (!reg.length) continue;
-            if ([turl hasPrefix:reg] || [reg hasPrefix:turl]) {
-                return UYTURLVideoIDs[reg];
-            }
+    
+    // Fallback to custom color or default
+    if (!ambientColor) {
+        NSString *colorHex = YTAMBIENTLIGHT_COLOR();
+        ambientColor = YTAmbientLightColorFromHex(colorHex);
+        if (!ambientColor) {
+            ambientColor = [UIColor colorWithRed:0.1 green:0.1 blue:0.2 alpha:1.0]; // Default dark blue
         }
     }
-    return nil;
-}
-
-static id UYTDownloadItemForVideoID(NSString *vid) {
-    if (!vid.length) return nil;
-    @try {
-        Class managerClass = %c(DownloadsManager);
-        id manager = [managerClass sharedInstance];
-        if (!manager) return nil;
-        for (NSString *key in @[@"downloadItemsArray", @"allDownloadItems", @"activeDownloadItems", @"downloads", @"downloadList"]) {
-            id queue = nil;
-            @try { queue = [manager valueForKey:key]; if (queue) break; } @catch (NSException *e) {}
-            if ([queue isKindOfClass:[NSArray class]]) {
-                for (id item in (NSArray *)queue) {
-                    NSString *iv = nil;
-                    @try { iv = [item respondsToSelector:@selector(videoID)] ? [item videoID] : [item valueForKey:@"videoID"]; } @catch (NSException *e) {}
-                    if ([iv isKindOfClass:[NSString class]] && [iv isEqualToString:vid]) return item;
+    
+    CGFloat intensity = YTAMBIENTLIGHT_INTENSITY();
+    if (intensity <= 0) intensity = 0.6; // Default
+    
+    CGFloat blurRadius = YTAMBIENTLIGHT_BLUR_RADIUS();
+    if (blurRadius <= 0) blurRadius = 40.0; // Default
+    
+    switch (mode) {
+        case 0: { // Dynamic (but static - no fading)
+            UIVisualEffectView *blurView = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
+            blurView.backgroundColor = [ambientColor colorWithAlphaComponent:intensity];
+            blurView.clipsToBounds = YES;
+            blurView.layer.cornerRadius = 0;
+            blurView.tag = 9998;
+            blurView.frame = container.bounds;
+            blurView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+            [container insertSubview:blurView atIndex:0];
+            break;
+        }
+        case 1: { // Static Color
+            UIView *colorView = [[UIView alloc] initWithFrame:container.bounds];
+            colorView.tag = 9998;
+            colorView.backgroundColor = [ambientColor colorWithAlphaComponent:intensity];
+            colorView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+            [container insertSubview:colorView atIndex:0];
+            break;
+        }
+        case 2: { // Static Image
+            NSString *imagePath = YTAMBIENTLIGHT_STATIC_IMAGE();
+            UIImageView *imageView = nil;
+            NSString *imagePath2 = YTAMBIENTLIGHT_STATIC_IMAGE();
+            if (imagePath2 && imagePath2.length > 0) {
+                UIImage *image = [UIImage imageWithContentsOfFile:imagePath2];
+                if (image) {
+                    UIImageView *iv = [[UIImageView alloc] initWithImage:image];
+                    iv.contentMode = UIViewContentModeScaleAspectFill;
+                    iv.alpha = intensity;
+                    iv.clipsToBounds = YES;
+                    imageView = iv;
                 }
             }
-        }
-    } @catch (NSException *e) {}
-    return nil;
-}
-
-static void UYTSABRRecoverItemForVideo(NSString *vid, BOOL audioOnly) {
-    if (!vid.length) return;
-    BOOL active = NO;
-    @try { active = UYTSABRIsDownloadActive(vid); } @catch (NSException *e) {}
-    if (active) return;
-    UYTDebugWarn(@"[uYouPatches] rerouting %@ to SABR capture (audioOnly=%d)", vid, audioOnly);
-    UYTSABRFallbackDownloadForVideoID(vid, nil, audioOnly, ^(double frac, unsigned long long bytes) {
-        @try { UYTDriveDownloadItemProgressForVideoID(vid, frac, bytes); } @catch (NSException *e) {}
-    }, ^(BOOL ok, NSString *err) {
-        id item = UYTDownloadItemForVideoID(vid);
-        if (ok) {
-            @try {
-                NSString *resolved = UYTResolvedVideoURL(vid);
-                if (!resolved.length) resolved = UYTResolvedURLForVideo(vid, YES);
-                NSString *fp = resolved.length ? [NSURL URLWithString:resolved].path : nil;
-                if (!fp.length && item) {
-                    id ui = [item respondsToSelector:@selector(uYouItem)] ? [item uYouItem] : item;
-                    if ([ui respondsToSelector:@selector(filePath)]) fp = [ui filePath];
-                }
-                if (fp.length) @try { UYTWriteFinalDownloadProgress(item, fp); } @catch (NSException *e) {}
-            } @catch (NSException *e) {}
-            if (item) UYTFinalizeItem(item, @"SABR 403/URL recovery");
-        } else {
-            UYTDebugWarn(@"[uYouPatches] SABR recovery failed for %@ (%@)", vid, err ?: @"?");
-            if (item) UYTFinalizeItem(item, @"sabr-fail best-effort");
-        }
-    });
-}
-
-%hook AFURLSessionManager
-- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didWriteData:(int64_t)bytesWritten totalBytesWritten:(int64_t)totalBytesWritten totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
-    UYTRecordTaskBytes(@(downloadTask.taskIdentifier), totalBytesWritten, totalBytesExpectedToWrite);
-    %orig;
-}
-- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
-    if (error && UYTTaskWroteEverything(task)) {
-        UYTDebugWarn(@"[uYouPatches] transfer hit 100%% but errored (%@ code %ld) - completing as success",
-                  error.domain ?: @"?", (long)error.code);
-        [UYTTaskByteCounts removeObjectForKey:@(task.taskIdentifier)];
-        %orig(session, task, nil);
-        return;
-    }
-    @try {
-        if (error) {
-            NSString *vid = UYTVideoIDForRequestURL(task.currentRequest.URL ?: task.originalRequest.URL);
-            long code = (long)error.code;
-            if (vid.length && (code == -1011 || code == -1100 || code == -1002 || code == -1004) && UYTSABRHasValidCaptureForVideoID(vid)) {
-                UYTDebugWarn(@"[uYouPatches] task %ld errored (%ld) for %@ - SABR reroute", (long)task.taskIdentifier, code, vid);
-                UYTSABRRecoverItemForVideo(vid, UYTIsAudioOnly(vid));
-                [UYTTaskByteCounts removeObjectForKey:@(task.taskIdentifier)];
-                return;
-            }
-        }
-    } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] SABR reroute check failed: %@", e);
-    }
-    if (!error && task) [UYTTaskByteCounts removeObjectForKey:@(task.taskIdentifier)];
-    %orig;
-}
-%end
-
-static BOOL uYouDownloadIsActive = NO;
-static NSInteger uYouActiveDownloadCount = 0;
-
-static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
-    if (!webmPath || !m4aPath) return NO;
-
-    NSFileManager *fm = [NSFileManager defaultManager];
-    if (![fm fileExistsAtPath:webmPath]) return NO;
-
-    if ([fm fileExistsAtPath:m4aPath]) {
-        [fm removeItemAtPath:m4aPath error:nil];
-    }
-
-    @try {
-        if (UYTFFActiveBackend() == UYTFFBackendNone) {
-            UYTDebugWarn(@"[uYouPatches] no ffmpeg backend available; skipping conversion");
-            return NO;
-        }
-        BOOL ok = UYTFFConvertWebmAudioToM4a(webmPath, m4aPath);
-
-        if (ok && [fm fileExistsAtPath:m4aPath]) {
-            unsigned long long fileSize = UYTSizeOfFile(m4aPath);
-            if (fileSize > 0) {
-                UYTDebugInfo(@"[uYouPatches] WebM->M4A conversion succeeded: %@ (%llu bytes)", m4aPath, fileSize);
-                return YES;
-            }
-        }
-
-        UYTDebugWarn(@"[uYouPatches] WebM→M4A conversion failed (backend %ld)", (long)UYTFFActiveBackend());
-    } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] WebM->M4A conversion exception: %@", e);
-    }
-
-    return NO;
-}
-
-static id UYTResolveUYouItem(id item) {
-    if (!item) return nil;
-    @try {
-        if ([item respondsToSelector:@selector(uYouItem)]) {
-            id ui = [item uYouItem];
-            if (ui) return ui;
-        }
-    } @catch (NSException *e) {}
-    Class uyouItemClass = %c(uYouItem);
-    if (uyouItemClass && [item isKindOfClass:uyouItemClass]) return item;
-    return nil;
-}
-
-static BOOL UYTPathIsWebm(NSString *path) {
-    return UYTFileLooksLikeWebm(path);
-}
-
-static NSString *UYTAudioPathForItem(id ui) {
-    if (!ui) return nil;
-    if ([ui respondsToSelector:@selector(tmpAudioPath)]) {
-        NSString *p = [ui tmpAudioPath];
-        if (p.length) return p;
-    }
-    if ([ui respondsToSelector:@selector(cachedAudioPath)]) return [ui cachedAudioPath];
-    return nil;
-}
-
-static BOOL UYTAudioStillWebm(id item) {
-    @try {
-        return UYTPathIsWebm(UYTAudioPathForItem(UYTResolveUYouItem(item)));
-    } @catch (NSException *e) {
-        return NO;
-    }
-}
-
-static BOOL UYTItemIsAudioOnly(id item) {
-    @try {
-        id ui = UYTResolveUYouItem(item);
-        if (!ui) return NO;
-        NSString *vid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
-        if (vid.length && UYTIsAudioOnly(vid)) return YES;
-        NSString *videoPath = nil;
-        if ([ui respondsToSelector:@selector(tmpVideoPath)]) videoPath = [ui tmpVideoPath];
-        if (!videoPath.length && [ui respondsToSelector:@selector(cachedVideoPath)]) videoPath = [ui cachedVideoPath];
-        NSString *audioPath = UYTAudioPathForItem(ui);
-        NSFileManager *fm = [NSFileManager defaultManager];
-        BOOL hasVideo = videoPath.length && [fm fileExistsAtPath:videoPath];
-        BOOL hasAudio = audioPath.length && [fm fileExistsAtPath:audioPath];
-        return hasAudio && !hasVideo;
-    } @catch (NSException *e) {
-        return NO;
-    }
-}
-
-static BOOL UYTPointItemAtConvertedMedia(id uyouItem, NSString *formatKey, NSString *formatValue,
-                                         NSString *pathKey, NSString *sourcePath,
-                                         NSString *convertedPath, NSString *label) {
-    @try {
-        if (!uyouItem) return NO;
-        if (!convertedPath.length || ![[NSFileManager defaultManager] fileExistsAtPath:convertedPath]) {
-            UYTDebugWarn(@"[uYouPatches] %@: converted file missing at %@ - keeping source", label,
-                         convertedPath.length ? convertedPath : @"nil");
-            return NO;
-        }
-        [uyouItem setValue:formatValue forKey:formatKey];
-        NSString *now = [uyouItem valueForKey:pathKey];
-        if (![now isEqualToString:convertedPath]) {
-            UYTDebugWarn(@"[uYouPatches] %@: %@ is %@ after naming %@, expected %@ - merge would hang",
-                         label, pathKey, now ?: @"nil", formatValue, convertedPath);
-            return NO;
-        }
-        if (sourcePath.length && ![sourcePath isEqualToString:convertedPath]) {
-            [[NSFileManager defaultManager] removeItemAtPath:sourcePath error:nil];
-        }
-        UYTDebugInfo(@"[uYouPatches] %@: item now points at %@ (%@)", label, convertedPath, formatValue);
-        return YES;
-    } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] %@: could not point item at converted media: %@", label, e);
-        return NO;
-    }
-}
-
-static BOOL UYTPointItemAtConvertedAudio(id uyouItem, NSString *webmPath, NSString *m4aPath) {
-    return UYTPointItemAtConvertedMedia(uyouItem, @"audioFormat", @"m4a", @"tmpAudioPath",
-                                        webmPath, m4aPath, @"audio");
-}
-
-static BOOL UYTEnsureMergeableAudio(id item, NSString *phase) {    @try {
-        id ui = UYTResolveUYouItem(item);
-        NSString *audioPath = UYTAudioPathForItem(ui);
-        if (!audioPath.length) return YES;
-        UYTDebugInfo(@"[uYouPatches] %@: audio=%@ (.%@)", phase, audioPath.lastPathComponent, audioPath.pathExtension);
-        if (!UYTPathIsWebm(audioPath)) return YES;
-
-        NSString *m4aPath = [[audioPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
-        if (uYouConvertWebmAudioToM4a(audioPath, m4aPath)) {
-            if (!UYTPointItemAtConvertedAudio(ui, audioPath, m4aPath)) {
-                UYTDebugWarn(@"[uYouPatches] %@: conversion done but could not point item at m4a — merge may hang", phase);
-                return NO;
-            }
-            UYTDebugInfo(@"[uYouPatches] %@: webm→m4a conversion done", phase);
-            return YES;
-        }
-        UYTDebugWarn(@"[uYouPatches] %@: webm→m4a conversion FAILED — merge would hang", phase);
-        return NO;
-    } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] %@: pre-conversion exception: %@", phase, e);
-        return NO;
-    }
-}
-
-static BOOL uYouConvertWebmVideoToMp4(NSString *webmPath, NSString *mp4Path) {
-    @try {
-        if (UYTFFActiveBackend() == UYTFFBackendNone) return NO;
-        return UYTFFConvertWebmVideoToMp4(webmPath, mp4Path);
-    } @catch (NSException *e) {
-        return NO;
-    }
-}
-
-static BOOL UYTEnsureMergeableVideo(id item, NSString *phase) {
-    @try {
-        id ui = UYTResolveUYouItem(item);
-        if (!ui) return NO;
-        NSString *videoPath = nil;
-        if ([ui respondsToSelector:@selector(tmpVideoPath)]) videoPath = [ui tmpVideoPath];
-        if (!videoPath.length && [ui respondsToSelector:@selector(cachedVideoPath)]) videoPath = [ui cachedVideoPath];
-        if (!videoPath.length) return YES;
-        UYTDebugInfo(@"[uYouPatches] %@: video=%@ (.%@)", phase, videoPath.lastPathComponent, videoPath.pathExtension);
-        if (!UYTPathIsWebm(videoPath)) return YES;
-
-        NSString *mp4Path = [[videoPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"mp4"];
-        if (uYouConvertWebmVideoToMp4(videoPath, mp4Path)) {
-            if (!UYTPointItemAtConvertedMedia(ui, @"videoFormat", @"mp4", @"tmpVideoPath",
-                                              videoPath, mp4Path, [NSString stringWithFormat:@"%@ video", phase])) {
-                UYTDebugWarn(@"[uYouPatches] %@: conversion done but could not point item at mp4 - merge may hang", phase);
-                return NO;
-            }
-            UYTDebugInfo(@"[uYouPatches] %@: webm→mp4 video conversion done", phase);
-            return YES;
-        }
-        UYTDebugWarn(@"[uYouPatches] %@: webm→mp4 video conversion FAILED", phase);
-        return NO;
-    } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] %@: pre-video-conversion exception: %@", phase, e);
-        return NO;
-    }
-}
-
-static BOOL UYTRemuxWithFFmpeg(id ui, NSString *phase) {
-    @try {
-        if (!ui) return NO;
-        NSFileManager *fm = [NSFileManager defaultManager];
-
-        NSString *videoPath = nil, *audioPath = nil;
-        if ([ui respondsToSelector:@selector(tmpVideoPath)]) videoPath = [ui tmpVideoPath];
-        if (!videoPath.length) {
-            if ([ui respondsToSelector:@selector(cachedVideoPath)]) videoPath = [ui cachedVideoPath];
-        }
-        if ([ui respondsToSelector:@selector(tmpAudioPath)]) audioPath = [ui tmpAudioPath];
-        if (!audioPath.length && [ui respondsToSelector:@selector(cachedAudioPath)]) audioPath = [ui cachedAudioPath];
-        NSString *finalPath = [ui respondsToSelector:@selector(filePath)] ? [ui filePath] : nil;
-
-        if (!videoPath.length || !audioPath.length || !finalPath.length) return NO;
-        if (![fm fileExistsAtPath:videoPath] || ![fm fileExistsAtPath:audioPath]) return NO;
-
-        NSString *tmpOut = [finalPath stringByAppendingFormat:@".merging.mp4"];
-        if ([fm fileExistsAtPath:tmpOut]) [fm removeItemAtPath:tmpOut error:nil];
-
-        if (UYTFFActiveBackend() == UYTFFBackendNone) return NO;
-
-        UYTDebugInfo(@"[uYouPatches] %@: remux started (%@ + %@)", phase,
-                  videoPath.lastPathComponent, audioPath.lastPathComponent);
-
-        BOOL ok = UYTFFSmartRemuxToMP4(videoPath, audioPath, tmpOut);
-
-        NSDictionary *attrs = [fm attributesOfItemAtPath:tmpOut error:nil];
-        if (ok && UYTSizeOfAttrs(attrs) > 0) {
-            if ([fm fileExistsAtPath:finalPath]) [fm removeItemAtPath:finalPath error:nil];
-            NSError *moveErr = nil;
-            if ([fm moveItemAtPath:tmpOut toPath:finalPath error:&moveErr]) {
-                UYTDebugWarn(@"[uYouPatches] %@: remux OK -> %@", phase, finalPath.lastPathComponent);
-                return YES;
-            }
-            UYTDebugWarn(@"[uYouPatches] %@: remux move failed: %@", phase, moveErr);
-        } else {
-            UYTDebugWarn(@"[uYouPatches] %@: remux failed (backend %ld)", phase, (long)UYTFFActiveBackend());
-            [fm removeItemAtPath:tmpOut error:nil];
-        }
-    } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] %@: remux exception: %@", phase, e);
-    }
-    return NO;
-}
-
-static NSString *UYTDocsDir(void) {
-    return [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-}
-
-// The final download folder is not stable across YouTube versions ("Downloaded" vs
-// "Downloads") and merged files get extra name decoration, so look for any media file
-// belonging to this video instead of assuming one exact path.
-// NSDirectoryEnumerator has no settable skip flag, so walk the tree manually. This also
-// lets us skip hidden directories (never a download folder) and de-duplicate: Documents
-// is walked recursively, so its subfolders must not also be queued by name.
-static void UYTScanForVideoFile(NSString *vid, void (^report)(NSString *path, NSString *label)) {
-    if (!vid.length) return;
-    @try {
-        NSFileManager *fm = [NSFileManager defaultManager];
-        NSString *docs = UYTDocsDir();
-        if (!docs.length) return;
-
-        static NSSet<NSString *> *exts;
-        static dispatch_once_t once;
-        dispatch_once(&once, ^{
-            exts = [NSSet setWithArray:@[@"mp4", @"m4a", @"mp3", @"webm", @"mkv", @"mov", @"m4v"]];
-        });
-
-        NSMutableArray<NSString *> *queue = [NSMutableArray arrayWithObject:docs];
-        NSMutableSet<NSString *> *seen = [NSMutableSet set];
-        NSString *best = nil;
-        unsigned long long bestSize = 0;
-        NSUInteger budget = 4000;
-
-        while (queue.count && budget-- > 0) {
-            NSString *dir = [queue firstObject];
-            [queue removeObjectAtIndex:0];
-            if ([seen containsObject:dir]) continue;
-            [seen addObject:dir];
-
-            NSArray<NSString *> *names = [fm contentsOfDirectoryAtPath:dir error:NULL];
-            if (!names.count) continue;
-            for (NSString *name in names) {
-                if ([name hasPrefix:@"."]) continue;
-                NSString *full = [dir stringByAppendingPathComponent:name];
-                BOOL isDir = NO;
-                if (![fm fileExistsAtPath:full isDirectory:&isDir]) continue;
-                if (isDir) {
-                    [queue addObject:full];
-                    continue;
-                }
-                if (![exts containsObject:name.pathExtension.lowercaseString]) continue;
-                if ([name rangeOfString:vid options:NSCaseInsensitiveSearch].location == NSNotFound) continue;
-                unsigned long long size = UYTSizeOfFile(full);
-                if (size > bestSize) { bestSize = size; best = full; }
-            }
-        }
-
-        if (best) report(best, @"scanned download folder");
-    } @catch (NSException *e) {}
-}
-
-static NSDictionary *UYTBestAvailableSource(id item, id ui) {
-    if (!ui) return nil;
-    NSFileManager *fm = [NSFileManager defaultManager];
-
-    __block NSDictionary *bestNonWebm = nil;
-    __block unsigned long long bestNonWebmSize = 0;
-    __block NSDictionary *bestAny = nil;
-    __block unsigned long long bestAnySize = 0;
-
-    NSString *(^resolvePath)(id, SEL) = ^NSString *(id obj, SEL sel) {
-        if ([obj respondsToSelector:sel]) {
-            @try {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-                return [obj performSelector:sel];
-#pragma clang diagnostic pop
-            } @catch (id e) {}
-        }
-        return nil;
-    };
-
-    void (^checkPath)(NSString *, NSString *) = ^(NSString *path, NSString *label) {
-        if (!path.length) return;
-        NSDictionary *attrs = [fm attributesOfItemAtPath:path error:nil];
-        if (!attrs) return;
-        unsigned long long sz = UYTSizeOfAttrs(attrs);
-        if (sz == 0) return;
-        if (!UYTPathIsWebm(path) && sz > bestNonWebmSize) {
-            bestNonWebmSize = sz;
-            bestNonWebm = @{@"path": path, @"label": label};
-        }
-        if (sz > bestAnySize) {
-            bestAnySize = sz;
-            bestAny = @{@"path": path, @"label": label};
-        }
-    };
-
-    NSString *vid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
-    if (!vid.length && [item respondsToSelector:@selector(videoID)]) vid = [item videoID];
-    NSString *docs = UYTDocsDir();
-    if (vid.length) {
-        for (NSString *sub in @[@"Downloaded", @"Downloads"]) {
-            for (NSString *ext in @[@"mp4", @"m4a", @"webm"]) {
-                checkPath([docs stringByAppendingPathComponent:
-                           [NSString stringWithFormat:@"%@/%@.%@", sub, vid, ext]],
-                          [NSString stringWithFormat:@"%@ pipeline file", sub]);
-            }
-        }
-    }
-
-    // YouTube hands the DownloadItem both a staging (cachedPath) and final (filePath)
-    // location; both are authoritative and are the first thing to check.
-    if ([item respondsToSelector:@selector(cachedPath)]) checkPath([item cachedPath], @"download item cachedPath");
-    if ([item respondsToSelector:@selector(filePath)]) checkPath([item filePath], @"download item filePath");
-    if ([item respondsToSelector:@selector(videoID)] && [item videoID].length) vid = [item videoID];
-
-    checkPath(resolvePath(ui, @selector(tmpVideoPath)), @"tmp video stream");
-    checkPath(resolvePath(ui, @selector(cachedVideoPath)), @"cached video stream");
-    checkPath(resolvePath(ui, @selector(tmpAudioPath)), @"tmp audio stream");
-    checkPath(resolvePath(ui, @selector(cachedAudioPath)), @"cached audio stream");
-
-    UYTScanForVideoFile(vid, checkPath);
-
-    return bestNonWebm ?: bestAny;
-}
-
-static BOOL UYTForceCompleteItem(id item, id ui, NSString *reason) {
-    @try {
-        if (![ui respondsToSelector:@selector(filePath)]) return NO;
-        // The DownloadItem's own filePath is what the Downloading tab reads back, so it
-        // wins over the uYouItem path when the two disagree.
-        NSString *filePath = nil;
-        if ([item respondsToSelector:@selector(filePath)]) filePath = [item filePath];
-        if (!filePath.length) filePath = [ui filePath];
-        if (!filePath.length) return NO;
-
-        NSFileManager *fm = [NSFileManager defaultManager];
-
-        NSDictionary *finalAttrs = [fm attributesOfItemAtPath:filePath error:nil];
-        unsigned long long finalSize = UYTSizeOfAttrs(finalAttrs);
-        if (finalSize > 0) {
-            UYTDebugWarn(@"[uYouPatches] force-complete (%@): final file already exists (%llu bytes) - keeping",
-                      reason, finalSize);
-            return YES;
-        }
-
-        NSDictionary *best = UYTBestAvailableSource(item, ui);
-        if (!best) {
-            UYTDebugWarn(@"[uYouPatches] force-complete (%@): no usable source file yet", reason);
-            return NO;
-        }
-
-        NSString *destDir = [filePath stringByDeletingLastPathComponent];
-        if (destDir.length && ![fm fileExistsAtPath:destDir]) {
-            [fm createDirectoryAtPath:destDir withIntermediateDirectories:YES attributes:nil error:nil];
-        }
-        if ([fm fileExistsAtPath:filePath]) [fm removeItemAtPath:filePath error:nil];
-        NSError *err = nil;
-        BOOL ok = [fm moveItemAtPath:best[@"path"] toPath:filePath error:&err];
-        if (!ok) ok = [fm copyItemAtPath:best[@"path"] toPath:filePath error:&err];
-        if (!ok) {
-            UYTDebugWarn(@"[uYouPatches] force-complete (%@): move failed: %@", reason, err);
-            return NO;
-        }
-        UYTDebugWarn(@"[uYouPatches] force-complete (%@): promoted %@ -> %@", reason, best[@"label"], filePath);
-        return YES;
-    } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] force-complete (%@) exception: %@", reason, e);
-        return NO;
-    }
-}
-
-static void UYTPostCompletionNotifications(id item) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[NSNotificationCenter defaultCenter] postNotificationName:@"downloadDidCompleteNotification" object:item];
-        [[NSNotificationCenter defaultCenter] postNotificationName:@"conversionDidCompleteNotification" object:item];
-    });
-}
-
-static void UYTInsertDownloadRow(uYouItem *ui) {
-    @try {
-        if (!ui || ![ui respondsToSelector:@selector(videoID)]) return;
-        NSString *vid = [ui videoID];
-        NSString *filePath = [ui respondsToSelector:@selector(filePath)] ? [ui filePath] : nil;
-        if (!vid.length || !filePath.length) return;
-
-        NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-        NSString *dbPath = [docs stringByAppendingPathComponent:@"uyoudb.sqlite"];
-        sqlite3 *db = NULL;
-        if (sqlite3_open(dbPath.fileSystemRepresentation, &db) != SQLITE_OK) {
-            UYTDebugWarn(@"[uYouPatches] finalize: cannot open uyoudb.sqlite");
-            return;
-        }
-
-        sqlite3_exec(db,
-            "CREATE TABLE IF NOT EXISTS downloads ("
-            "id TEXT PRIMARY KEY, videoID TEXT, title TEXT, channel TEXT, channelURL TEXT, "
-            "qualityLabel TEXT, typeAndQuality TEXT, size TEXT, duration TEXT, "
-            "type TEXT, path TEXT, lyrics TEXT, timestamp DATETIME)",
-            NULL, NULL, NULL);
-
-        unsigned long long fileSize = UYTSizeOfFile(filePath);
-        NSString *title = [ui respondsToSelector:@selector(title)] ? [ui title] : @"";
-        NSString *channel = [ui respondsToSelector:@selector(channel)] ? [ui channel] : @"";
-        NSString *quality = [ui respondsToSelector:@selector(qualityLabel)] ? [ui qualityLabel] : @"";
-        NSString *typeAndQuality = [ui respondsToSelector:@selector(typeAndQuality)] ? [ui typeAndQuality] : @"";
-        BOOL isAudio = [filePath.pathExtension.lowercaseString isEqualToString:@"m4a"] ||
-                       [filePath.pathExtension.lowercaseString isEqualToString:@"mp3"];
-        NSString *type = isAudio ? @"audio" : @"video";
-        NSString *sizeStr = [NSString stringWithFormat:@"%llu", fileSize];
-
-        const char *sql = "INSERT OR REPLACE INTO downloads "
-                          "(id, videoID, title, channel, channelURL, qualityLabel, typeAndQuality, "
-                          "size, duration, type, path, lyrics, timestamp) "
-                          "VALUES (?1, ?1, ?2, ?3, '', ?4, ?5, ?6, '', ?7, ?8, '', datetime('now','localtime'))";
-        sqlite3_stmt *stmt = NULL;
-        if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK) {
-            sqlite3_bind_text(stmt, 1, vid.UTF8String, -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(stmt, 2, title.UTF8String, -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(stmt, 3, channel.UTF8String, -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(stmt, 4, quality.UTF8String, -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(stmt, 5, typeAndQuality.UTF8String, -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(stmt, 6, sizeStr.UTF8String, -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(stmt, 7, type.UTF8String, -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(stmt, 8, filePath.UTF8String, -1, SQLITE_TRANSIENT);
-            if (sqlite3_step(stmt) != SQLITE_DONE) {
-                UYTDebugWarn(@"[uYouPatches] finalize: DB insert failed: %s", sqlite3_errmsg(db));
+            if (imageView) {
+                imageView.tag = 9999;
+                imageView.frame = container.bounds;
+                imageView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+                [container insertSubview:imageView atIndex:0];
             } else {
-                UYTDebugInfo(@"[uYouPatches] finalize: DB row written for %@", vid);
+                // Fallback to color
+                UIView *colorView = [[UIView alloc] initWithFrame:container.bounds];
+                colorView.tag = 9998;
+                colorView.backgroundColor = [ambientColor colorWithAlphaComponent:intensity];
+                colorView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+                [container insertSubview:colorView atIndex:0];
             }
-            sqlite3_finalize(stmt);
+            break;
         }
-        sqlite3_close(db);
-    } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] finalize: DB insert exception: %@", e);
+        default:
+            break;
     }
 }
 
-static void UYTPurgeDownloadingQueueRows(NSString *vid) {
-    if (!vid.length) return;
-    @try {
-        NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-        NSString *dbPath = [docs stringByAppendingPathComponent:@"uyoudb.sqlite"];
-        sqlite3 *db = NULL;
-        if (sqlite3_open(dbPath.fileSystemRepresentation, &db) != SQLITE_OK) return;
-
-        const char *sql = "SELECT id, data FROM downloading";
-        sqlite3_stmt *stmt = NULL;
-        NSMutableArray<NSNumber *> *doomed = [NSMutableArray array];
-        NSData *needle = [vid dataUsingEncoding:NSUTF8StringEncoding];
-        if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) == SQLITE_OK) {
-            while (sqlite3_step(stmt) == SQLITE_ROW) {
-                long long rowID = sqlite3_column_int64(stmt, 0);
-                const void *blob = sqlite3_column_blob(stmt, 1);
-                int blobLen = sqlite3_column_bytes(stmt, 1);
-                if (blob && blobLen > 0 && needle.length > 0 &&
-                    memmem(blob, (size_t)blobLen, needle.bytes, needle.length)) {
-                    [doomed addObject:@(rowID)];
-                }
-            }
-            sqlite3_finalize(stmt);
+// ============================================================================
+// Find player VC from any view in hierarchy
+// ============================================================================
+static id YTAmbientLightFindPlayerVC(UIView *view) {
+    UIResponder *responder = view.nextResponder;
+    while (responder) {
+        if ([responder isKindOfClass:[YTPlayerViewController class]] || 
+            [responder isKindOfClass:[YTMainAppVideoPlayerOverlayViewController class]]) {
+            return responder;
         }
-        for (NSNumber *rowID in doomed) {
-            sqlite3_exec(db, [[NSString stringWithFormat:@"DELETE FROM downloading WHERE id = %lld", rowID.longLongValue] UTF8String], NULL, NULL, NULL);
-        }
-        if (doomed.count) UYTDebugInfo(@"[uYouPatches] finalize: purged %lu downloading queue row(s)", (unsigned long)doomed.count);
-        sqlite3_close(db);
-    } @catch (NSException *e) {}
-}
-
-static void UYTRemoveFromDownloadingList(id item) {
-    @try {
-        Class managerClass = %c(DownloadsManager);
-        if (!managerClass) return;
-        id manager = [managerClass sharedInstance];
-        if (!manager || ![manager respondsToSelector:@selector(downloadItemsArray)]) return;
-        NSMutableArray *array = [manager downloadItemsArray];
-        if ([array isKindOfClass:[NSMutableArray class]] && item) {
-            [array removeObject:item];
-        }
-    } @catch (NSException *e) {}
-}
-
-static BOOL UYTFinalizeItem(id item, NSString *reason) {
-    @try {
-        id ui = UYTResolveUYouItem(item);
-        if (!ui) return NO;
-
-        if ([ui respondsToSelector:@selector(isDownloadFinished)] && [ui isDownloadFinished]) {
-            UYTPostCompletionNotifications(item);
-            return YES;
-        }
-
-        if (!UYTForceCompleteItem(item, ui, reason)) return NO;
-
-        @try { [ui setValue:@YES forKey:@"isDownloadFinished"]; } @catch (NSException *e) {}
-        @try { [ui setValue:@YES forKey:@"finished"]; } @catch (NSException *e) {}
-
-        UYTInsertDownloadRow(ui);
-        UYTPurgeDownloadingQueueRows([ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil);
-        UYTRemoveFromDownloadingList(item);
-
-        dispatch_async(dispatch_get_main_queue(), ^{
-            @try {
-                id manager = [%c(DownloadsManager) sharedInstance];
-                if (manager && [manager respondsToSelector:@selector(reloadDownloadedVC)]) {
-                    [manager reloadDownloadedVC];
-                }
-            } @catch (NSException *e) {}
-        });
-        UYTPostCompletionNotifications(item);
-        UYTDebugWarn(@"[uYouPatches] finalize (%@): item fully completed", reason);
-        return YES;
-    } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] finalize (%@) exception: %@", reason, e);
-        return NO;
-    }
-}
- 
-// Unified merge handler — both mergeAudioWithMP4VideoForDownloadItem and
-// mergeAudioWithVideoForDownloadItem delegate here. Returns YES if the item
-// was finalized (success or fallback), NO if the caller should re-try later.
-static BOOL UYTPerformMergeIfNeeded(id item, NSString *phase) {
-    UYTDebugInfo(@"[uYouPatches] %@: merge handler entered", phase);
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouConversionStarted" object:item];
-    });
- 
-    if (UYTItemIsAudioOnly(item)) {
-        UYTDebugInfo(@"[uYouPatches] %@: audio-only item — finalizing without merge", phase);
-        if (UYTFinalizeItem(item, [NSString stringWithFormat:@"%@ audio-only no-merge", phase])) return YES;
-        UYTArmStallWatchdog(item, 45.0);
-        return YES;
-    }
- 
-    if (!UYTEnsureMergeableAudio(item, phase)) {
-        if (UYTFinalizeItem(item, [NSString stringWithFormat:@"%@ no-merge fallback", phase])) return YES;
-        UYTArmStallWatchdog(item, 45.0);
-        return YES;
-    }
- 
-    if (!UYTEnsureMergeableVideo(item, phase)) {
-        UYTDebugWarn(@"[uYouPatches] %@: video not pre-mergeable — continuing (best-effort)", phase);
-    }
- 
-    id ui = UYTResolveUYouItem(item);
-    if (UYTRemuxWithFFmpeg(ui, phase)) {
-        if (UYTFinalizeItem(item, [NSString stringWithFormat:@"%@ ffmpeg remux", phase])) return YES;
-        UYTArmStallWatchdog(item, 45.0);
-        return YES;
-    }
- 
-    NSString *vid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
-    @try {
-        if (vid.length && UYTSABRHasValidCaptureForVideoID(vid)) {
-            UYTSABRRecoverItemForVideo(vid, UYTIsAudioOnly(vid));
-            return YES;
-        }
-    } @catch (NSException *e) {}
- 
-    if (UYTFinalizeItem(item, [NSString stringWithFormat:@"%@ no-merge fallback", phase])) return YES;
-    UYTArmStallWatchdog(item, 45.0);
-    return YES;
-}
- 
-static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSString *, NSNumber *> *lastSizes);
-
-static void UYTScheduleStallCheck(id item, NSTimeInterval delay, NSInteger pollsLeft,
-                                  NSMutableDictionary<NSString *, NSNumber *> *lastSizes) {
-    __weak id weakItem = item;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)),
-                   dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-        UYTStallCheck(weakItem, pollsLeft, lastSizes);
-    });
-}
-
-static void UYTStallCheck(id item, NSInteger pollsLeft, NSMutableDictionary<NSString *, NSNumber *> *lastSizes) {
-    if (!item || pollsLeft <= 0) return;
-    @try {
-        id ui = UYTResolveUYouItem(item);
-        if (!ui) return;
-
-        BOOL finished = NO;
-        if ([ui respondsToSelector:@selector(isDownloadFinished)]) {
-            finished = [ui isDownloadFinished];
-        }
-        NSString *finalPath = nil;
-        if ([item respondsToSelector:@selector(filePath)]) finalPath = [item filePath];
-        if (!finalPath.length && [ui respondsToSelector:@selector(filePath)]) finalPath = [ui filePath];
-        NSFileManager *fm = [NSFileManager defaultManager];
-        NSDictionary *attrs = finalPath.length ? [fm attributesOfItemAtPath:finalPath error:nil] : nil;
-        NSString *cachedPath = [item respondsToSelector:@selector(cachedPath)] ? [item cachedPath] : nil;
-        BOOL haveStaged = cachedPath.length && UYTSizeOfFile(cachedPath) > 0;
-        if (finished || UYTSizeOfAttrs(attrs) > 0 || haveStaged) return;
-
-        UYTDebugErr(@"[uYouPatches] stall watchdog: download stalled (polls left %ld, vid: %@)",
-                    (long)pollsLeft, [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : @"?");
-
-        NSDictionary *best = UYTBestAvailableSource(item, ui);
-        if (!best) {
-            if (pollsLeft > 1) {
-                UYTScheduleStallCheck(item, 10.0, pollsLeft - 1, lastSizes); // 10 sec interval (was 5)
-            }
-            return;
-        }
-
-        NSString *bestPath = best[@"path"];
-        unsigned long long bestSize = UYTSizeOfFile(bestPath);
-        NSNumber *prevSize = lastSizes[bestPath];
-        lastSizes[bestPath] = @(bestSize);
-        BOOL stillGrowing = prevSize && bestSize > prevSize.unsignedLongLongValue;
-        if (stillGrowing && pollsLeft > 1) {
-            UYTDebugInfo(@"[uYouPatches] stall recovery deferred - %@ is still growing (%llu bytes)",
-                      bestPath.lastPathComponent, bestSize);
-            UYTScheduleStallCheck(item, 10.0, pollsLeft - 1, lastSizes); // 10 sec interval
-            return;
-        }
-
-        if (UYTFinalizeItem(item, @"stall watchdog")) {
-            return;
-        }
-        if (pollsLeft > 1) {
-            UYTScheduleStallCheck(item, 10.0, pollsLeft - 1, lastSizes); // 10 sec interval
-        }
-    } @catch (NSException *e) {}
-}
-
-static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
-    // Coalesce: cancel existing watchdog for this item before starting new one
-    static const char *UYTStallWatchdogKey = "UYTArmStallWatchdogKey";
-    NSObject *existingTimer = objc_getAssociatedObject(item, UYTStallWatchdogKey);
-    if (existingTimer) {
-        // Cancel existing timer
-        [NSObject cancelPreviousPerformRequestsWithTarget:existingTimer selector:@selector(fire) object:nil];
-    }
-    
-    // Create new timer object for tracking
-    NSTimer *timer = [NSTimer scheduledTimerWithTimeInterval:seconds
-                                                      target:[NSObject class]
-                                                    selector:@selector(initialize)
-                                                    userInfo:nil
-                                                     repeats:NO];
-    objc_setAssociatedObject(item, "UYTStallWatchdogKey", timer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    
-    // Use longer interval, fewer polls: 10 sec × 4 polls = 20 sec max (was 5s × 8 = 40s)
-    UYTScheduleStallCheck(item, seconds, 4, [NSMutableDictionary dictionary]);
-}
-
-static NSString *UYTNonEmptyID(id value) {
-    if (![value isKindOfClass:[NSString class]]) return nil;
-    NSString *s = [(NSString *)value stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    if (!s.length) return nil;
-    if ([s hasPrefix:@"("] && [s hasSuffix:@")"]) return nil;
-    return s;
-}
-
-static NSString *UYTResolveVideoID(id param, id item) {
-    NSString *vid = UYTNonEmptyID(param);
-    if (vid) return vid;
-    for (NSString *key in @[@"videoID", @"videoId", @"video_id", @"identifier"]) {
-        @try {
-            if (![item respondsToSelector:NSSelectorFromString(key)]) continue;
-            NSString *found = UYTNonEmptyID([item valueForKey:key]);
-            if (found) {
-                UYTDebugWarn(@"[uYouPatches] videoID arg was empty; recovered %@ from item.%@", found, key);
-                return found;
-            }
-        } @catch (NSException *e) {}
+        responder = responder.nextResponder;
     }
     return nil;
 }
 
-%hook DownloadsManager
-- (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
-    NSString *vid = UYTResolveVideoID(videoID, item);
-    if (!vid.length) {
-        UYTDebugErr(@"[uYouPatches] download requested with no resolvable videoID (arg=%@, item=%@) - skipping pipeline, handing off to uYou",
-                    UYTNonEmptyID(videoID) ?: @"empty", NSStringFromClass([item class]));
-        %orig;
+// ============================================================================
+// Apply effect to CinematicContainerView
+// ============================================================================
+static void YTAmbientLightApplyToCinematicContainer(YTCinematicContainerView *container) {
+    id playerVC = YTAmbientLightFindPlayerVC(container);
+    YTAmbientLightApplyEffectToView(container, playerVC);
+}
+
+// ============================================================================
+// Apply effect to WatchNext sidebar
+// ============================================================================
+static void YTAmbientLightApplyToWatchNextView(UIView *watchNextView) {
+    id playerVC = YTAmbientLightFindPlayerVC(watchNextView);
+    YTAmbientLightApplyEffectToView(watchNextView, playerVC);
+}
+
+// ============================================================================
+// Find and apply to CinematicContainerView in hierarchy
+// ============================================================================
+static void YTAmbientLightFindAndApplyCinematic(UIView *view) {
+    if (!view) return;
+    if ([view isKindOfClass:[YTCinematicContainerView class]]) {
+        YTAmbientLightApplyToCinematicContainer((YTCinematicContainerView *)view);
         return;
     }
-    UYTDebugInfo(@"[uYouPatches] download requested (vid: %@, shorts: %@)", vid, isShorts ? @"YES" : @"NO");
-
-    NSString *requestedQuality = [[NSUserDefaults standardUserDefaults] stringForKey:@"UYTRequestedQuality"];
-    BOOL requestedAudioOnly = [[NSUserDefaults standardUserDefaults] boolForKey:@"UYTRequestedAudioOnly"];
-
-    [UYTDownloadPipeline fetchFormatsForVideoID:vid isShorts:isShorts progress:^(double frac, unsigned long long bytes) {
-        @try {
-            UYTDriveDownloadItemProgressForVideoID(vid, frac, bytes);
-        } @catch (NSException *e) {}
-    } completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
-        if (!formats.count) {
-            UYTDebugErr(@"getLinks: no formats for %@ (%@)", vid, error.localizedDescription ?: @"none");
-        } else {
-            UYTDebugInfo(@"getLinks: %lu formats for %@ (audioOnly=%d, quality=%@)",
-                         (unsigned long)formats.count, vid, requestedAudioOnly,
-                         requestedQuality.length ? requestedQuality : @"default");
-        }
-        UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
-        UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
-        UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
-
-        if (requestedQuality.length) {
-            UYTStreamFormat *picked = [UYTDownloadPipeline bestVideoFormat:formats
-                                                              qualityLabel:requestedQuality];
-            if (picked) video = picked;
-        }
-
-        if (requestedAudioOnly) {
-            video = nil;
-            muxed = nil;
-            if (!audio || !audio.url.length) {
-                UYTDebugErr(@"getLinks: audio-only requested for %@ but no audio format available - failing", vid);
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    UYTFinalizeItem(item, @"audio format unavailable");
-                });
-                return;
-            }
-        }
-
-        UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
-        UYTMarkAudioOnly(vid, requestedAudioOnly);
-        UYTDebugInfo(@"[UYTPipeline] cached URLs for %@ (muxed=%@, audio=%@, video=%@, audioOnly=%d)",
-              vid,
-              muxed.mimeType.length ? muxed.mimeType : @"none",
-              audio.mimeType.length ? audio.mimeType : @"none",
-              video.mimeType.length ? video.mimeType : @"none",
-              requestedAudioOnly);
-
-        if (video.url.length) UYTRegisterVideoIDForURL(vid, video.url);
-        if (audio.url.length) UYTRegisterVideoIDForURL(vid, audio.url);
-        if (muxed.url.length) UYTRegisterVideoIDForURL(vid, muxed.url);
-        @try {
-            NSString *original = [item respondsToSelector:@selector(remoteURL)] ?
-                [item remoteURL] : [item valueForKey:@"remoteURL"];
-            if ([original isKindOfClass:[NSString class]]) UYTRegisterVideoIDForURL(vid, original);
-        } @catch (NSException *e) {}
-
-        [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedQuality"];
-        [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedAudioOnly"];
-
-        dispatch_async(dispatch_get_main_queue(), ^{
-            %orig;
-            UYTArmStallWatchdog(item, 300.0);
-            uYouActiveDownloadCount++;
-            if (!uYouDownloadIsActive) {
-                uYouDownloadIsActive = YES;
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [[UIApplication sharedApplication] setIdleTimerDisabled:YES];
-                });
-            }
-        });
-    }];
+    for (UIView *subview in view.subviews) {
+        [self findAndApplyToCinematicContainer:subview];
+    }
 }
-%end
 
-%hook DownloadItem
-- (void)createDownloadTask {
-    @try {
-        NSString *vid = UYTNonEmptyID(self.videoID);
-
-        if (vid.length) {
-            NSString *resolved = UYTResolvedVideoURL(vid);
-            if (!resolved.length) resolved = UYTResolvedURLForVideo(vid, YES);
-            if (resolved.length && [resolved hasPrefix:@"file://"]) {
-                id ui = UYTResolveUYouItem(self);
-                if (ui) {
-                    UYTDebugInfo(@"createDownloadTask: file:// ready for %@ — finalizing w/o network task", vid);
-                    NSString *filePath = [NSURL URLWithString:resolved].path;
-                    if (!filePath.length) filePath = ui ? (([ui respondsToSelector:@selector(filePath)]) ? [ui filePath] : nil) : nil;
-                    @try { UYTWriteFinalDownloadProgress(self, filePath); } @catch (NSException *e) {}
-                    if (UYTFinalizeItem(self, @"SABR on-device")) return;
-                }
-            }
-        }
-
-        if (vid.length && UYTSABRIsDownloadActive(vid)) {
-            UYTDebugWarn(@"[uYouPatches] skipping uYou's createDownloadTask for %@ - SABR is driving this download", vid);
+// ============================================================================
+// Find and apply to WatchNext view in hierarchy
+// ============================================================================
+static void YTAmbientLightFindAndApplyWatchNext(UIView *view) {
+    if (!view) return;
+    
+    // Check for WatchNextResultsViewController's view
+    if ([view isKindOfClass:NSClassFromString(@"YTWatchNextResultsViewController")]) {
+        YTAmbientLightApplyToWatchNextView(view);
+        return;
+    }
+    
+    // Check for view with watch_next accessibility identifier
+    if ([view.accessibilityIdentifier isEqualToString:@"watch_next"] ||
+        [view.accessibilityIdentifier isEqualToString:@"id.watch_next.view"] ||
+        [view.accessibilityIdentifier hasPrefix:@"watch_next"]) {
+        YTAmbientLightApplyToWatchNextView(view);
+        return;
+    }
+    
+    // Check for WatchNextResultsViewController's view property
+    for (UIView *subview in view.subviews) {
+        if ([subview isKindOfClass:NSClassFromString(@"YTWatchNextResultsViewController")]) {
+            YTAmbientLightApplyToWatchNextView(subview);
             return;
         }
-    } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] createDownloadTask SABR shortcut failed: %@", e);
+        // Check for collection view that might be the WatchNext results
+        if ([subview isKindOfClass:[UICollectionView class]] && 
+            [subview.superview isKindOfClass:NSClassFromString(@"YTWatchNextResultsViewController")]) {
+            YTAmbientLightApplyToWatchNextView(subview.superview);
+            return;
+        }
+        [self findAndApplyToWatchNextView:subview];
     }
-    %orig;
 }
 
-- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
-    @try {
-        if (error) {
-            NSString *vid = self.videoID ?: @"";
-            long code = (long)error.code;
-            if (vid.length && (code == -1011 || code == -1100 || code == -1002 || code == -1004)) {
-                if (UYTSABRHasValidCaptureForVideoID(vid)) {
-                    UYTDebugWarn(@"[uYouPatches] task error (%ld) for %@ - rerouting to SABR capture", code, vid);
-                    UYTSABRRecoverItemForVideo(vid, UYTIsAudioOnly(vid));
-                    return;
-                }
-                static char retryKey;
-                if (![objc_getAssociatedObject(self, &retryKey) boolValue]) {
-                    objc_setAssociatedObject(self, &retryKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-                    UYTDebugWarn(@"[uYouPatches] task error (%ld) for %@ - refetching fresh URLs", code, vid);
-                    __block NSArray<UYTStreamFormat *> *freshFormats = nil;
-                    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-                    [UYTDownloadPipeline fetchFormatsForVideoID:vid isShorts:NO progress:nil completion:^(NSArray<UYTStreamFormat *> *formats, NSError *fetchErr) {
-                        freshFormats = formats;
-                        dispatch_semaphore_signal(sem);
-                    }];
-                    long waited = dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8.0 * NSEC_PER_SEC)));
-                    if (waited == 0 && freshFormats.count) {
-                        UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:freshFormats];
-                        UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:freshFormats];
-                        UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:freshFormats];
-                        BOOL audioOnly = UYTIsAudioOnly(vid);
-                        if (audioOnly) {
-                            UYTStoreResolvedURLs(vid, nil, audio.url, nil);
-                        } else {
-                            UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
-                        }
-                        UYTRegisterVideoIDForURL(vid, video.url);
-                        UYTRegisterVideoIDForURL(vid, audio.url);
-                        UYTRegisterVideoIDForURL(vid, muxed.url);
-                        NSString *fresh = audioOnly ? UYTAudioOnlyURL(vid) : UYTResolvedVideoURL(vid);
-                        if (fresh.length) {
-                            UYTDebugWarn(@"[uYouPatches] restarting %@ on a fresh URL after (%ld)", vid, code);
-                            UYTDebugErr(@"restarting %@ on fresh URL after %ld — new task armed", vid, code);
-                            [self setRemoteURL:[NSURL URLWithString:fresh]];
-                            [self createDownloadTask];
-                            return;
-                        }
-                    } else {
-                        UYTDebugWarn(@"[uYouPatches] no fresh URLs for %@ after (%ld) — reporting to uYou", vid, code);
-                        UYTDebugErr(@"no fresh URLs for %@ after %ld — giving up, will show -1011", vid, code);
-                    }
+// ============================================================================
+// Settings observer to reapply effect when settings change
+// ============================================================================
+%ctor {
+    NSNotificationCenter *center = [NSUserDefaults standardUserDefaults];
+    [center addObserverForName:NSUserDefaultsDidChangeNotification 
+                         object:nil 
+                          queue:[NSOperationQueue mainQueue] 
+                     usingBlock:^(NSNotification *note) {
+        if (IS_YTAMBIENTLIGHT_ENABLED()) {
+            UIWindow *window = [UIApplication sharedApplication].keyWindow;
+            if (window) {
+                for (UIView *subview in window.subviews) {
+                    [self findAndApplyToCinematicContainer:subview];
+                    [self findAndApplyToWatchNextView:subview];
                 }
             }
         }
-    } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] URLSession didComplete reroute failed: %@", e);
+    }];
+    
+    // Initialize defaults
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    if (![defaults objectForKey:kYTAmbientLightEnabled]) {
+        [defaults setBool:YES forKey:kYTAmbientLightEnabled];
     }
-    %orig;
-}
-%end
-
-%hook uYouItem
-- (BOOL)isMP4 {
-    BOOL origResult = %orig;
-    if (origResult) return YES;
-
-    NSString *typeAndQuality = [self valueForKey:@"typeAndQuality"];
-    if (!typeAndQuality) {
-        typeAndQuality = self.qualityLabel;
+    if (![defaults objectForKey:kYTAmbientLightMode]) {
+        [defaults setInteger:0 forKey:kYTAmbientLightMode];
     }
-
-    if (typeAndQuality) {
-        NSString *lower = [typeAndQuality lowercaseString];
-        if ([lower containsString:@"audio"] ||
-            [lower containsString:@"mp4a"] ||
-            [lower containsString:@"mp4v"] ||
-            [lower containsString:@"mp4"] ||
-            [lower containsString:@"avc1"] ||
-            [lower containsString:@"video/mp4"]) {
-            return YES;
-        }
+    if (![defaults objectForKey:kYTAmbientLightIntensity]) {
+        [defaults setFloat:0.6 forKey:kYTAmbientLightIntensity];
     }
-
-    NSString *filePath = self.filePath;
-    if (filePath) {
-        return [[filePath pathExtension] isEqualToString:@"mp4"];
+    if (![defaults objectForKey:kYTAmbientLightBlurRadius]) {
+        [defaults setFloat:40.0 forKey:kYTAmbientLightBlurRadius];
     }
-
-    return NO;
-}
-%end
-
-%hook DownloadsManager
-- (void)addMetadataToAudioForDownloadItem:(id)item {
-    UYTDebugInfo(@"[uYouPatches] addMetadata entered");
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouConversionStarted" object:item];
-    });
-
-    BOOL needsAudioExtraction = NO;
-    @try {
-        needsAudioExtraction = [[item valueForKey:@"uYouNeedsAudioExtraction"] boolValue];
-    } @catch (NSException *e) {}
-
-    id ui = UYTResolveUYouItem(item);
-    if (!needsAudioExtraction && ui) {
-        NSString *extractionVid = [ui respondsToSelector:@selector(videoID)] ? [ui videoID] : nil;
-        if (extractionVid.length && UYTIsAudioOnly(extractionVid)) {
-            needsAudioExtraction = YES;
-            UYTDebugInfo(@"[uYouPatches] audio-only request for %@ - checking muxed source for extraction", extractionVid);
-        }
-    }
-
-    if (needsAudioExtraction) {
-        UYTDebugInfo(@"[uYouPatches] Audio-only download needs extraction from muxed video");
-        if (ui) {
-            NSString *videoPath = nil;
-            if ([ui respondsToSelector:@selector(tmpVideoPath)]) videoPath = [ui tmpVideoPath];
-            if (!videoPath.length && [ui respondsToSelector:@selector(cachedVideoPath)]) videoPath = [ui cachedVideoPath];
-            NSString *finalPath = [ui respondsToSelector:@selector(filePath)] ? [ui filePath] : nil;
-
-            if (videoPath.length && finalPath.length) {
-                NSString *tmpAudio = [finalPath stringByAppendingString:@".extracted.m4a"];
-                [[NSFileManager defaultManager] removeItemAtPath:tmpAudio error:nil];
-
-                if (UYTFFActiveBackend() != UYTFFBackendNone) {
-                    BOOL ok = UYTFFConvertWebmAudioToM4a(videoPath, tmpAudio);
-                    if (ok && [[NSFileManager defaultManager] fileExistsAtPath:tmpAudio]) {
-        NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:tmpAudio error:nil];
-        if (UYTSizeOfAttrs(attrs) > 0) {
-                            [[NSFileManager defaultManager] removeItemAtPath:finalPath error:nil];
-                            [[NSFileManager defaultManager] moveItemAtPath:tmpAudio toPath:finalPath error:nil];
-                            UYTDebugInfo(@"[uYouPatches] Extracted audio from muxed video for %@", finalPath);
-                            if (UYTFinalizeItem(item, @"audio extracted from muxed")) return;
-                            UYTArmStallWatchdog(item, 30.0);
-                            return;
-                        }
-                    }
-                    UYTDebugWarn(@"[uYouPatches] audio extraction from muxed video failed for %@", videoPath.lastPathComponent);
-                    [[NSFileManager defaultManager] removeItemAtPath:tmpAudio error:nil];
-                }
-            }
-        }
-    }
-
-    if (!UYTEnsureMergeableAudio(item, @"addMetadata")) {
-        if (UYTFinalizeItem(item, @"no-merge fallback")) return;
-        UYTArmStallWatchdog(item, 45.0);
-        return;
-    }
-
-    if (UYTAudioStillWebm(item)) {
-        UYTDebugWarn(@"[uYouPatches] Audio still WebM after conversion - skipping merge to avoid infinite hang");
-        if (UYTFinalizeItem(item, @"still-webm skip")) return;
-        UYTArmStallWatchdog(item, 45.0);
-        return;
-    }
-
-    UYTArmStallWatchdog(item, 30.0);
-    @try {
-        %orig;
-    } @catch (NSException *e) {
-        UYTDebugWarn(@"[uYouPatches] addMetadataToAudio failed: %@ for item: %@", e, item);
-        if (!UYTFinalizeItem(item, @"metadata exception recovery")) {
-            UYTArmStallWatchdog(item, 45.0);
-        }
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [[NSNotificationCenter defaultCenter] postNotificationName:@"uYouDownloadMetadataFailed" object:nil];
-        });
-    }
-}
-%end
-
-%hook DownloadsManager
-- (void)mergeAudioWithMP4VideoForDownloadItem:(id)item {
-    UYTPerformMergeIfNeeded(item, @"mergeMP4");
-}
-
-- (void)mergeAudioWithVideoForDownloadItem:(id)item {
-    UYTPerformMergeIfNeeded(item, @"mergeAudio");
-}
-%end
-
-%hook NSFileManager
-- (BOOL)moveItemAtPath:(NSString *)srcPath toPath:(NSString *)dstPath error:(NSError **)error {
-    BOOL result = %orig;
-
-    // Only rescue our own download artefacts. A blanket redirect here used to move every
-    // failing move in YouTube into Documents/Downloaded, which YouTube then could not find.
-    if (!result && error && *error) {
-        BOOL isMedia = [dstPath.pathExtension.lowercaseString isEqualToString:@"mp4"] ||
-                       [dstPath.pathExtension.lowercaseString isEqualToString:@"m4a"] ||
-                       [dstPath.pathExtension.lowercaseString isEqualToString:@"webm"] ||
-                       [dstPath.pathExtension.lowercaseString isEqualToString:@"mp3"];
-        if (isMedia && ([*error code] == NSFileWriteNoPermissionError ||
-                        [*error code] == NSFileWriteFileExistsError ||
-                        [*error domain] == NSPOSIXErrorDomain)) {
-            NSString *dstDir = [dstPath stringByDeletingLastPathComponent];
-            if (![[NSFileManager defaultManager] fileExistsAtPath:dstDir]) {
-                [[NSFileManager defaultManager] createDirectoryAtPath:dstDir
-                                       withIntermediateDirectories:YES
-                                                        attributes:nil
-                                                             error:nil];
-                result = [self moveItemAtPath:srcPath toPath:dstPath error:error];
-                if (result) UYTDebugInfo(@"[uYouPatches] created %@ for download move", dstDir.lastPathComponent);
-            }
-        }
-    }
-
-    return result;
-}
-
-- (BOOL)copyItemAtPath:(NSString *)srcPath toPath:(NSString *)dstPath error:(NSError **)error {
-    NSString *dstDir = [dstPath stringByDeletingLastPathComponent];
-    if (![[NSFileManager defaultManager] fileExistsAtPath:dstDir]) {
-        [[NSFileManager defaultManager] createDirectoryAtPath:dstDir
-                               withIntermediateDirectories:YES
-                                                attributes:nil
-                                                     error:nil];
-    }
-    return %orig;
-}
-%end
-
-%hook YTAppDelegate
-- (void)applicationDidEnterBackground:(UIApplication *)application {
-    if (uYouDownloadIsActive) {
-        uYouDownloadIsActive = NO;
-        uYouActiveDownloadCount = 0;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [[UIApplication sharedApplication] setIdleTimerDisabled:NO];
-        });
-    }
-    %orig;
-}
-%end
-
-%end
-
-%group gYouSpeedFixes
-
-static float uYouSavedPlaybackRate = 0.0f;
-
-%hook YTMainAppVideoPlayerOverlayViewController
-- (void)setPlaybackRate:(CGFloat)rate {
-    %orig(rate);
-
-    if (rate != 1.0f) {
-        uYouSavedPlaybackRate = rate;
-        [[NSUserDefaults standardUserDefaults] setFloat:rate forKey:@"uYouSavedPlaybackRate"];
-        [[NSUserDefaults standardUserDefaults] synchronize];
+    if (![defaults objectForKey:kYTAmbientLightUseVideoColors]) {
+        [defaults setBool:YES forKey:kYTAmbientLightUseVideoColors];
     }
 }
 
-- (CGFloat)currentPlaybackRate {
-    CGFloat rate = %orig;
-
-    if (rate == 1.0f && uYouSavedPlaybackRate > 0.0f && uYouSavedPlaybackRate != 1.0f) {
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            @try {
-                [self setPlaybackRate:uYouSavedPlaybackRate];
-            } @catch (NSException *e) {
-                UYTDebugWarn(@"[uYouPatches] Failed to restore playback rate: %@", e);
-            }
-        });
-    }
-
-    return rate;
-}
-%end
+%group gYTAmbientLight
 
 %hook YTPlayerViewController
-- (void)setPlaybackRate:(float)rate {
-    %orig(rate);
-    if (rate != 1.0f) {
-        uYouSavedPlaybackRate = rate;
-        [[NSUserDefaults standardUserDefaults] setFloat:rate forKey:@"uYouSavedPlaybackRate"];
-        [[NSUserDefaults standardUserDefaults] synchronize];
-    }
-}
-
 - (void)viewDidAppear:(BOOL)animated {
     %orig(animated);
-
-    float savedRate = [[NSUserDefaults standardUserDefaults] floatForKey:@"uYouSavedPlaybackRate"];
-    if (savedRate > 0.0f && savedRate != 1.0f) {
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            @try {
-                [self setPlaybackRate:savedRate];
-            } @catch (NSException *e) {
-                UYTDebugWarn(@"[uYouPatches] Failed to restore playback rate on appear: %@", e);
-            }
+    if (IS_YTAMBIENTLIGHT_ENABLED() && YTAMBIENTLIGHT_MODE() != 3) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self findAndApplyToCinematicContainer:self.view];
+            [self findAndApplyToWatchNextView:self.view];
         });
     }
 }
 %end
 
-%hook HAMPlayerInternal
-- (void)setRate:(float)rate {
-    if (rate == 1.0f && uYouSavedPlaybackRate > 0.0f && uYouSavedPlaybackRate != 1.0f) {
-        float currentRate = [self rate];
-        if (currentRate > 0.0f && currentRate != 1.0f) {
-            %orig(uYouSavedPlaybackRate);
-            return;
-        }
-    }
-    %orig(rate);
-}
-%end
-
-%end
-
-%group gYouFullscreenFixes
-
-%hook YTFullScreenEngagementOverlayController
-- (BOOL)isEnabled {
-    if (IS_ENABLED(@"noSuggestedVideo_enabled")) {
-        return NO;
-    }
-
-    return IS_ENABLED(@"repeatVideo") ? NO : %orig;
-}
-%end
-
-%hook YTFullScreenEngagementOverlayView
-- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    if (IS_ENABLED(@"noSuggestedVideo_enabled")) {
-        [self.nextResponder touchesBegan:touches withEvent:event];
-        return;
-    }
-    %orig;
-}
-
-- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    if (IS_ENABLED(@"noSuggestedVideo_enabled")) {
-        [self.nextResponder touchesMoved:touches withEvent:event];
-        return;
-    }
-    %orig;
-}
-
-- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    if (IS_ENABLED(@"noSuggestedVideo_enabled")) {
-        [self.nextResponder touchesEnded:touches withEvent:event];
-        return;
-    }
-    %orig;
-}
-
-- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    if (IS_ENABLED(@"noSuggestedVideo_enabled")) {
-        [self.nextResponder touchesCancelled:touches withEvent:event];
-        return;
-    }
-    %orig;
-}
-%end
-
-%end
-
-@interface settingsReorderTable (ReorderTabsIntegration)
-- (instancetype)initWithTitle:(id)title items:(id)items defaultValues:(id)defaults key:(id)key header:(id)header footer:(id)footer;
-@end
-
-%group gReorderTabsIntegration
-%hook settingsReorderTable
-- (instancetype)initWithTitle:(id)title items:(id)items defaultValues:(id)defaults key:(id)key header:(id)header footer:(id)footer {
-    if ([key isKindOfClass:[NSString class]] && [(NSString *)key isEqualToString:@"reorderedTabs"]) {
-        @try {
-            NSMutableArray *newItems = [items mutableCopy];
-            NSMutableArray *newDefaults = [defaults mutableCopy];
-            if (![newItems containsObject:@"Notifications"]) {
-                [newItems addObject:@"Notifications"];
-                [newDefaults addObject:@"FEnotifications_inbox"];
-            }
-            return %orig(title, newItems, newDefaults, key, header, footer);
-        } @catch (NSException *e) {
-            UYTDebugWarn(@"[uYouPatches] Reorder Tabs Notifications injection failed: %@", e);
-        }
-    }
-    return %orig;
-}
-%end
-%end
-
-#pragma mark - Reels Download Button
-
-static const char UYTReelsShortsKey = 0;
-
-static UIViewController *UYTReelsPresenterForHost(UIView *host) {
-    if (![host isKindOfClass:[UIView class]]) return nil;
-    UIResponder *chain = host;
-    while (chain) {
-        @try {
-            if ([chain isKindOfClass:[UIViewController class]]) return (UIViewController *)chain;
-        } @catch (NSException *e) {}
-        chain = [chain nextResponder];
-    }
-    return nil;
-}
-
-static void UYTReelsPresentAlertFromView(UIView *host, NSString *title, NSString *message) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        @try {
-            UIViewController *presenter = UYTReelsPresenterForHost(host);
-            if (!presenter) {
-                UYTDebugWarn(@"[uYouPatches] Reels download: no presenter for alert");
-                return;
-            }
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-            [presenter presentViewController:alert animated:YES completion:nil];
-        } @catch (NSException *e) {
-            UYTDebugErr(@"uYouPatches Reels alert failed: %@", e);
-        }
-    });
-}
-
-static NSString *UYTReelsCurrentVideoIDFromView(UIView *host) {
-    UIResponder *chain = host;
-    while (chain) {
-        @try {
-            if ([chain respondsToSelector:@selector(currentVideoID)]) {
-                id value = [chain performSelector:@selector(currentVideoID)];
-                if ([value isKindOfClass:[NSString class]] && [(NSString *)value length]) return value;
-            }
-        } @catch (NSException *e) {}
-        chain = [chain nextResponder];
-    }
-    return nil;
-}
-
-static void UYTReelsRunDownload(UIView *host, NSString *videoID, NSString *requestedQuality, BOOL audioOnly) {
-    UYTDebugInfo(@"reel download start — vid: %@, quality: %@, audioOnly: %d", videoID,
-                 requestedQuality.length ? requestedQuality : @"muxed-default", audioOnly);
-    if (requestedQuality.length) {
-        [[NSUserDefaults standardUserDefaults] setObject:requestedQuality forKey:@"UYTRequestedQuality"];
-    }
-    if (audioOnly) {
-        [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"UYTRequestedAudioOnly"];
-    }
-    @try {
-        [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedQuality"];
-        [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"UYTRequestedAudioOnly"];
-    } @catch (NSException *e) {}
-    @try {
-        UYTSABRFallbackDownloadForVideoID(videoID, nil, audioOnly, ^(double frac, unsigned long long bytes) {
-            @try { UYTDriveDownloadItemProgressForVideoID(videoID, frac, bytes); } @catch (NSException *e) {}
-        }, ^(BOOL ok, NSString *err) {
-            @try {
-                if (ok) {
-                    UYTDebugInfo(@"reel SABR completed: %@", videoID);
-                    UYTReelsPresentAlertFromView(host, @"Download complete", @"Saved to the uYouDownloads folder.");
-                } else {
-                    UYTDebugErr(@"reel SABR failed: %@ (%@)", videoID, err.length ? err : @"no capture");
-                    UYTReelsPresentAlertFromView(host, @"Download failed", err.length ? err : @"SABR capture unavailable - play the video for a few seconds first.");
-                }
-            } @catch (NSException *e) {
-                UYTDebugErr(@"uYouPatches reel alert failed: %@", e);
-            }
+%hook YTMainAppVideoPlayerOverlayViewController
+- (void)viewDidAppear:(BOOL)animated {
+    %orig(animated);
+    if (IS_YTAMBIENTLIGHT_ENABLED() && YTAMBIENTLIGHT_MODE() != 3) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self findAndApplyToCinematicContainer:self.view];
+            [self findAndApplyToWatchNextView:self.view];
         });
-    } @catch (NSException *e) {
-        UYTDebugErr(@"uYouPatches reel SABR start failed: %@", e);
-        UYTDebugErr(@"reel SABR start threw: %@", e);
     }
-}
-
-static void UYTReelsPresentQualityMenuFromView(UIView *host, NSString *videoID, NSArray<UYTStreamFormat *> *formats, NSError *error) {
-    if (!formats.count) {
-        UYTReelsRunDownload(host, videoID, nil, NO);
-        return;
-    }
-    dispatch_async(dispatch_get_main_queue(), ^{
-        @try {
-            UIViewController *presenter = UYTReelsPresenterForHost(host);
-            if (!presenter) return;
-            UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"uYou Download" message:videoID preferredStyle:UIAlertControllerStyleActionSheet];
-            NSMutableArray<NSString *> *seen = [NSMutableArray array];
-
-            UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
-            if (muxed.qualityLabel.length) {
-                [seen addObject:muxed.qualityLabel];
-                [sheet addAction:[UIAlertAction actionWithTitle:muxed.qualityLabel style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-                    UYTReelsRunDownload(host, videoID, muxed.qualityLabel, NO);
-                }]];
-            }
-            for (UYTStreamFormat *f in formats) {
-                if (!f.hasVideo || f.hasAudio) continue;
-                NSString *ql = f.qualityLabel.length ? f.qualityLabel : [NSString stringWithFormat:@"%ldp", (long)f.itag];
-                if ([seen containsObject:ql]) continue;
-                [seen addObject:ql];
-                [sheet addAction:[UIAlertAction actionWithTitle:ql style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-                    UYTReelsRunDownload(host, videoID, ql, NO);
-                }]];
-            }
-            if ([UYTDownloadPipeline bestAudioFormat:formats]) {
-                [sheet addAction:[UIAlertAction actionWithTitle:@"Audio only" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-                    UYTReelsRunDownload(host, videoID, nil, YES);
-                }]];
-            }
-            if (sheet.actions.count == 0) {
-                UYTReelsPresentAlertFromView(host, @"uYou Download", @"No playable formats found for this video.");
-                return;
-            }
-            [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-            [presenter presentViewController:sheet animated:YES completion:nil];
-        } @catch (NSException *e) {
-            UYTDebugErr(@"uYouPatches reel menu failed: %@", e);
-        }
-    });
-}
-
-static void UYTReelsHandleDownloadTapFromView(UIView *host, UIButton *sender) {
-    (void)sender;
-    NSString *videoID = UYTReelsCurrentVideoIDFromView(host);
-    if (!videoID.length) {
-        UYTDebugWarn(@"uYouPatches Reels download tap with no currentVideoID");
-        UYTReelsPresentAlertFromView(host, @"uYou Download", @"Open a video before downloading.");
-        return;
-    }
-    NSNumber *shortsBox = objc_getAssociatedObject(host, &UYTReelsShortsKey);
-    BOOL isShorts = shortsBox ? shortsBox.boolValue : YES;
-    UYTDebugInfo(@"uYouPatches Reels download requested (vid: %@, shorts: %@)", videoID, isShorts ? @"YES" : @"NO");
-
-    [UYTDownloadPipeline fetchFormatsForVideoID:videoID isShorts:isShorts progress:nil completion:^(NSArray<UYTStreamFormat *> *formats, NSError *error) {
-        @try {
-            if (formats.count) {
-                UYTStreamFormat *muxed = [UYTDownloadPipeline bestMuxedFormat:formats];
-                UYTStreamFormat *audio = [UYTDownloadPipeline bestAudioFormat:formats];
-                UYTStreamFormat *video = [UYTDownloadPipeline bestVideoFormat:formats];
-                UYTStoreResolvedURLs(videoID, muxed.url, audio.url, video.url);
-                UYTRegisterVideoIDForURL(videoID, video.url);
-                UYTRegisterVideoIDForURL(videoID, audio.url);
-                UYTRegisterVideoIDForURL(videoID, muxed.url);
-                UYTDebugInfo(@"uYouPatches cached innertube URLs for %@ (muxed=%ld, audio=%ld, video=%ld)",
-                      videoID, (long)muxed.itag, (long)audio.itag, (long)video.itag);
-            } else {
-                UYTDebugWarn(@"uYouPatches new pipeline had no formats for %@, falling back to SABR capture (%@)",
-                      videoID, error.localizedDescription ?: @"none");
-            }
-        } @catch (NSException *e) {
-            UYTDebugErr(@"uYouPatches reel pipeliner blocked: %@", e);
-        }
-        UYTReelsPresentQualityMenuFromView(host, videoID, formats, error);
-    }];
-}
-
-@interface YTReelHeaderView : NSObject
-- (void)uYou;
-- (void)setUYouButton:(id)button;
-- (id)uYouButton;
-@end
-
-static const char UYTReelsTargetKey = 0;
-
-@interface UYTReelsDownloadTarget : NSObject
-@property (nonatomic, weak) UIView *host;
-@end
-
-@implementation UYTReelsDownloadTarget
-- (void)uYouDownloadButtonTapped:(id)sender {
-    UIView *host = self.host;
-    if (!host) return;
-    @try { UYTReelsHandleDownloadTapFromView(host, (UIButton *)sender); } @catch (NSException *e) {}
-}
-@end
-
-static UYTReelsDownloadTarget *UYTReelsTargetForHeader(UIView *header) {
-    UYTReelsDownloadTarget *target = objc_getAssociatedObject(header, &UYTReelsTargetKey);
-    if (![target isKindOfClass:[UYTReelsDownloadTarget class]]) {
-        target = [UYTReelsDownloadTarget new];
-        target.host = header;
-        objc_setAssociatedObject(header, &UYTReelsTargetKey, target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    }
-    return target;
-}
-
-static void UYTReelsBindVendedButton(YTReelHeaderView *headerView) {
-    UIView *header = (UIView *)headerView;
-    if (!headerView || ![headerView respondsToSelector:@selector(uYouButton)]) return;
-    id button = [headerView uYouButton];
-    if (![button isKindOfClass:[UIView class]]) return;
-    objc_setAssociatedObject(header, &UYTReelsShortsKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    if ([button isKindOfClass:[UIButton class]]) {
-        UIButton *b = (UIButton *)button;
-        UYTReelsDownloadTarget *target = UYTReelsTargetForHeader(header);
-        [b removeTarget:nil action:NULL forControlEvents:UIControlEventTouchUpInside];
-        @try {
-            if ([b respondsToSelector:@selector(setShowsMenuAsPrimaryAction:)]) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-                [b performSelector:@selector(setShowsMenuAsPrimaryAction:) withObject:@NO];
-#pragma clang diagnostic pop
-            }
-            if ([b respondsToSelector:@selector(setMenu:)]) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-                [b performSelector:@selector(setMenu:) withObject:nil];
-#pragma clang diagnostic pop
-            }
-        } @catch (NSException *e) {}
-        [b addTarget:target action:@selector(uYouDownloadButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-    }
-    [header bringSubviewToFront:button];
-}
-
-%group gReelHeaderDownloadButton
-
-%hook YTReelHeaderView
-
-- (void)uYou {
-    %orig;
-    @try { UYTReelsBindVendedButton(self); } @catch (NSException *e) {}
-}
-
-- (void)setUYouButton:(id)button {
-    %orig(button);
-    @try { UYTReelsBindVendedButton(self); } @catch (NSException *e) {}
-}
-
-- (void)layoutSubviews {
-    %orig;
-    @try { UYTReelsBindVendedButton(self); } @catch (NSException *e) {}
 }
 %end
+
+%hook YTWatchViewController
+- (void)viewDidAppear:(BOOL)animated {
+    %orig(animated);
+    if (IS_YTAMBIENTLIGHT_ENABLED() && YTAMBIENTLIGHT_MODE() != 3) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self findAndApplyToWatchNextView:self.view];
+        });
+    }
+}
 %end
 
-#pragma mark - Constructor
-
-%ctor {
-    float savedRate = [[NSUserDefaults standardUserDefaults] floatForKey:@"uYouSavedPlaybackRate"];
-    if (savedRate > 0.0f) {
-        uYouSavedPlaybackRate = savedRate;
-    }
-
-    %init(gYouFixes);
-
-    %init(gReelHeaderDownloadButton);
-
-    if (%c(settingsReorderTable)) {
-        %init(gReorderTabsIntegration);
-    }
-
-    Class playerVCClass = %c(YTPlayerViewController);
-    if (playerVCClass && [playerVCClass instancesRespondToSelector:@selector(varispeedController)]) {
-        %init(gVarispeedFallbackFix);
-    }
-
-    if (IS_ENABLED(kReplaceYTDownloadWithuYou)) {
-        %init(gYouDownloadFixes);
-    }
-
-    Class overlayVCClass = %c(YTMainAppVideoPlayerOverlayViewController);
-    Class hamPlayerClass = %c(HAMPlayerInternal);
-    BOOL speedFixesSafe =
-        overlayVCClass != nil &&
-        [overlayVCClass instancesRespondToSelector:@selector(setPlaybackRate:)] &&
-        [overlayVCClass instancesRespondToSelector:@selector(currentPlaybackRate)] &&
-        playerVCClass != nil &&
-        [playerVCClass instancesRespondToSelector:@selector(setPlaybackRate:)] &&
-        hamPlayerClass != nil &&
-        [hamPlayerClass instancesRespondToSelector:@selector(setRate:)] &&
-        [hamPlayerClass instancesRespondToSelector:@selector(rate)];
-    if (speedFixesSafe) {
-        %init(gYouSpeedFixes);
-    } else {
-        UYTDebugWarn(@"[uYouPatches] Skipping gYouSpeedFixes: playback-rate selectors missing on this YouTube build");
-    }
-
-    %init(gYouFullscreenFixes);
-}
-
+%end
