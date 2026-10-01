@@ -318,7 +318,7 @@
 # Frequently asked questions
 
 **Q: Casting to a TV/Chromecast stopped working.**
-Enable **Fix Casting** in uYouEnhanced's settings and restart the app. It adjusts the A/B flags that currently break casting in recent YouTube versions.
+Enable **Fix Casting** in YTweak's settings and restart the app. It adjusts the A/B flags that currently break casting in recent YouTube versions.
 
 **Q: YouTube shows an "Update required" / "Please update" screen.**
 Enable **Enable App Version Spoofer** in uYouEnhanced's settings, pick a newer YouTube version from **Version spoofer selector**, and restart the app.
@@ -341,7 +341,7 @@ On [this repo's issue tracker](https://github.com/arichornlover/uYouEnhanced/iss
   - NEWS - Nov 27 2024-Aug 22 2026: Please be aware that some of the **uYou** features aren't working in newer versions of YouTube.
 
 <details>
-  <summary>Version information (last updated: September 25, 2026)</summary>
+  <summary>Version information (last updated: October 1, 2026)</summary>
 
 | **Tweaks/App** | **Developer** | **Version** | **Open source** |
 | - | - | :-: | :-:  |
