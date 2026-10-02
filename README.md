@@ -70,6 +70,7 @@
   <a href="#wiki"><img src="https://img.shields.io/badge/Wiki-C6005A?style=for-the-badge&labelColor=C6005A" alt="Wiki Badge"></a>
 
 # Credits
+
 <table id='credit'>
 <tr>
 
@@ -79,7 +80,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271811861-da79accc-095c-4cb3-b7b4-8d48b1449259.png' width='110px'>
 </a>
 <br>
-<a href='https://twitter.com/miro92'><img src="https://img.shields.io/badge/Twitter-MiRO92-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="MiRO92"></a>
+<a href='https://twitter.com/miro92'><img src="https://img.shields.io/badge/X-@miro92-000000?style=flat-square&logo=x&logoColor=white" alt="MiRO92"></a>
 </td>
 
 <qnblackcat>
@@ -88,7 +89,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271812521-e52ebf96-7272-4ec0-a149-8e721c053508.png' width='110px'>
 </a>
 <br>
-<a href='https://twitter.com/qnblackcat'><img src="https://img.shields.io/badge/Twitter-qnblackcat-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="qnblackcat"></a>
+<a href='https://twitter.com/qnblackcat'><img src="https://img.shields.io/badge/X-@qnblackcat-000000?style=flat-square&logo=x&logoColor=white" alt="qnblackcat"></a>
 </td>
 
 <PoomSmart>
@@ -97,7 +98,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271811615-96093202-4aec-4e50-a750-8c7b83f3862c.png' width='110px'>
 </a>
 <br>
-<a href='https://twitter.com/poomsmart'><img src="https://img.shields.io/badge/Twitter-PoomSmart-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="PoomSmart"></a>
+<a href='https://twitter.com/poomsmart'><img src="https://img.shields.io/badge/X-@poomsmart-000000?style=flat-square&logo=x&logoColor=white" alt="PoomSmart"></a>
 </td>
 
 <level3tjg>
@@ -106,7 +107,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271812596-7854996a-3825-4971-a9ff-1001b4d153cb.png' width='110px'>
 </a>
 <br>
-<a href='https://twitter.com/level3tjg'><img src="https://img.shields.io/badge/Twitter-level3tjg-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="level3tjg"></a>
+<a href='https://twitter.com/level3tjg'><img src="https://img.shields.io/badge/X-@level3tjg-000000?style=flat-square&logo=x&logoColor=white" alt="level3tjg"></a>
 </td>
 
 <BandarHL>
@@ -115,7 +116,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271812729-2bb63da0-5239-43a4-aa3e-e1daa67e8dc2.png' width='110px'>
 </a>
 <br>
-<a href='https://twitter.com/bandarhl'><img src="https://img.shields.io/badge/Twitter-BandarHL-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="BandarHL"></a>
+<a href='https://twitter.com/bandarhl'><img src="https://img.shields.io/badge/X-@bandarhl-000000?style=flat-square&logo=x&logoColor=white" alt="BandarHL"></a>
 </td>
 
 <Galactic-Dev>
@@ -124,7 +125,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271812231-5b7d5d9f-6d19-4174-8478-8f07379ee1ca.png' width='110px'>
 </a>
 <br>
-<a href='https://twitter.com/dev_galactic'><img src="https://img.shields.io/badge/Twitter-dev_galactic-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="dev_galactic"></a>
+<a href='https://twitter.com/dev_galactic'><img src="https://img.shields.io/badge/X-@dev_galactic-000000?style=flat-square&logo=x&logoColor=white" alt="dev_galactic"></a>
 </td>
 </tr>
 
@@ -136,7 +137,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271812914-bf26d603-2d94-49f4-9702-f5e66af3f44a.png' width='110px'>
 </a>
 <br>
-<a href='https://twitter.com/ijulioverne'><img src="https://img.shields.io/badge/Twitter-ijulioverne-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="ijulioverne"></a>
+<a href='https://twitter.com/ijulioverne'><img src="https://img.shields.io/badge/X-@ijulioverne-000000?style=flat-square&logo=x&logoColor=white" alt="ijulioverne"></a>
 </td>
 
 <hbang>
@@ -145,7 +146,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271813035-2e168ee5-fc47-43a6-9307-0fc20c7fca60.png' width='110px'>
 </a>
 <br>
-<a href='https://twitter.com/hashbang'><img src="https://img.shields.io/badge/Twitter-hashbang-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="hashbang"></a>
+<a href='https://twitter.com/hashbang'><img src="https://img.shields.io/badge/X-@hashbang-000000?style=flat-square&logo=x&logoColor=white" alt="hashbang"></a>
 </td>
 
 <Lyvendia>
@@ -154,7 +155,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271812187-1c0d5b24-caba-4616-b875-4c458d10ca55.png' width='110px'>
 </a>
 <br>
-<a href='https://github.com/Lyvendia'><img src="https://img.shields.io/badge/GitHub-Lyvendia-181717?style=for-the-badge&logo=github&logoColor=white" alt="Lyvendia"></a>
+<a href='https://github.com/Lyvendia'><img src="https://img.shields.io/badge/GitHub-Lyvendia-181717?style=flat-square&logo=github&logoColor=white" alt="Lyvendia"></a>
 </td>
 
 <therealFoxster>
@@ -163,7 +164,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271812075-923038a7-5ffa-4ea4-9de4-fdf4e5d556c2.png' width='110px'>
 </a>
 <br>
-<a href='https://twitter.com/therealFoxster'><img src="https://img.shields.io/badge/Twitter-therealFoxster-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="therealFoxster"></a>
+<a href='https://twitter.com/therealFoxster'><img src="https://img.shields.io/badge/X-@therealFoxster-000000?style=flat-square&logo=x&logoColor=white" alt="therealFoxster"></a>
 </td>
 
 <ichitaso>
@@ -172,7 +173,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271812398-c7e40fa3-4e0b-4be2-aa51-900444d59abd.png' width='110px'>
 </a>
 <br>
-<a href='https://twitter.com/ichitaso'><img src="https://img.shields.io/badge/Twitter-ichitaso-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="ichitaso"></a>
+<a href='https://twitter.com/ichitaso'><img src="https://img.shields.io/badge/X-@ichitaso-000000?style=flat-square&logo=x&logoColor=white" alt="ichitaso"></a>
 </td>
 
 <AhmedBafkir>
@@ -181,7 +182,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271813114-dcb005f7-b83b-40e6-a9cb-9b661dd6b33b.png' width='110px'>
 </a>
 <br>
-<a href='https://twitter.com/Peaceful_0'><img src="https://img.shields.io/badge/Twitter-AhmedBafkir-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="Peaceful_0"></a>
+<a href='https://twitter.com/Peaceful_0'><img src="https://img.shields.io/badge/X-@Peaceful_0-000000?style=flat-square&logo=x&logoColor=white" alt="Peaceful_0"></a>
 </td>
 </tr>
 
@@ -193,7 +194,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271813228-d28471b4-cb67-442c-bd63-276f1641a14e.png' width='110px'>
 </a>
 <br>
-<a href='https://twitter.com/cokepokes'><img src="https://img.shields.io/badge/Twitter-cokepokes-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="cokepokes"></a>
+<a href='https://twitter.com/cokepokes'><img src="https://img.shields.io/badge/X-@cokepokes-000000?style=flat-square&logo=x&logoColor=white" alt="cokepokes"></a>
 </td>
 
 <ISnackable>
@@ -202,7 +203,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271813311-2027a8de-a08d-4f1b-97a4-167f4bcef497.png' width='110px'>
 </a>
 <br>
-<a href='https://isnackable.me/'><img src="https://img.shields.io/badge/Website-isnackable-000000?style=for-the-badge&logo=internet-explorer&logoColor=white" alt="isnackable"></a>
+<a href='https://isnackable.me/'><img src="https://img.shields.io/badge/Website-isnackable-000000?style=flat-square&logo=google-chrome&logoColor=white" alt="isnackable"></a>
 </td>
 
 <dayanch96>
@@ -211,7 +212,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271853514-129334b3-498f-4804-aceb-392bf5e373e6.png' width='110px;'>
 </a>
 <br>
-<a href='https://github.com/dayanch96'><img src="https://img.shields.io/badge/GitHub-dayanch96-181717?style=for-the-badge&logo=github&logoColor=white" alt="dayanch96"></a>
+<a href='https://github.com/dayanch96'><img src="https://img.shields.io/badge/GitHub-dayanch96-181717?style=flat-square&logo=github&logoColor=white" alt="dayanch96"></a>
 </td>
 
 <ssuesskind>
@@ -220,7 +221,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271853585-77271641-b825-43b1-af57-d9f5b12fe8ff.png' width='110px;'>
 </a>
 <br>
-<a href='https://github.com/ssuesskind'><img src="https://img.shields.io/badge/GitHub-ssuesskind-181717?style=for-the-badge&logo=github&logoColor=white" alt="ssuesskind"></a>
+<a href='https://github.com/ssuesskind'><img src="https://img.shields.io/badge/GitHub-ssuesskind-181717?style=flat-square&logo=github&logoColor=white" alt="ssuesskind"></a>
 </td>
 
 <balackburn>
@@ -229,7 +230,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271853318-3005deb3-b484-4b2b-a093-44c2af79b9af.png' width='110px;'>
 </a>
 <br>
-<a href='https://github.com/balackburn'><img src="https://img.shields.io/badge/GitHub-balackburn-181717?style=for-the-badge&logo=github&logoColor=white" alt="balackburn"></a>
+<a href='https://github.com/balackburn'><img src="https://img.shields.io/badge/GitHub-balackburn-181717?style=flat-square&logo=github&logoColor=white" alt="balackburn"></a>
 </td>
 
 <dodieboy>
@@ -238,7 +239,7 @@
 <img src='https://github.com/arichornlover/YouTubeRebornPlus/assets/78001398/0d43912b-e561-4865-8312-5e241d34bf72' width='110px;'>
 </a>
 <br>
-<a href='https://github.com/dodieboy'><img src="https://img.shields.io/badge/GitHub-dodieboy-181717?style=for-the-badge&logo=github&logoColor=white" alt="dodieboy"></a>
+<a href='https://github.com/dodieboy'><img src="https://img.shields.io/badge/GitHub-dodieboy-181717?style=flat-square&logo=github&logoColor=white" alt="dodieboy"></a>
 </td>
 </tr>
 
@@ -250,7 +251,7 @@
 <img src='https://github.com/arichornlover/uYouEnhanced/assets/78001398/d1d46f69-d7b9-4e6a-82b6-e5629d26667b' width='110px;'>
 </a>
 <br>
-<a href='https://github.com/bhackel'><img src="https://img.shields.io/badge/GitHub-bhackel-181717?style=for-the-badge&logo=github&logoColor=white" alt="bhackel"></a>
+<a href='https://github.com/bhackel'><img src="https://img.shields.io/badge/GitHub-bhackel-181717?style=flat-square&logo=github&logoColor=white" alt="bhackel"></a>
 </td>
 
 <theos>
@@ -259,7 +260,7 @@
 <img src='https://user-images.githubusercontent.com/78001398/271813393-56a63730-a56d-41ba-b473-4d37761526c9.png' width='110px'>
 </a>
 <br>
-<a href='https://theos.dev'><img src="https://img.shields.io/badge/Website-theos-000000?style=for-the-badge&logo=internet-explorer&logoColor=white" alt="theos"></a>
+<a href='https://theos.dev'><img src="https://img.shields.io/badge/Website-theos-000000?style=flat-square&logo=google-chrome&logoColor=white" alt="theos"></a>
 </td>
 </tr>
 </table>
