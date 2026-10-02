@@ -41,7 +41,6 @@ $(TWEAK_NAME)_INJECT_DYLIBS = \
 	Tweaks/uYou/Library/MobileSubstrate/DynamicLibraries/uYou.dylib \
 	$(THEOS_OBJ_DIR)/libFLEX.dylib \
 	$(THEOS_OBJ_DIR)/YTABConfig.dylib \
-	$(THEOS_OBJ_DIR)/YTAmbientLight.dylib \
 	$(THEOS_OBJ_DIR)/YTIcons.dylib \
 	$(THEOS_OBJ_DIR)/YouGroupSettings.dylib \
 	$(THEOS_OBJ_DIR)/YouLoop.dylib \
@@ -84,7 +83,7 @@ UYOU_BUNDLE = $(UYOU_PATH)/Library/Application\ Support/uYouBundle.bundle
 include $(THEOS)/makefiles/common.mk
 
 ifneq ($(JAILBROKEN),1)
-SUBPROJECTS += Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing/libflex Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YTAmbientLight Tweaks/YouGroupSettings Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouPiP Tweaks/YouQuality Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTVideoOverlay Tweaks/YTweaks Tweaks/YouTubeLegacy
+SUBPROJECTS += Tweaks/Alderis Tweaks/DontEatMyContent Tweaks/FLEXing/libflex Tweaks/Return-YouTube-Dislikes Tweaks/YTABConfig Tweaks/YouGroupSettings Tweaks/YTIcons Tweaks/YouLoop Tweaks/YouPiP Tweaks/YouQuality Tweaks/YouSlider Tweaks/YouSpeed Tweaks/YouTimeStamp Tweaks/YTVideoOverlay Tweaks/YTweaks Tweaks/YouTubeLegacy
 ifeq ($(SPONSORBLOCK_ENABLED),1)
 SUBPROJECTS += Tweaks/iSponsorBlock
 endif
