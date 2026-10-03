@@ -6,9 +6,14 @@ name: Build and Release uYouEnhanced
 on:
   workflow_dispatch:
     inputs:
+      build_ffmpeg:
+        description: "Build FFmpegKit from source (+ cached)"
+        default: true
+        required: false
+        type: boolean
       sdk_version:
         description: "iOS SDK Version"
-        default: "18.6"
+        default: "26.5"
         required: true
         type: string
       uyou_version:
@@ -78,7 +83,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install ldid dpkg make wget unzip jq pipx
+          brew install ldid dpkg make wget unzip jq pipx meson ninja gnu-sed autoconf automake libtool pkgconf
 
       - name: Set PATH
         run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
@@ -163,13 +168,33 @@ jobs:
         env:
           YOUTUBE_URL: ${{ env.URL_YT }}
 
+      - name: Restore FFmpegKit cache
+        id: ffmpeg_cache
+        uses: actions/cache/restore@v6
+        with:
+          path: main/modules/ffmpeg
+          key: ffmpegkit-${{ runner.os }}-${{ hashFiles('main/tools/fetch-ffmpegkit.sh') }}
+
+      - name: Build FFmpegKit from source
+        if: ${{ inputs.build_ffmpeg && steps.ffmpeg_cache.outputs.cache-hit != 'true' }}
+        run: |
+          cd main
+          bash tools/fetch-ffmpegkit.sh
+
+      - name: Save FFmpegKit cache
+        if: ${{ inputs.build_ffmpeg && steps.ffmpeg_cache.outputs.cache-hit != 'true' && hashFiles('main/modules/ffmpeg') != '' }}
+        uses: actions/cache/save@v6
+        with:
+          path: main/modules/ffmpeg
+          key: ${{ steps.ffmpeg_cache.outputs.cache-primary-key }}
+
       - name: Fix compiling & Build Package
         id: build_package
         run: |
           cd main
           sed -i '' "s/^BUNDLE_ID .*/BUNDLE_ID = ${{ inputs.bundle_id }}/" Makefile || echo "BUNDLE_ID = ${{ inputs.bundle_id }}" >> Makefile
           sed -i '' "s/^DISPLAY_NAME .*/DISPLAY_NAME = ${{ inputs.app_name }}/" Makefile || echo "DISPLAY_NAME = ${{ inputs.app_name }}" >> Makefile
-          sed -i '' "s/^export TARGET .*/export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0/" Makefile || echo "export TARGET = iphone:clang:${{ inputs.sdk_version }}:16.0" >> Makefile
+          sed -i '' "s/^export TARGET .*/export TARGET = iphone:clang:${{ inputs.sdk_version }}:15.0/" Makefile || echo "export TARGET = iphone:clang:${{ inputs.sdk_version }}:15.0" >> Makefile
           make package THEOS_PACKAGE_SCHEME=rootless IPA=Payload/YouTube.app FINALPACKAGE=1 YTUHD_ENABLED=${{ inputs.ytuhd && '1' || '0' }} SPONSORBLOCK_ENABLED=${{ inputs.sponsorblock && '1' || '0' }}
           echo "package=$(ls -t packages | head -n1)" >> $GITHUB_OUTPUT
 
@@ -184,97 +209,6 @@ jobs:
           git sparse-checkout set --no-cone OpenYouTubeSafariExtension.appex
           git checkout --quiet
           mv *.appex ..
-
-      - name: Normalize Extension Bundle ID for SideStore
-        run: |
-          set -euo pipefail
-
-          PARENT_BUNDLE="${{ inputs.bundle_id }}"
-          ORIG_PREFIX="com.google.ios.youtube"
-
-          echo "Normalizing extension CFBundleIdentifier(s) to use parent prefix: ${PARENT_BUNDLE}"
-
-          update_plist_id() {
-            PLIST_PATH="$1"
-            if [ ! -f "$PLIST_PATH" ]; then
-              return
-            fi
-            if /usr/bin/plutil -convert xml1 "$PLIST_PATH" >/dev/null 2>&1; then
-              :
-            fi
-            CURRENT_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$PLIST_PATH" 2>/dev/null || true)
-            if [ -z "$CURRENT_ID" ]; then
-              return
-            fi
-            if [[ "$CURRENT_ID" == "$ORIG_PREFIX"* ]]; then
-              SUFFIX="${CURRENT_ID#${ORIG_PREFIX}.}"
-              if [ "$SUFFIX" = "$CURRENT_ID" ]; then
-                SUFFIX="Extension"
-              fi
-              NEW_ID="${PARENT_BUNDLE}.${SUFFIX}"
-              echo "Updating $PLIST_PATH: $CURRENT_ID -> $NEW_ID"
-              /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $NEW_ID" "$PLIST_PATH" || \
-                /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $NEW_ID" "$PLIST_PATH" || true
-            else
-              echo "Skipping $PLIST_PATH (does not start with $ORIG_PREFIX): $CURRENT_ID"
-            fi
-          }
-
-          for appex in *.appex; do
-            if [ -d "$appex" ]; then
-              PLIST="$appex/Info.plist"
-              update_plist_id "$PLIST"
-              find "$appex" -type f -name "*.plist" -o -name "*.entitlements" | while read -r f; do
-                /usr/bin/plutil -convert xml1 "$f" >/dev/null 2>&1 || true
-                if grep -q "$ORIG_PREFIX" "$f" >/dev/null 2>&1; then
-                  echo "Replacing occurrences in $f"
-                  perl -0777 -pe "s/\Q${ORIG_PREFIX}\E/${PARENT_BUNDLE}/g" -i "$f" || true
-                fi
-              done
-            fi
-          done
-
-          APP_BUNDLE_DIR="main/Payload/YouTube.app"
-
-          APP_EXTENSIONS_DIR="$APP_BUNDLE_DIR/Extensions"
-          if [ -d "$APP_EXTENSIONS_DIR" ]; then
-            echo "Removing ExtensionKit-style extensions (unresignable):"
-            ls -1 "$APP_EXTENSIONS_DIR" || true
-            rm -rf "$APP_EXTENSIONS_DIR"
-          fi
-
-          find "$APP_BUNDLE_DIR" -depth -type d -name "*AppMigration*" -print0 2>/dev/null \
-            | xargs -0 -I{} sh -c 'echo "Removing {}"; rm -rf "{}"' || true
-
-          if [ -d "$APP_BUNDLE_DIR" ]; then
-            find "$APP_BUNDLE_DIR" -type d -name "*.appex" | while read -r appex; do
-              if [ -d "$appex" ]; then
-                PLIST="$appex/Info.plist"
-                update_plist_id "$PLIST"
-                find "$appex" -type f \( -name "*.plist" -o -name "*.entitlements" \) | while read -r f; do
-                  /usr/bin/plutil -convert xml1 "$f" >/dev/null 2>&1 || true
-                  if grep -q "$ORIG_PREFIX" "$f" >/dev/null 2>&1; then
-                    echo "Replacing occurrences in $f"
-                    perl -0777 -pe "s/\Q${ORIG_PREFIX}\E/${PARENT_BUNDLE}/g" -i "$f" || true
-                  fi
-                done
-              fi
-            done
-          fi
-
-          MAIN_APP_DIR="main/Payload/YouTube.app"
-          if [ -d "$MAIN_APP_DIR" ]; then
-            find "$MAIN_APP_DIR" -type f -name "*.plist" -o -name "*.entitlements" | while read -r f; do
-              /usr/bin/plutil -convert xml1 "$f" >/dev/null 2>&1 || true
-              if grep -q "$ORIG_PREFIX" "$f" >/dev/null 2>&1; then
-                echo "Replacing occurrences in $f"
-                perl -0777 -pe "s/\Q${ORIG_PREFIX}\E/${PARENT_BUNDLE}/g" -i "$f" || true
-              fi
-            done
-          fi
-
-          echo "Normalization complete."
-        shell: bash
 
       - name: Inject Tweaks Into IPA
         run: |
@@ -310,7 +244,12 @@ jobs:
           else
             echo "All extensions are under PlugIns/ - OK for SideStore."
           fi
-
+          SC_INFO_MATCHES="$(unzip -Z1 "$OUTNAME" | grep '/SC_Info/' || true)"
+          if [ -n "$SC_INFO_MATCHES" ]; then
+            echo "Removing files under SC_Info/ - OK for AltStore.:"
+            printf '%s\n' "$SC_INFO_MATCHES"
+            zip -q -d "$OUTNAME" "Payload/*/SC_Info/*" "Payload/*/SC_Info" || true
+          fi
           mkdir -p main/packages
           cp -f "$OUTNAME" "main/packages/$OUTNAME"
           find main/packages -maxdepth 1 -name "*.ipa" ! -name "$OUTNAME" -delete || true
@@ -326,6 +265,18 @@ jobs:
           PLIST="Payload/YouTube.app/Info.plist"
           ICON_SRC="../main/Localizations/uYouPlus.bundle/AppIcons"
           PB=/usr/libexec/PlistBuddy
+          BADICONS=0
+          for f in "$ICON_SRC"/*.png; do
+            SPEC="$(sips -g pixelWidth -g pixelHeight -g hasAlpha "$f" 2>/dev/null | awk '/pixelWidth/{w=$2} /pixelHeight/{h=$2} /hasAlpha/{a=$2} END{print w"x"h" alpha="a}')"
+            case "$SPEC" in
+              "1024x1024 alpha=no"*) ;;
+              *) echo "::warning::$(basename "$f") is $SPEC"; BADICONS=1 ;;
+            esac
+          done
+          if [ "$BADICONS" != 0 ]; then
+            echo "::error::app icons must be 1024x1024 opaque PNGs or iOS rejects them with OSStatus -54"
+            exit 1
+          fi
           # Create intermediate dicts FIRST (PlistBuddy cannot nest-create).
           for ROOT in CFBundleIcons "CFBundleIcons~ipad"; do
             $PB -c "Add :$ROOT dict" "$PLIST" 2>/dev/null || true
@@ -334,11 +285,12 @@ jobs:
           for f in "$ICON_SRC"/*.png; do
             NAME="$(basename "$f" .png)"
             cp -f "$f" "Payload/YouTube.app/$NAME.png"
+            cp -f "$f" "Payload/YouTube.app/$NAME@2x.png"
+            cp -f "$f" "Payload/YouTube.app/$NAME@3x.png"
             for ROOT in CFBundleIcons "CFBundleIcons~ipad"; do
               $PB -c "Add :$ROOT:CFBundleAlternateIcons:$NAME dict" "$PLIST" 2>/dev/null || true
               $PB -c "Add :$ROOT:CFBundleAlternateIcons:$NAME:CFBundleIconFiles array" "$PLIST" 2>/dev/null || true
               $PB -c "Add :$ROOT:CFBundleAlternateIcons:$NAME:CFBundleIconFiles:0 string $NAME" "$PLIST" 2>/dev/null || true
-              $PB -c "Add :$ROOT:CFBundleAlternateIcons:$NAME:CFBundleIconName string $NAME" "$PLIST" 2>/dev/null || true
             done
             echo "Registered alternate icon: $NAME"
           done

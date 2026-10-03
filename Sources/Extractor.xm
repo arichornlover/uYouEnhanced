@@ -1,4 +1,3 @@
-// Extractor.xm was made by @LillieH1000 from https://github.com/LillieH1000/YouTube-Reborn/commit/bb858715235b1c2ce8793631bc34b51dfed491ef
 
 #import "Extractor.h"
 
@@ -7,7 +6,7 @@
 + (NSDictionary *)youtubePlayerRequest :(NSString *)clientId :(NSString *)videoId {
     NSLocale *locale = [NSLocale currentLocale];
 	NSString *countryCode = [locale objectForKey:NSLocaleCountryCode];
-    
+
     NSString *innertubeKey;
     NSString *jsonBody;
     if ([clientId isEqual:@"mediaconnect"]) {
@@ -23,7 +22,7 @@
     [request setHTTPMethod:@"POST"];
     [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     [request setHTTPBody:[jsonBody dataUsingEncoding:NSASCIIStringEncoding allowLossyConversion:YES]];
-    
+
     __block NSData *requestData;
     __block BOOL requestFinished = NO;
     [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
@@ -39,3 +38,4 @@
 }
 
 @end
+

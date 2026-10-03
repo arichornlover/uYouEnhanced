@@ -1,6 +1,8 @@
 // About
 "ABOUT" = "About";
 
+"APP_NAME" = "uYouEnhanced";
+
 "VERSION" = "当前 uYouPlus 版本：%@";
 "VERSION_CHECK" = "点击此处前往 GitHub 查看最新版本信息！";
 
@@ -13,6 +15,8 @@
 
 // App appearance
 "APP_THEME" = "🎨 App 主题";
+
+"APP_PERSONALIZATION" = "📺 App Personalization";
 "THEME_OPTIONS" = "主题选项";
 
 "DARK_THEME" = "深色模式主题";
@@ -60,23 +64,20 @@
 "STOCK_VOLUME_HUD" = "使用 iOS 自带音量指示";
 "STOCK_VOLUME_HUD_DESC" = "";
 
+"REPLACE_YT_DOWNLOAD_WITH_UYOU" = "用uYou的下载功能替换YouTube原生下载功能";
+"REPLACE_YT_DOWNLOAD_WITH_UYOU_DESC" = "";
+
 // Video controls overlay options
 "VIDEO_CONTROLS_OVERLAY_OPTIONS" = "📹 视频播放器控制界面选项";
 
 "HIDE_AUTOPLAY_SWITCH" = "隐藏自动播放模式开关";
 "HIDE_AUTOPLAY_SWITCH_DESC" = "隐藏视频播放器控制界面上的自动播放开关。";
 
-"HIDE_YTMUSIC_BUTTON" = "隐藏Youtube Music按钮";
-"HIDE_YTMUSIC_BUTTON_DESC" = "隐藏 Youtube Music 这个随YouTube Premium出现的按钮";
-
 "HIDE_SUBTITLES_BUTTON" = "隐藏字幕按钮";
 "HIDE_SUBTITLES_BUTTON_DESC" = "隐藏视频播放器控制界面上的字幕按钮。";
 
 "HIDE_HUD_MESSAGES" = "隐藏系统提醒";
 "HIDE_HUD_MESSAGES_DESC" = "例如：“已启用/停用字幕”、“已开启视频循环播放”等。";
-
-"REPLACE_YT_DOWNLOAD_WITH_UYOU" = "用uYou的下载功能替换YouTube原生下载功能";
-"REPLACE_YT_DOWNLOAD_WITH_UYOU_DESC" = "";
 
 "HIDE_PAID_PROMOTION_CARDS" = "隐藏付费宣传内容提醒横幅";
 "HIDE_PAID_PROMOTION_CARDS_DESC" = "隐藏出现在部分视频中的“包含付费宣传内容”横幅。";
@@ -124,6 +125,10 @@
 "MSG_YES" = "确定";
 "MSG_CANCEL" = "取消";
 
+"MSG_CONFIRM" = "Confirm";
+"MSG_DONE" = "Done";
+"MSG_CONFIRM_PASTE_SETTINGS" = "Are you sure you want to paste the settings?";
+
 "DISABLE_HINTS" = "禁用首开介绍";
 "DISABLE_HINTS_DESC" = "禁用首次打开 App 时出现的功能探索提示。";
 
@@ -139,11 +144,7 @@
 "IPHONE_LAYOUT" = "iPhone 视图";
 "IPHONE_LAYOUT_DESC" = "在 iPad 上使用 iPhone 版本的应用布局，以便查看社区贴子和使用短片创作功能。更改本设置后需要重启 App。";
 
-"NEW_MINIPLAYER_STYLE" = "新迷你播放器风格 （BigYTMiniPlayer）";
-"NEW_MINIPLAYER_STYLE_DESC" = "更改本设置后需要重启 App。";
 
-"YT_RE_EXPLORE" = "将 Shorts 选项卡替换成探索选项卡 （YTReExplore）";
-"YT_RE_EXPLORE_DESC" = "更改本设置后需要重启 App。";
 
 "ENABLE_FLEX" = "启用 FLEX";
 "ENABLE_FLEX_DESC" = "启用 FLEX 调试程序（不推荐）。如果您不熟悉本设置的效果，请将其禁用。";
@@ -153,6 +154,8 @@
 
 // uYouEnhanced Localization ➕
 "SUPPORT_THE_DEVELOPERS" = "Support the Developers";
+
+"SUPPORT_THE_DEVELOPERS_DESC" = "MiRO92, PoomSmart, level3tjg, BandarHL, julioverne & Galactic-dev";
 "COPY_SETTINGS" = "复制配置到剪切板";
 "COPY_SETTINGS_DESC" = "仅支持uYouEnhanced本体配置";
 "PASTE_SETTINGS" = "从剪切板导入配置";
@@ -165,14 +168,21 @@
 "REPLACE_COPY_AND_PASTE_BUTTONS_DESC" = "分别替换成'导出设置到txt文件' 和 '从txt文件导入设置'";
 
 "UYOUENHANCED_ESSENTIAL_MENU" = "uYouEnhanced 必要设置目录";
+
+"UYOUENHANCED_ESSENTIAL_MENU_DESC" = "This menu includes App Color Customization 🎨 & Ability to Clear the Cache 🗑️";
+"UYOUENHANCED_SECTION_DESC" = "TITLE DESCRIPTION";
 "CHANGE_APP_ICON" = "改变App图标";
 "CLEAR_NOTIFICATIONS" = "强制清除所有app通知";
 "CLEAR_NOTIFICATIONS_DESC" = "建议在该应用以侧载的形式安装时使用";
 
 "CUSTOM_DARK_THEME" = "自定义暗色模式主题";
 
+"CUSTOM_DARK_THEME_DESC" = "In order to use Custom Themes, go to uYouEnhanced Essential Menu, you will need to press Custom Theme Color and than change the colors.";
+
 "ENABLE_PORTRAIT_FULLSCREEN" = "在YouTube应用启用 Portrait Fullscreen";
 "ENABLE_PORTRAIT_FULLSCREEN_DESC" = "更改后需要重启应用";
+"FULLSCREEN_TO_THE_RIGHT" = "Fullscreen to the Right";
+"FULLSCREEN_TO_THE_RIGHT_DESC" = "Force the video to always go to landscape right. App restart is required.";
 "ENABLE_TAP_TO_SEEK" = "启用点击进度条跳转";
 "ENABLE_TAP_TO_SEEK_DESC" = "通过轻点进度条跳转到视频的任意位置";
 "DISABLE_PULL_TO_FULLSCREEN_GESTURE" = "禁用拖拽全屏手势";
@@ -218,6 +228,18 @@
 "SHORTS_QUALITY_PICKER" = "Shorts视频质量选择器";
 "SHORTS_QUALITY_PICKER_DESC" = "启用 YouTube Shorts视频质量选择器";
 
+"SHORTS_PROGRESS_BAR" = "Shorts Progress Bar";
+"SHORTS_PROGRESS_BAR_DESC" = "Enables the progress bar on Shorts videos (YTShortsProgress)";
+
+"HIDE_SHORTS_CLIP_BUTTON" = "Hide Clip Button on Shorts";
+"HIDE_SHORTS_CLIP_BUTTON_DESC" = "Hides the Clip button when a Short is paused.";
+"HIDE_SHORTS_DOWNLOAD_BUTTON" = "Hide Download Button on Shorts";
+"HIDE_SHORTS_DOWNLOAD_BUTTON_DESC" = "Hides the Download button when a Short is paused.";
+"HIDE_SHORTS_REMIX_BUTTON" = "Hide Remix Button on Shorts";
+"HIDE_SHORTS_REMIX_BUTTON_DESC" = "Hides the Remix button when a Short is paused.";
+"HIDE_SHORTS_STATS_BUTTON" = "Hide Stats for Nerds Button on Shorts";
+"HIDE_SHORTS_STATS_BUTTON_DESC" = "Hides the Stats for Nerds button when a Short is paused.";
+
 "VIDEO_PLAYER_BUTTON_OPTIONS" = "视频播放按钮修改选项";
 
 "RED_SUBSCRIBE_BUTTON" = "关注按钮恢复成红色";
@@ -255,11 +277,17 @@
 "UI_INTERFACE_OPTIONS" = "UI Interface Options";
 
 "HIDE_HOME_TAB" = "隐藏 Home Tab";
+
+"SHOW_NOTIFICATIONS_TAB" = "Enable Notifications Tab";
+"SHOW_NOTIFICATIONS_TAB_DESC" = "Makes the Notifications Tab appear back onto the Pivot Bar, experimental: Testing customization options.";
+"NOTIFICATIONS_TAB_CUSTOMIZATION" = "Notifications Tab nostalgic customization";
 "LOW_CONTRAST_MODE" = "低对比度模式";
 "LOW_CONTRAST_MODE_DESC" = "这会降低按钮与文本的色彩对比度， 类似于YouTube的2020年之前的应用程序界面。";
 "LOW_CONTRAST_MODE_SELECTOR" = "低对比度模式选择器";
 "LOW_CONTRAST_MODE_ERROR_1" = "你正使用 v%@ 版本的YouTube。这个版本不再受支持，这个选项也不再能工作。请使用v17.33.2-17.38.10 以便使用低对比度模式。";
 "LOW_CONTRAST_MODE_ERROR_2" = "LowContrastMode仅适用于版本为v17.33.2-v17.38.10的YouTube。 \n您目前正在使用 v%@. \n解决方法：如果你想使用这个，那么我建议启用 \"修复低对比度模式\" 选项。";
+"CLASSIC_VIDEO_PLAYER" = "Classic Video Player";
+"CLASSIC_VIDEO_PLAYER_DESC" = "Restores the classic video player features from v16.xx.x, including pinch-to-fullscreen.";
 "FIX_LOWCONTRASTMODE" = "修复低对比度模式";
 "FIX_LOWCONTRASTMODE_DESC" = "这将通过欺骗YouTube版本为v17.38.10以修复并启用低对比度模式功能。更改后需要重启应用。";
 "DISABLE_MODERN_BUTTONS" = "禁用现代按钮";
@@ -276,8 +304,13 @@
 
 "ADBLOCK_WORKAROUND_LITE" = "AdBlock Workaround (Lite)";
 "ADBLOCK_WORKAROUND_LITE_DESC" = "Uses weaker adblocking code, this will disable uYou's Adblocking Option.";
+"ENABLE_DYNAMIC_ISLAND_FIX" = "Enable Dynamic Island Fix";
+"ENABLE_DYNAMIC_ISLAND_FIX_DESC" = "Off by default. Turn on only if the Dynamic Island expands while using the app on an iPhone 14 Pro or newer (sideloaded). Takes effect after an app restart.";
 "ADBLOCK_WORKAROUND" = "AdBlock Workaround";
 "ADBLOCK_WORKAROUND_DESC" = "Uses stronger adblocking code.";
+
+"FIX_PLAYBACK_ISSUES" = "Fix playback issues";
+"FIX_PLAYBACK_ISSUES_DESC" = "Automatically recovers playback when a video stops or errors out mid-playback (e.g. after about a minute). Recommended for everyone.";
 "FAKE_PREMIUM" = "Fake Premium";
 "FAKE_PREMIUM_DESC" = "Uses Premium logo and creates fake buttons in the You tab.";
 "FAKE_PREMIUM_WARNING" = "The *You* Tab doesn't exist in v%@, fake buttons will not be created.\nBut the *Fake Premium Logo* will still work.";
@@ -298,11 +331,19 @@
 "AUTO_HIDE_HOME_INDICATOR_DESC" = "当不与应用程序交互时自动隐藏 iOS 自动隐藏主页面小白条。";
 "HIDE_INDICATORS" = "隐藏 Indicators";
 "HIDE_INDICATORS_DESC" = "Hides all Indicators that are currently in the App.";
-"FIX_CASTING" = "修复投屏功能";
-"FIX_CASTING_DESC" = "改变特定 A/B flags（灰度测试选项） 以便修复投屏功能。";
 "NEW_SETTINGS_UI" = "使用新版设置UI";
 "NEW_SETTINGS_UI_DESC" = "通过调整某些项目启用新版设置UI。";
+
+// YouMod migration
+"YOU_MOD_GITHUB" = "YouMod on GitHub";
+"YOU_MOD_GITHUB_DESC" = "Lightweight alternative — visit the YouMod repo first to prepare!";
+"MIGRATE_TO_YOU_MOD" = "⭐ Migrate to YouMod 2.0.0 (Recommended)";
+"MIGRATE_TO_YOU_MOD_DESC" = "Copies your compatible uYouEnhanced settings over to YouMod 2.0.0. Your uYouEnhanced settings are kept. A HUD message confirms how many keys migrated.";
+"MIGRATE_TO_YOU_MOD_RESET" = "⚠️ Migrate to YouMod 2.0.0 + Reset uYouEnhanced (Advanced)";
+"MIGRATE_TO_YOU_MOD_RESET_DESC" = "Copies your settings to YouMod 2.0.0, then REMOVES all toggled uYouEnhanced settings. Only use this if you fully intend to switch to YouMod 2.0.0.";
 
 "DEFAULT" = "默认";
 "CUSTOM_COLOR" = "自定义颜色";
 "RESTART_REQUIRED" = "需要重启应用。";
+"OK" = "OK";
+"FAILED" = "Failed";

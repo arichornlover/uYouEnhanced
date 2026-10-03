@@ -1,6 +1,8 @@
 // เกี่ยวกับ
 "ABOUT" = "เกี่ยวกับ";
 
+"APP_NAME" = "uYouEnhanced";
+
 "VERSION" = "เวอร์ชัน";
 "VERSION_CHECK" = "แตะเพื่อตรวจสอบการอัปเดต!";
 
@@ -8,10 +10,13 @@
 "ADD_TITLE" = "เพิ่มชื่อเรื่องของคุณที่นี่...";
 
 "QUIT_YOUTUBE" = "ออกจาก YouTube";
+
 "RESTART_YOUTUBE" = "รีสตาร์ท YouTube เพื่อให้การเปลี่ยนแปลงมีผล";
 
 // ลักษณะของแอป
 "APP_THEME" = "🎨 ลักษณะของแอป";
+
+"APP_PERSONALIZATION" = "📺 App Personalization";
 "THEME_OPTIONS" = "ตัวเลือกธีม";
 
 "DARK_THEME" = "ธีมมืด";
@@ -117,7 +122,12 @@
 "CAST_CONFIRM_DESC" = "แสดงการแจ้งเตือนยืนยันก่อนการแคสต์";
 "CASTING" = "กำลังแคสต์";
 "MSG_ARE_YOU_SURE" = "คุณแน่ใจหรือไม่ว่าต้องการเริ่มการแคสต์?";
-"MSG_YES" = "ใช่"; "MSG_CANCEL" = "ยกเลิก";
+"MSG_YES" = "ใช่";
+"MSG_CANCEL" = "ยกเลิก";
+
+"MSG_CONFIRM" = "Confirm";
+"MSG_DONE" = "Done";
+"MSG_CONFIRM_PASTE_SETTINGS" = "Are you sure you want to paste the settings?";
 
 "DISABLE_HINTS" = "ปิดใช้งานคำแนะนำ";
 "DISABLE_HINTS_DESC" = "ปิดคำแนะนำฟีเจอร์ YouTube ที่แสดงเมื่อแอปเพิ่งติดตั้ง";
@@ -134,11 +144,7 @@
 "IPHONE_LAYOUT" = "บังคับรูปแบบ iPhone";
 "IPHONE_LAYOUT_DESC" = "";
 
-"NEW_MINIPLAYER_STYLE" = "BigYTMiniPlayer";
-"NEW_MINIPLAYER_STYLE_DESC" = "สไตล์แถบ mini player ใหม่";
 
-"YT_RE_EXPLORE" = "YTReExplore";
-"YT_RE_EXPLORE_DESC" = "แทนที่แท็บ Shorts ด้วยแท็บ Explore";
 
 "ENABLE_FLEX" = "เปิดใช้งาน FLEX";
 "ENABLE_FLEX_DESC" = "เปิดใช้งาน FLEX สำหรับการดีบัก";
@@ -148,6 +154,8 @@
 
 // uYouEnhanced Localization ➕
 "SUPPORT_THE_DEVELOPERS" = "สนับสนุนผู้พัฒนา";
+
+"SUPPORT_THE_DEVELOPERS_DESC" = "MiRO92, PoomSmart, level3tjg, BandarHL, julioverne & Galactic-dev";
 "COPY_SETTINGS" = "คัดลอกการตั้งค่า";
 "COPY_SETTINGS_DESC" = "คัดลอกการตั้งค่าทั้งหมดในปัจจุบันไปยังคลิปบอร์ด";
 "PASTE_SETTINGS" = "วางการตั้งค่า";
@@ -160,11 +168,16 @@
 "REPLACE_COPY_AND_PASTE_BUTTONS_DESC" = "แทนที่ปุ่มด้วย 'ส่งออกการตั้งค่า' และ 'นำเข้าการตั้งค่า'";
 
 "UYOUENHANCED_ESSENTIAL_MENU" = "เมนูสำคัญของ uYouEnhanced";
+
+"UYOUENHANCED_ESSENTIAL_MENU_DESC" = "This menu includes App Color Customization 🎨 & Ability to Clear the Cache 🗑️";
+"UYOUENHANCED_SECTION_DESC" = "TITLE DESCRIPTION";
 "CHANGE_APP_ICON" = "เปลี่ยนไอคอนแอป";
 "CLEAR_NOTIFICATIONS" = "ล้างการแจ้งเตือน";
 "CLEAR_NOTIFICATIONS_DESC" = "บังคับลบการแจ้งเตือนทั้งหมด (แนะนำเมื่อแอปถูกติดตั้งจากแหล่งที่ไม่ใช่ Play Store)";
 
 "CUSTOM_DARK_THEME" = "ธีมมืดที่กำหนดเอง";
+
+"CUSTOM_DARK_THEME_DESC" = "In order to use Custom Themes, go to uYouEnhanced Essential Menu, you will need to press Custom Theme Color and than change the colors.";
 
 "ENABLE_PORTRAIT_FULLSCREEN" = "เปิดโหมดเต็มหน้าจอแนวตั้ง";
 "ENABLE_PORTRAIT_FULLSCREEN_DESC" = "เปิดโหมดเต็มหน้าจอแนวตั้งในแอป YouTube ต้องรีสตาร์ทแอป";
@@ -215,6 +228,18 @@
 "SHORTS_QUALITY_PICKER" = "ตัวเลือกคุณภาพ Shorts";
 "SHORTS_QUALITY_PICKER_DESC" = "เปิดใช้งานตัวเลือกคุณภาพสำหรับ YouTube Shorts";
 
+"SHORTS_PROGRESS_BAR" = "Shorts Progress Bar";
+"SHORTS_PROGRESS_BAR_DESC" = "Enables the progress bar on Shorts videos (YTShortsProgress)";
+
+"HIDE_SHORTS_CLIP_BUTTON" = "Hide Clip Button on Shorts";
+"HIDE_SHORTS_CLIP_BUTTON_DESC" = "Hides the Clip button when a Short is paused.";
+"HIDE_SHORTS_DOWNLOAD_BUTTON" = "Hide Download Button on Shorts";
+"HIDE_SHORTS_DOWNLOAD_BUTTON_DESC" = "Hides the Download button when a Short is paused.";
+"HIDE_SHORTS_REMIX_BUTTON" = "Hide Remix Button on Shorts";
+"HIDE_SHORTS_REMIX_BUTTON_DESC" = "Hides the Remix button when a Short is paused.";
+"HIDE_SHORTS_STATS_BUTTON" = "Hide Stats for Nerds Button on Shorts";
+"HIDE_SHORTS_STATS_BUTTON_DESC" = "Hides the Stats for Nerds button when a Short is paused.";
+
 "VIDEO_PLAYER_BUTTON_OPTIONS" = "ตัวเลือกปุ่มผู้เล่นวิดีโอ";
 
 "RED_SUBSCRIBE_BUTTON" = "ปุ่มสมัครสีแดง";
@@ -252,6 +277,10 @@
 "UI_INTERFACE_OPTIONS" = "ตัวเลือกอินเตอร์เฟซ UI";
 
 "HIDE_HOME_TAB" = "ซ่อนแท็บหน้าแรก";
+
+"SHOW_NOTIFICATIONS_TAB" = "Enable Notifications Tab";
+"SHOW_NOTIFICATIONS_TAB_DESC" = "Makes the Notifications Tab appear back onto the Pivot Bar, experimental: Testing customization options.";
+"NOTIFICATIONS_TAB_CUSTOMIZATION" = "Notifications Tab nostalgic customization";
 "LOW_CONTRAST_MODE" = "โหมดคอนทราสต์ต่ำ";
 "LOW_CONTRAST_MODE_DESC" = "จะลดความคมชัดของสีในข้อความและปุ่ม คล้ายกับอินเตอร์เฟซแอป YouTube ก่อนปี 2020";
 "LOW_CONTRAST_MODE_SELECTOR" = "ตัวเลือกโหมดคอนทราสต์ต่ำ";
@@ -275,9 +304,15 @@
 
 "ADBLOCK_WORKAROUND_LITE" = "ทางแก้ไข AdBlock (Lite)";
 "ADBLOCK_WORKAROUND_LITE_DESC" = "ใช้โค้ดบล็อกโฆษณาที่อ่อนแอ เป็นการปิดใช้งานตัวเลือกการบล็อกโฆษณาของ uYou";
+"ENABLE_DYNAMIC_ISLAND_FIX" = "Enable Dynamic Island Fix";
+"ENABLE_DYNAMIC_ISLAND_FIX_DESC" = "Off by default. Turn on only if the Dynamic Island expands while using the app on an iPhone 14 Pro or newer (sideloaded). Takes effect after an app restart.";
 "ADBLOCK_WORKAROUND" = "ทางแก้ไข AdBlock";
 "ADBLOCK_WORKAROUND_DESC" = "ใช้โค้ดบล็อกโฆษณาที่แข็งแกร่ง";
-"FAKE_PREMIUM" = "Premium ปลอม"; "FAKE_PREMIUM_DESC" = "ใช้โลโก้ Premium และสร้างปุ่มปลอมในแท็บ You จะปิดการใช้งานโลโก้ YouTube อนิเมชั่น";
+
+"FIX_PLAYBACK_ISSUES" = "Fix playback issues";
+"FIX_PLAYBACK_ISSUES_DESC" = "Automatically recovers playback when a video stops or errors out mid-playback (e.g. after about a minute). Recommended for everyone.";
+"FAKE_PREMIUM" = "Premium ปลอม";
+"FAKE_PREMIUM_DESC" = "ใช้โลโก้ Premium และสร้างปุ่มปลอมในแท็บ You จะปิดการใช้งานโลโก้ YouTube อนิเมชั่น";
 "FAKE_PREMIUM_WARNING" = "แท็บ You ไม่มีใน v%@, ปุ่มปลอมจะไม่ได้สร้างขึ้น \nแต่ โลโก้ Premium ปลอม จะยังคงทำงาน";
 "FAKE_YOUR_PREMIUM_BENEFITS" = "สิทธิพิเศษ Premium ของคุณ";
 "FAKE_DOWNLOADS" = "การดาวน์โหลด";
@@ -296,11 +331,19 @@
 "AUTO_HIDE_HOME_INDICATOR_DESC" = "ซ่อนตัวชี้วัดหน้าแรกของ iOS เมื่อไม่ได้โต้ตอบกับแอป";
 "HIDE_INDICATORS" = "ซ่อนตัวชี้วัด";
 "HIDE_INDICATORS_DESC" = "ซ่อนตัวชี้วัดทั้งหมดในแอป";
-"FIX_CASTING" = "แก้ไขการส่ง";
-"FIX_CASTING_DESC" = "เปลี่ยนธงบางประการเพื่อแก้ไขการส่ง";
 "NEW_SETTINGS_UI" = "ใช้ UI การตั้งค่าใหม่";
 "NEW_SETTINGS_UI_DESC" = "เปิดใช้งาน UI การตั้งค่าใหม่พร้อมหมวดหมู่การปรับแต่ง";
+
+// YouMod migration
+"YOU_MOD_GITHUB" = "YouMod on GitHub";
+"YOU_MOD_GITHUB_DESC" = "Lightweight alternative — visit the YouMod repo first to prepare!";
+"MIGRATE_TO_YOU_MOD" = "⭐ Migrate to YouMod 2.0.0 (Recommended)";
+"MIGRATE_TO_YOU_MOD_DESC" = "Copies your compatible uYouEnhanced settings over to YouMod 2.0.0. Your uYouEnhanced settings are kept. A HUD message confirms how many keys migrated.";
+"MIGRATE_TO_YOU_MOD_RESET" = "⚠️ Migrate to YouMod 2.0.0 + Reset uYouEnhanced (Advanced)";
+"MIGRATE_TO_YOU_MOD_RESET_DESC" = "Copies your settings to YouMod 2.0.0, then REMOVES all toggled uYouEnhanced settings. Only use this if you fully intend to switch to YouMod 2.0.0.";
 
 "DEFAULT" = "ค่าเริ่มต้น";
 "CUSTOM_COLOR" = "สีที่กำหนดเอง";
 "RESTART_REQUIRED" = "ต้องรีสตาร์ทแอป";
+"OK" = "OK";
+"FAILED" = "Failed";

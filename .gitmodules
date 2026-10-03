@@ -97,3 +97,12 @@
 [submodule "Tweaks/YTweaks"]
 	path = Tweaks/YTweaks
 	url = https://github.com/fosterbarnes/YTweaks.git
+[submodule "Tweaks/YouTubeLegacy"]
+	path = Tweaks/YouTubeLegacy
+	url = https://github.com/aricloverEXTRA/YouTubeLegacy.git
+[submodule "Tweaks/uYouUnofficial"]
+	path = Tweaks/uYouUnofficial
+	url = https://github.com/aricloverEXTRA/uYouUnofficial.git
+[submodule "Tweaks/YTAmbientLight"]
+	path = Tweaks/YTAmbientLight
+	url = https://github.com/aricloverEXTRA/YTAmbientLight.git

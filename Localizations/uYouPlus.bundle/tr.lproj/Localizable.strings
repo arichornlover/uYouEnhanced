@@ -1,6 +1,8 @@
 // About
 "ABOUT" = "Hakkında";
 
+"APP_NAME" = "uYouEnhanced";
+
 "VERSION" = "Versiyon";
 "VERSION_CHECK" = "Güncellemeleri kontrol etmek için dokunun!";
 
@@ -13,6 +15,8 @@
 
 // App appearance
 "APP_THEME" = "🎨 Uygulama görünümü";
+
+"APP_PERSONALIZATION" = "📺 App Personalization";
 "THEME_OPTIONS" = "Tema seçenekleri";
 
 "DARK_THEME" = "Koyu tema";
@@ -59,6 +63,9 @@
 
 "STOCK_VOLUME_HUD" = "Stok iOS ses HUD'unu kullan";
 "STOCK_VOLUME_HUD_DESC" = "";
+
+"REPLACE_YT_DOWNLOAD_WITH_UYOU" = "Replace YouTube's download with uYou's";
+"REPLACE_YT_DOWNLOAD_WITH_UYOU_DESC" = "";
 
 // Video controls overlay options
 "VIDEO_CONTROLS_OVERLAY_OPTIONS" = "📹 Video kontrolleri kaplama seçenekleri";
@@ -118,6 +125,10 @@
 "MSG_YES" = "Evet";
 "MSG_CANCEL" = "İptal";
 
+"MSG_CONFIRM" = "Confirm";
+"MSG_DONE" = "Done";
+"MSG_CONFIRM_PASTE_SETTINGS" = "Are you sure you want to paste the settings?";
+
 "DISABLE_HINTS" = "İpuçlarını devre dışı bırak";
 "DISABLE_HINTS_DESC" = "Uygulama yeni yüklendiğinde görüntülenen YouTube özellik ipuçlarını devre dışı bırakır";
 
@@ -133,11 +144,7 @@
 "IPHONE_LAYOUT" = "iPhone düzenini zorla";
 "IPHONE_LAYOUT_DESC" = "";
 
-"NEW_MINIPLAYER_STYLE" = "Yeni Mini Oynatıcı Tarzı";
-"NEW_MINIPLAYER_STYLE_DESC" = "Yeni mini oynatıcı çubuğu tarzı";
 
-"YT_RE_EXPLORE" = "YTReExplore";
-"YT_RE_EXPLORE_DESC" = "Shorts sekmesini Keşfet sekmesi ile değiştirir";
 
 "ENABLE_FLEX" = "FLEX'i etkinleştir";
 "ENABLE_FLEX_DESC" = "Hata ayıklama için FLEX'i etkinleştirir";
@@ -147,6 +154,8 @@
 
 // uYouEnhanced Localization ➕
 "SUPPORT_THE_DEVELOPERS" = "Geliştiricileri Destekleyin";
+
+"SUPPORT_THE_DEVELOPERS_DESC" = "MiRO92, PoomSmart, level3tjg, BandarHL, julioverne & Galactic-dev";
 "COPY_SETTINGS" = "Ayarları Kopyala";
 "COPY_SETTINGS_DESC" = "Tüm mevcut ayarları panoya kopyala";
 "PASTE_SETTINGS" = "Ayarları Yapıştır";
@@ -159,14 +168,21 @@
 "REPLACE_COPY_AND_PASTE_BUTTONS_DESC" = "Düğmeleri 'Ayarları Dışa Aktar' ve 'Ayarları İçe Aktar' ile değiştirir";
 
 "UYOUENHANCED_ESSENTIAL_MENU" = "uYouEnhanced Temel Menü";
+
+"UYOUENHANCED_ESSENTIAL_MENU_DESC" = "This menu includes App Color Customization 🎨 & Ability to Clear the Cache 🗑️";
+"UYOUENHANCED_SECTION_DESC" = "TITLE DESCRIPTION";
 "CHANGE_APP_ICON" = "Uygulama Simgesini Değiştir";
 "CLEAR_NOTIFICATIONS" = "Bildirimleri Temizle";
 "CLEAR_NOTIFICATIONS_DESC" = "Tüm uygulama bildirimlerini zorla temizle (Yan yükleme durumunda önerilir)";
 
 "CUSTOM_DARK_THEME" = "Özel Koyu Tema";
 
+"CUSTOM_DARK_THEME_DESC" = "In order to use Custom Themes, go to uYouEnhanced Essential Menu, you will need to press Custom Theme Color and than change the colors.";
+
 "ENABLE_PORTRAIT_FULLSCREEN" = "Dikey Tam Ekranı Etkinleştir";
 "ENABLE_PORTRAIT_FULLSCREEN_DESC" = "YouTube Uygulamasında Dikey Tam Ekranı etkinleştirir. Uygulama yeniden başlatılması gereklidir.";
+"FULLSCREEN_TO_THE_RIGHT" = "Fullscreen to the Right";
+"FULLSCREEN_TO_THE_RIGHT_DESC" = "Force the video to always go to landscape right. App restart is required.";
 "ENABLE_TAP_TO_SEEK" = "Dokunarak Aramayı Etkinleştir";
 "ENABLE_TAP_TO_SEEK_DESC" = "İzleme çubuğuna tek dokunarak videoda herhangi bir yere atlayın";
 "DISABLE_PULL_TO_FULLSCREEN_GESTURE" = "Tam ekran hareketini devre dışı bırak";
@@ -212,6 +228,18 @@
 "SHORTS_QUALITY_PICKER" = "Shorts Kalite Seçici";
 "SHORTS_QUALITY_PICKER_DESC" = "YouTube Shorts Kalite Seçicisini etkinleştirir.";
 
+"SHORTS_PROGRESS_BAR" = "Shorts Progress Bar";
+"SHORTS_PROGRESS_BAR_DESC" = "Enables the progress bar on Shorts videos (YTShortsProgress)";
+
+"HIDE_SHORTS_CLIP_BUTTON" = "Hide Clip Button on Shorts";
+"HIDE_SHORTS_CLIP_BUTTON_DESC" = "Hides the Clip button when a Short is paused.";
+"HIDE_SHORTS_DOWNLOAD_BUTTON" = "Hide Download Button on Shorts";
+"HIDE_SHORTS_DOWNLOAD_BUTTON_DESC" = "Hides the Download button when a Short is paused.";
+"HIDE_SHORTS_REMIX_BUTTON" = "Hide Remix Button on Shorts";
+"HIDE_SHORTS_REMIX_BUTTON_DESC" = "Hides the Remix button when a Short is paused.";
+"HIDE_SHORTS_STATS_BUTTON" = "Hide Stats for Nerds Button on Shorts";
+"HIDE_SHORTS_STATS_BUTTON_DESC" = "Hides the Stats for Nerds button when a Short is paused.";
+
 "VIDEO_PLAYER_BUTTON_OPTIONS" = "Video Oynatıcı Düğme Seçenekleri";
 
 "RED_SUBSCRIBE_BUTTON" = "Kırmızı Abone Ol Düğmesi";
@@ -249,11 +277,17 @@
 "UI_INTERFACE_OPTIONS" = "Kullanıcı Arayüzü Seçenekleri";
 
 "HIDE_HOME_TAB" = "Ana Sekmeyi Gizle";
+
+"SHOW_NOTIFICATIONS_TAB" = "Enable Notifications Tab";
+"SHOW_NOTIFICATIONS_TAB_DESC" = "Makes the Notifications Tab appear back onto the Pivot Bar, experimental: Testing customization options.";
+"NOTIFICATIONS_TAB_CUSTOMIZATION" = "Notifications Tab nostalgic customization";
 "LOW_CONTRAST_MODE" = "Düşük Kontrast Modu";
 "LOW_CONTRAST_MODE_DESC" = "Bu, metinler ve düğmelerdeki renk kontrastını YouTube'un 2020 öncesi uygulama arayüzüne benzer şekilde düşürecektir.";
 "LOW_CONTRAST_MODE_SELECTOR" = "Düşük Kontrast Modu Seçici";
 "LOW_CONTRAST_MODE_ERROR_1" = "v%@ kullanıyorsunuz, bu YouTube'un artık çalışmayan eski bir sürümüdür. Düşük Kontrast Modu'nu kullanmak için lütfen v17.33.2-17.38.10 sürümlerini kullanın.";
 "LOW_CONTRAST_MODE_ERROR_2" = "Düşük Kontrast Modu yalnızca v17.33.2-v17.38.10 uygulama sürümleri için geçerlidir. \nŞu anda v%@ kullanıyorsunuz. \nGeçici çözüm: Bunu kullanmak istiyorsanız, \"Düşük Kontrast Modu'nu Düzelt\" seçeneğini etkinleştirmenizi öneririm.";
+"CLASSIC_VIDEO_PLAYER" = "Classic Video Player";
+"CLASSIC_VIDEO_PLAYER_DESC" = "Restores the classic video player features from v16.xx.x, including pinch-to-fullscreen.";
 "FIX_LOWCONTRASTMODE" = "Düşük Kontrast Modu'nu Düzelt";
 "FIX_LOWCONTRASTMODE_DESC" = "YouTube v17.38.10'a sahte olarak geçiş yaparak Düşük Kontrast Modu işlevini düzeltir ve etkinleştirir. Uygulama yeniden başlatılması gereklidir.";
 "DISABLE_MODERN_BUTTONS" = "Modern Düğmeleri Devre Dışı Bırak";
@@ -270,8 +304,13 @@
 
 "ADBLOCK_WORKAROUND_LITE" = "Reklam Engelleme Çözümü (Hafif)";
 "ADBLOCK_WORKAROUND_LITE_DESC" = "Daha zayıf reklam engelleme kodu kullanır, bu uYou'nun reklam engelleme seçeneğini devre dışı bırakır.";
+"ENABLE_DYNAMIC_ISLAND_FIX" = "Enable Dynamic Island Fix";
+"ENABLE_DYNAMIC_ISLAND_FIX_DESC" = "Off by default. Turn on only if the Dynamic Island expands while using the app on an iPhone 14 Pro or newer (sideloaded). Takes effect after an app restart.";
 "ADBLOCK_WORKAROUND" = "Reklam Engelleme Çözümü";
 "ADBLOCK_WORKAROUND_DESC" = "Daha güçlü reklam engelleme kodu kullanır.";
+
+"FIX_PLAYBACK_ISSUES" = "Fix playback issues";
+"FIX_PLAYBACK_ISSUES_DESC" = "Automatically recovers playback when a video stops or errors out mid-playback (e.g. after about a minute). Recommended for everyone.";
 "FAKE_PREMIUM" = "Sahte Premium";
 "FAKE_PREMIUM_DESC" = "Premium logosunu kullanır ve You sekmesinde sahte düğmeler oluşturur.";
 "FAKE_PREMIUM_WARNING" = "You sekmesi v%@ 'de mevcut değil, sahte düğmeler oluşturulmayacak.\nAncak, *Sahte Premium Logosu* hala çalışacaktır.";
@@ -292,11 +331,19 @@
 "AUTO_HIDE_HOME_INDICATOR_DESC" = "Uygulama ile etkileşim olmadığında iOS Ana Ekran Göstergesini otomatik olarak gizler.";
 "HIDE_INDICATORS" = "Göstergeleri Gizle";
 "HIDE_INDICATORS_DESC" = "Tüm göstergeleri gizler. (örneğin: Aşağı kaydırma, Yukarı Kaydırma, Kaydırma Durumu)";
-"FIX_CASTING" = "Dökümü Düzelt";
-"FIX_CASTING_DESC" = "Dökümü düzeltmek için belirli A/B bayraklarını değiştirir.";
 "NEW_SETTINGS_UI" = "Yeni Ayarlar Arayüzünü Kullan";
 "NEW_SETTINGS_UI_DESC" = "İnce ayar(Tweak) kategorileriyle yeni Ayarlar Arayüzünü etkinleştirir.";
+
+// YouMod migration
+"YOU_MOD_GITHUB" = "YouMod on GitHub";
+"YOU_MOD_GITHUB_DESC" = "Lightweight alternative — visit the YouMod repo first to prepare!";
+"MIGRATE_TO_YOU_MOD" = "⭐ Migrate to YouMod 2.0.0 (Recommended)";
+"MIGRATE_TO_YOU_MOD_DESC" = "Copies your compatible uYouEnhanced settings over to YouMod 2.0.0. Your uYouEnhanced settings are kept. A HUD message confirms how many keys migrated.";
+"MIGRATE_TO_YOU_MOD_RESET" = "⚠️ Migrate to YouMod 2.0.0 + Reset uYouEnhanced (Advanced)";
+"MIGRATE_TO_YOU_MOD_RESET_DESC" = "Copies your settings to YouMod 2.0.0, then REMOVES all toggled uYouEnhanced settings. Only use this if you fully intend to switch to YouMod 2.0.0.";
 
 "DEFAULT" = "Varsayılan";
 "CUSTOM_COLOR" = "Özel Renk";
 "RESTART_REQUIRED" = "Uygulama yeniden başlatılması gereklidir.";
+"OK" = "OK";
+"FAILED" = "Failed";

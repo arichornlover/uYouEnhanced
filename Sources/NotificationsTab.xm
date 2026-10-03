@@ -1,10 +1,6 @@
 #import "uYouPlus.h"
+#import "UYTLog.h"
 
-// Notifications Tab appearance - @arichornlover & @dayanch96
-
-// Forward declare YTPivotBarItemView as UIView subclass so it can be used
-// as a %hook receiver type (only @class forward decl from YouTubeHeader is
-// insufficient for receiver usage).
 @interface YTPivotBarItemView : UIView
 @end
 
@@ -20,7 +16,6 @@ static int getNotificationIconStyle() {
     return [[NSUserDefaults standardUserDefaults] integerForKey:@"notificationIconStyle"];
 }
 
-// Badge count for the Notifications Tab
 static NSInteger _notificationsBadgeCount = 0;
 
 %group gShowNotificationsTab
@@ -29,23 +24,23 @@ static NSInteger _notificationsBadgeCount = 0;
     NSString *imageName;
     UIColor *iconColor;
     switch (getNotificationIconStyle()) {
-        case 1:  // Bold outline style (2024+)
+        case 1:
             imageName = isSelected ? @"notifications_selected" : @"notifications_unselected";
             iconColor = [%c(YTColor) white1];
             break;
-        case 2:  // Thin outline style (2020+)
+        case 2:
             imageName = isSelected ? @"notifications_selected" : @"notifications_24pt";
             iconColor = [%c(YTColor) white1];
             break;
-        case 3:  // Filled style (2018+)
+        case 3:
             imageName = @"notifications_selected";
             iconColor = isSelected ? [%c(YTColor) white1] : [UIColor grayColor];
             break;
-        case 4:  // Inbox style (2014+)
+        case 4:
             imageName = @"inbox_selected";
             iconColor = isSelected ? [%c(YTColor) white1] : [UIColor grayColor];
             break;
-        default:  // Default style (2025+)
+        default:
             imageName = isSelected ? @"notifications_selected_2025" : @"notifications_unselected_2025";
             iconColor = [%c(YTColor) white1];
             break;
@@ -61,13 +56,10 @@ static NSInteger _notificationsBadgeCount = 0;
 %hook YTPivotBarView
 - (void)setRenderer:(YTIPivotBarRenderer *)renderer {
     @try {
-	// Try to read the notification badge count from the guide response
-	// YouTube stores notification counts in the pivot bar renderer data
 	@try {
 	    for (YTIPivotBarSupportedRenderers *item in renderer.itemsArray) {
 		if (item.pivotBarItemRenderer) {
 		    @try {
-			// Try to get notification count via protobuf fields
 			id badgeData = [item.pivotBarItemRenderer valueForKey:@"notificationCount"];
 			if (badgeData && [badgeData respondsToSelector:@selector(integerValue)]) {
 			    NSInteger count = [badgeData integerValue];
@@ -88,7 +80,7 @@ static NSInteger _notificationsBadgeCount = 0;
 	YTIPivotBarItemRenderer *itemBar = [[%c(YTIPivotBarItemRenderer) alloc] init];
 	[itemBar setPivotIdentifier:@"FEnotifications_inbox"];
 	YTIIcon *icon = [itemBar icon];
-	[icon setIconType:YT_NOTIFICATIONS];
+	@try { [icon setIconType:YT_NOTIFICATIONS]; } @catch (NSException *e) {}
 	[itemBar setNavigationEndpoint:command];
 
 	YTIFormattedString *formatString;
@@ -102,8 +94,6 @@ static NSInteger _notificationsBadgeCount = 0;
 	YTIPivotBarSupportedRenderers *barSupport = [[%c(YTIPivotBarSupportedRenderers) alloc] init];
 	[barSupport setPivotBarItemRenderer:itemBar];
 
-        // Position per user preference ("FENotificationsTabIndex", 0-based;
-        // -1/absent = append at end). Set from uYouEnhanced settings.
         NSInteger preferred = [[NSUserDefaults standardUserDefaults] integerForKey:@"FENotificationsTabIndex"];
         NSUInteger insertIndex = renderer.itemsArray.count;
         if (preferred >= 0 && (NSUInteger)preferred < renderer.itemsArray.count) {
@@ -111,47 +101,52 @@ static NSInteger _notificationsBadgeCount = 0;
         }
         [renderer.itemsArray insertObject:barSupport atIndex:insertIndex];
     } @catch (NSException *exception) {
-        NSLog(@"Error setting renderer: %@", exception.reason);
+        UYTDebugErr(@"NotificationsTab error setting renderer: %@", exception.reason);
     }
-    %orig(renderer);
+    %orig(
+        renderer
+    );
 }
 %end
 %hook YTBrowseViewController
 - (void)viewDidLoad {
     %orig;
-    @try {
-        YTICommand *navEndpoint = [self valueForKey:@"_navEndpoint"];
-        if ([navEndpoint.browseEndpoint.browseId isEqualToString:@"FEnotifications_inbox"]) {
+    YTICommand *navEndpoint = nil;
+    for (NSString *key in @[@"navigationEndpoint", @"navEndpoint", @"_navEndpoint"]) {
+        @try {
+            id value = [self valueForKey:key];
+            if ([value isKindOfClass:[%c(YTICommand) class]]) { navEndpoint = value; break; }
+        } @catch (NSException *e) {}
+    }
+    if ([navEndpoint.browseEndpoint.browseId isEqualToString:@"FEnotifications_inbox"]) {
+        @try {
             UIViewController *notificationsViewController = [[UIViewController alloc] init];
             [self addChildViewController:notificationsViewController];
-            // FIXME: View issues
             [notificationsViewController.view setFrame:CGRectMake(0.0f, 0.0f, self.view.frame.size.width, self.view.frame.size.height)];
             [self.view addSubview:notificationsViewController.view];
             [self.view endEditing:YES];
             [notificationsViewController didMoveToParentViewController:self];
+        } @catch (NSException *exception) {
+            UYTDebugErr(@"NotificationsTab cannot show notifications view controller: %@", exception.reason);
         }
-    } @catch (NSException *exception) {
-        NSLog(@"Cannot show notifications view controller: %@", exception.reason);
     }
 }
 %end
 
-// Hook to display the notification badge count on the Notifications Tab pivot bar item
 %hook YTPivotBarItemView
 - (void)layoutSubviews {
     %orig;
     if (!IS_ENABLED(kShowNotificationsTab)) return;
 
     @try {
-        // Identify this view's pivot identifier to only badge the notifications tab
         NSString *pivotId = nil;
-        id item = [self valueForKey:@"_item"];
+        id item = nil;
+        @try { item = [self valueForKey:@"renderer"]; } @catch (NSException *e) {}
         if (item && [item respondsToSelector:@selector(pivotIdentifier)]) {
             pivotId = [item pivotIdentifier];
         }
         BOOL isNotificationsItem = [pivotId isEqualToString:@"FEnotifications_inbox"];
 
-        // Remove existing badge from non-notifications items
         if (!isNotificationsItem || _notificationsBadgeCount <= 0) {
             for (UIView *subview in self.subviews) {
                 if (subview.tag == 9999) {
@@ -161,7 +156,6 @@ static NSInteger _notificationsBadgeCount = 0;
             return;
         }
 
-        // Check if this view already has a badge (tag 9999)
         UILabel *badgeLabel = nil;
         for (UIView *subview in self.subviews) {
             if (subview.tag == 9999) {
@@ -189,7 +183,6 @@ static NSInteger _notificationsBadgeCount = 0;
         }
         badgeLabel.text = badgeText;
 
-        // Calculate badge size based on text
         NSDictionary *attrs = @{NSFontAttributeName: [UIFont boldSystemFontOfSize:10]};
         CGSize textSize = [badgeText sizeWithAttributes:attrs];
         CGFloat badgeWidth = MAX(textSize.width + 8, 18);
@@ -203,7 +196,7 @@ static NSInteger _notificationsBadgeCount = 0;
         );
         badgeLabel.layer.cornerRadius = badgeHeight / 2;
     } @catch (NSException *e) {
-        NSLog(@"[uYouEnhanced] Badge error: %@", e);
+        UYTDebugErr(@"NotificationsTab badge error: %@", e);
     }
 }
 %end
@@ -214,3 +207,4 @@ static NSInteger _notificationsBadgeCount = 0;
         %init(gShowNotificationsTab);
     }
 }
+
