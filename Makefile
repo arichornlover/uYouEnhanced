@@ -118,6 +118,9 @@ before-all::
 	perl -pi -e 's/3\.0\.4/3.0.5/g' $(UYOU_DYLIB); \
 	$(PRINT_FORMAT_BLUE) "uYou rebranded to 3.0.5 (Unofficial Build)";
 
+before-package::
+	@bash tools/stage-ffmpeg.sh "$(THEOS_PROJECT_DIR)/Bundles"
+
 else
 before-package::
 	@mkdir -p $(THEOS_STAGING_DIR)/Library/Application\ Support; cp -r Localizations/uYouPlus.bundle $(THEOS_STAGING_DIR)/Library/Application\ Support/
