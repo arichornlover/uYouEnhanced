@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       build_ffmpeg:
-        description: "Build FFmpegKit from source (+ cached)"
+        description: "Build FFmpegKit from source (cached; first run takes 30-90 min usually.)"
         default: true
         required: false
         type: boolean
@@ -83,7 +83,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install ldid dpkg make wget unzip jq pipx meson ninja gnu-sed autoconf automake libtool pkgconf
+          brew install ldid dpkg make wget unzip jq pipx meson ninja gnu-sed autoconf automake libtool pkgconf pngquant
 
       - name: Set PATH
         run: echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
@@ -260,10 +260,16 @@ jobs:
         run: |
           set -euo pipefail
           IPA="main/packages/${{ steps.strip_ipa.outputs.final_ipa }}"
-          rm -rf iconwork && mkdir -p iconwork && cd iconwork
+          rm -rf iconwork && mkdir -p iconwork/icons && cd iconwork
           unzip -q "../$IPA" "Payload/YouTube.app/Info.plist"
           PLIST="Payload/YouTube.app/Info.plist"
-          ICON_SRC="../main/Localizations/uYouPlus.bundle/AppIcons"
+          RAW_ICON_SRC="../main/Localizations/uYouPlus.bundle/AppIcons"
+          ICON_SRC="icons"
+          for f in "$RAW_ICON_SRC"/*.png; do
+            name="$(basename "$f")"
+            pngquant --quality=80-95 --strip --skip-if-larger "$f" --output "$ICON_SRC/$name" >/dev/null 2>&1 || true
+            [ -f "$ICON_SRC/$name" ] || cp -f "$f" "$ICON_SRC/$name"
+          done
           PB=/usr/libexec/PlistBuddy
           BADICONS=0
           for f in "$ICON_SRC"/*.png; do
@@ -285,8 +291,6 @@ jobs:
           for f in "$ICON_SRC"/*.png; do
             NAME="$(basename "$f" .png)"
             cp -f "$f" "Payload/YouTube.app/$NAME.png"
-            cp -f "$f" "Payload/YouTube.app/$NAME@2x.png"
-            cp -f "$f" "Payload/YouTube.app/$NAME@3x.png"
             for ROOT in CFBundleIcons "CFBundleIcons~ipad"; do
               $PB -c "Add :$ROOT:CFBundleAlternateIcons:$NAME dict" "$PLIST" 2>/dev/null || true
               $PB -c "Add :$ROOT:CFBundleAlternateIcons:$NAME:CFBundleIconFiles array" "$PLIST" 2>/dev/null || true
