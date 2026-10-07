@@ -1,5 +1,8 @@
 #import "uYouPlus.h"
 #import "uYouPatches.h"
+#import "UYTMediaKit.h"
+#import "DownloadPipeline.h"
+#import <AVFoundation/AVFoundation.h>
 
 // ---------------------------------------------------------------------------
 // UYTLog compat
@@ -299,8 +302,216 @@ static void refreshUYouAppearance() {
 static BOOL uYouDownloadIsActive = NO;
 static NSInteger uYouActiveDownloadCount = 0;
 
+// --- WebM Audio Format Fix (#771, #465, #814) ---
+// Since YouTube v19.22, adaptive audio streams changed from m4a to webm.
+// uYou's merge methods (mergeAudioWithMP4VideoForDownloadItem: etc.) use
+// AVAssetExportSession which CANNOT merge mp4 video + webm audio,
+// causing downloads to hang forever at "conversion" or "Adding metadata".
+// Fix: detect webm audio and convert it to m4a before merge.
+static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
+    if (!webmPath || !m4aPath) return NO;
+
+    NSFileManager *fm = [NSFileManager defaultManager];
+    if (![fm fileExistsAtPath:webmPath]) return NO;
+    // Never let input and output be the same path: the converter clears a
+    // stale output first and would delete the only copy of the source.
+    if ([webmPath isEqualToString:m4aPath]) return NO;
+
+    // Delegates to UYTMediaKit's runner, which talks to uYou's own
+    // MobileFFmpeg/FFmpegKit payload through objc_msgSend (no link-time
+    // class reference, so no _OBJC_CLASS_$_MobileFFmpeg link break).
+    if (!UYTFFConvertWebmAudioToM4a(webmPath, m4aPath)) {
+        UYTPatchWarn(@"[uYouPatches] WebM to M4A conversion failed: %@", webmPath);
+        return NO;
+    }
+
+    // Exit code + size alone don't prove the m4a is actually playable audio:
+    // a truncated/corrupt file can still pass both checks and get handed to
+    // the merge step, where any failure was previously only caught by the
+    // generic try/catch or the 30-45s stall watchdog. Verify it has a usable
+    // audio track and non-zero duration first, and drop it otherwise so
+    // callers take the fallback path immediately.
+    AVURLAsset *check = [AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:m4aPath] options:nil];
+    AVAssetTrack *audioTrack = [[check tracksWithMediaType:AVMediaTypeAudio] firstObject];
+    unsigned long long fileSize = [[fm attributesOfItemAtPath:m4aPath error:nil] fileSize];
+    if (audioTrack && CMTimeCompare(check.duration, kCMTimeZero) > 0) {
+        UYTPatchInfo(@"[uYouPatches] WebM->M4A conversion succeeded: %@ (%llu bytes, %.1fs)",
+                     m4aPath, fileSize, CMTimeGetSeconds(check.duration));
+        return YES;
+    }
+    UYTPatchWarn(@"[uYouPatches] WebM->M4A output exists but has no valid audio track/duration: %@", m4aPath);
+    [fm removeItemAtPath:m4aPath error:nil];
+    return NO;
+}
+
+// #1010 - uYouItem derives tmpAudioPath from downloadIdentifier + audioFormat
+// and has NO tmpAudioPath setter: KVC on that key throws NSUnknownKeyException,
+// which the hooks below used to swallow before bailing out without calling
+// %orig - so uYou's merge, the metadata step and the INSERT INTO downloads
+// never ran and every download hung forever with the converted m4a unused.
+// Point the item at the converted file by switching audioFormat instead
+// (audioFormat IS a real property), then verify that tmpAudioPath now names
+// the m4a the conversion just wrote. Verified on device per issue #1010.
+static BOOL UYTPointItemAtConvertedAudio(id uyouItem, NSString *webmPath, NSString *m4aPath) {
+    @try {
+        [uyouItem setValue:@"m4a" forKey:@"audioFormat"];
+        NSString *now = [uyouItem valueForKey:@"tmpAudioPath"];
+        if (![now isEqualToString:m4aPath]) {
+            UYTPatchWarn(@"[uYouPatches] tmpAudioPath is %@ after conversion, expected %@", now, m4aPath);
+            return NO;
+        }
+        // Nothing references the .webm source any more; reclaim the space.
+        [[NSFileManager defaultManager] removeItemAtPath:webmPath error:nil];
+        UYTPatchInfo(@"[uYouPatches] item now points at converted audio %@", m4aPath);
+        return YES;
+    } @catch (NSException *e) {
+        UYTPatchWarn(@"[uYouPatches] could not point item at converted audio: %@", e);
+        return NO;
+    }
+}
+
+// Post-conversion check: is the item's audio still WebM? If yes, calling
+// %orig would hang forever inside AVAssetExportSession (it never completes
+// an mp4+webm merge and never throws), so callers must skip the merge.
+// Content-sniffed via magic bytes (UYTFileLooksLikeWebm) rather than by
+// extension alone, so a lying file name cannot walk into the hang.
+static BOOL UYTAudioStillWebm(id item) {
+    @try {
+        uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
+        if (!uyouItem) return NO;
+        NSString *audioPath = [uyouItem valueForKey:@"tmpAudioPath"] ?: [uyouItem valueForKey:@"cachedAudioPath"];
+        if (!audioPath) return NO;
+        return UYTFileLooksLikeWebm(audioPath);
+    } @catch (NSException *e) {
+        return NO;
+    }
+}
+
+// Finish the download gracefully instead of hanging. Prefers our pipeline's
+// muxed mp4 (video+audio) when available; otherwise falls back to uYou's
+// cached video-only stream.
+static void UYTFallbackToVideoOnly(id item) {
+    @try {
+        uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
+        if (!uyouItem) return;
+        NSString *filePath = [uyouItem filePath];
+        if (!filePath) return;
+
+        NSString *src = nil;
+        BOOL usedMuxed = NO;
+        NSString *vid = nil;
+        if ([uyouItem respondsToSelector:@selector(videoID)]) {
+            vid = [uyouItem valueForKey:@"videoID"];
+        }
+        NSFileManager *fm = [NSFileManager defaultManager];
+
+        // 1) Preferred: the muxed mp4 our modern pipeline downloaded (has audio).
+        if (vid.length) {
+            NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+            NSString *muxed = [docs stringByAppendingPathComponent:[NSString stringWithFormat:@"uYouDownloads/%@.mp4", vid]];
+            if ([fm fileExistsAtPath:muxed]) {
+                src = muxed;
+                usedMuxed = YES;
+            }
+        }
+        // 2) Otherwise: uYou's cached video-only stream (silent, but playable).
+        NSString *cachedVideoPath = [uyouItem cachedVideoPath];
+        if (!src && cachedVideoPath && [fm fileExistsAtPath:cachedVideoPath]) src = cachedVideoPath;
+
+        if (src) {
+            if ([fm fileExistsAtPath:filePath]) [fm removeItemAtPath:filePath error:nil];
+            NSError *err = nil;
+            BOOL ok = [fm moveItemAtPath:src toPath:filePath error:&err];
+            if (!ok) ok = [fm copyItemAtPath:src toPath:filePath error:&err];
+            UYTPatchWarn(@"[uYouPatches] Completed without merge (%@): %@",
+                         usedMuxed ? @"muxed pipeline file" : @"video-only stream", filePath);
+        }
+    } @catch (NSException *e) {
+        UYTPatchWarn(@"[uYouPatches] no-merge fallback failed: %@", e);
+    }
+}
+
+// AVAssetExportSession silent-hang family (#452/#241/#520/#830/#676).
+static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
+    __weak id weakItem = item;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)),
+                   dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        id strongItem = weakItem;
+        if (!strongItem) return;
+        @try {
+            uYouItem *ui = [strongItem valueForKey:@"uYouItem"];
+            if (!ui) return;
+            NSString *filePath = [ui filePath];
+            if (!filePath.length) return;
+
+            NSFileManager *fm = [NSFileManager defaultManager];
+
+            BOOL finished = NO;
+            if ([ui respondsToSelector:@selector(isDownloadFinished)]) {
+                finished = [ui isDownloadFinished];
+            }
+            if (!finished) {
+                NSDictionary *attrs = [fm attributesOfItemAtPath:filePath error:nil];
+                finished = (attrs && [attrs fileSize] > 0);
+            }
+            if (finished) return; // completed normally
+
+            UYTPatchWarn(@"[uYouPatches] download stalled >%.0fs - forcing completion", seconds);
+
+            NSMutableArray<NSString *> *candidates = [NSMutableArray array];
+            NSString *vid = nil;
+            if ([ui respondsToSelector:@selector(videoID)]) vid = [ui valueForKey:@"videoID"];
+            if (vid.length) {
+                NSString *docs = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+                [candidates addObject:[docs stringByAppendingPathComponent:[NSString stringWithFormat:@"uYouDownloads/%@.mp4", vid]]];
+            }
+            // Converted/downloaded audio (skip raw webm - unplayable natively)
+            for (NSString *key in @[@"tmpAudioPath", @"cachedAudioPath"]) {
+                NSString *p = [ui valueForKey:key];
+                if (p.length && ![p.pathExtension.lowercaseString isEqualToString:@"webm"]) [candidates addObject:p];
+            }
+            NSString *cv = [ui cachedVideoPath];
+            if (cv.length) [candidates addObject:cv];
+
+            for (NSString *cand in candidates) {
+                if (![fm fileExistsAtPath:cand]) continue;
+                if ([fm fileExistsAtPath:filePath]) [fm removeItemAtPath:filePath error:nil];
+                NSError *err = nil;
+                BOOL ok = [fm moveItemAtPath:cand toPath:filePath error:&err];
+                if (!ok) ok = [fm copyItemAtPath:cand toPath:filePath error:&err];
+                if (ok) {
+                    UYTPatchWarn(@"[uYouPatches] forced completion via %@", cand);
+                    // Mimic uYou's native completion: it posts download/conversion
+                    // notifications so cells + lists refresh. Object = the item.
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [[NSNotificationCenter defaultCenter]
+                            postNotificationName:@"downloadDidCompleteNotification" object:strongItem];
+                        [[NSNotificationCenter defaultCenter]
+                            postNotificationName:@"conversionDidCompleteNotification" object:strongItem];
+                    });
+                    return;
+                }
+            }
+        } @catch (NSException *e) {}
+    });
+}
+
 %hook DownloadsManager
 - (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
+    // Prefetch working stream URLs through the client-rotating innertube fetch
+    // BEFORE uYou resolves links: uYou's own %orig delay gives the network call
+    // its window, and DownloadItem -setRemoteURL: in DownloadPipeline.xm then
+    // swaps any broken URL for the resolved one (fixes the HTTP 400/-1002 dead
+    // end called out in #1010). A failed fetch stores nothing and uYou keeps
+    // its own URL, so worst case is today's behaviour.
+    if (videoID) {
+        @try {
+            NSString *vid = [NSString stringWithFormat:@"%@", videoID];
+            if (vid.length) UYTRefreshResolvedURLsForVideo(vid);
+        } @catch (NSException *e) {
+            UYTPatchWarn(@"[uYouPatches] resolved-URL refresh failed: %@", e);
+        }
+    }
     %orig;
     uYouActiveDownloadCount++;
     if (!uYouDownloadIsActive) {
@@ -345,8 +556,43 @@ static NSInteger uYouActiveDownloadCount = 0;
 %end
 
 // --- Metadata Attachment Exception Handling (#1010, #241, #814, #771, #947) ---
+// addMetadataToAudioForDownloadItem: can throw NSExceptions when the audio
+// file is corrupted, the export session fails, or AVAsset can't be
+// initialized (especially when audio is webm instead of m4a).
+// Fix: convert webm audio to m4a BEFORE adding metadata, point the item at
+// the converted file the #1010 way (audioFormat, never KVC on tmpAudioPath),
+// skip the doomed merge when the audio is still WebM, arm the stall watchdog.
 %hook DownloadsManager
 - (void)addMetadataToAudioForDownloadItem:(id)item {
+    // Pre-fix: convert webm audio to m4a if needed (#771, #465, #1010)
+    @try {
+        uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
+        if (uyouItem) {
+            NSString *audioPath = [uyouItem valueForKey:@"tmpAudioPath"];
+            if (!audioPath) audioPath = [uyouItem valueForKey:@"cachedAudioPath"];
+            if (audioPath && [[audioPath pathExtension] isEqualToString:@"webm"]) {
+                NSString *m4aPath = [[audioPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
+                if (uYouConvertWebmAudioToM4a(audioPath, m4aPath)) {
+                    UYTPointItemAtConvertedAudio(uyouItem, audioPath, m4aPath);
+                }
+            }
+        }
+    } @catch (NSException *e) {
+        UYTPatchWarn(@"[uYouPatches] WebM pre-conversion in addMetadata failed: %@", e);
+    }
+
+    // Anti-hang guard: if the audio is still WebM, %orig would sit inside
+    // AVAssetExportSession forever - finish without metadata instead.
+    if (UYTAudioStillWebm(item)) {
+        UYTPatchWarn(@"[uYouPatches] Audio still WebM after conversion - skipping merge to avoid infinite hang");
+        UYTFallbackToVideoOnly(item);
+        return;
+    }
+
+    // Stall watchdog for the metadata phase ("Adding Metadata to the M4A..."
+    // stuck at 0% on audio-only downloads). If metadata writing stalls, the
+    // watchdog completes the item from the converted m4a directly.
+    UYTArmStallWatchdog(item, 30.0);
     @try {
         %orig;
     } @catch (NSException *e) {
@@ -358,13 +604,52 @@ static NSInteger uYouActiveDownloadCount = 0;
 }
 %end
 
-// --- Audio/Video Merge Exception Handling (#1010, #241, #771, #814, #947) ---
+// --- Audio/Video Merge with WebM Audio Fix (#1010, #241, #771, #465, #814) ---
+// After YouTube v19.22, adaptive audio changed from m4a to webm.
+// AVAssetExportSession CANNOT merge mp4 video + webm audio, causing downloads
+// to hang forever at the "conversion" step.
+// Fix: detect webm audio, convert to m4a, point the item at the converted
+// file via audioFormat (#1010), skip the merge if still WebM, and arm the
+// stall watchdog so no path can hang forever.
 %hook DownloadsManager
 - (void)mergeAudioWithMP4VideoForDownloadItem:(id)item {
+    // Pre-fix: convert webm audio to m4a before the merge (#771, #465, #1010)
+    @try {
+        uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
+        if (uyouItem) {
+            NSString *audioPath = [uyouItem valueForKey:@"tmpAudioPath"];
+            if (!audioPath) audioPath = [uyouItem valueForKey:@"cachedAudioPath"];
+            if (audioPath && [[audioPath pathExtension] isEqualToString:@"webm"]) {
+                NSString *m4aPath = [[audioPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
+                if (uYouConvertWebmAudioToM4a(audioPath, m4aPath)) {
+                    if (UYTPointItemAtConvertedAudio(uyouItem, audioPath, m4aPath)) {
+                        UYTPatchInfo(@"[uYouPatches] Converted webm audio to m4a for merge: %@", m4aPath);
+                    }
+                } else {
+                    UYTPatchWarn(@"[uYouPatches] WebM to M4A conversion failed, merge may hang: %@", audioPath);
+                }
+            }
+        }
+    } @catch (NSException *e) {
+        UYTPatchWarn(@"[uYouPatches] WebM pre-conversion in mergeMP4 failed: %@", e);
+    }
+
+    // Anti-hang (#452/#520/#830 family): if the audio is still WebM the merge
+    // would sit at "Converting 0%" forever - finish video-only instead.
+    if (UYTAudioStillWebm(item)) {
+        UYTPatchWarn(@"[uYouPatches] Audio still WebM after conversion - skipping merge to avoid infinite hang");
+        UYTFallbackToVideoOnly(item);
+        return;
+    }
+
+    // Generic stall watchdog (covers non-webm hangs too).
+    UYTArmStallWatchdog(item, 45.0);
+
     @try {
         %orig;
     } @catch (NSException *e) {
         UYTPatchWarn(@"[uYouPatches] mergeAudioWithMP4Video failed: %@ for item: %@", e, item);
+        // Fall back: use the video file as-is (without merged audio)
         @try {
             uYouItem *uyouItem2 = [item valueForKey:@"uYouItem"];
             if (uyouItem2) {
@@ -384,6 +669,37 @@ static NSInteger uYouActiveDownloadCount = 0;
 }
 
 - (void)mergeAudioWithVideoForDownloadItem:(id)item {
+    // Pre-fix: convert webm audio to m4a before the merge (#771, #465, #1010)
+    @try {
+        uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
+        if (uyouItem) {
+            NSString *audioPath = [uyouItem valueForKey:@"tmpAudioPath"];
+            if (!audioPath) audioPath = [uyouItem valueForKey:@"cachedAudioPath"];
+            if (audioPath && [[audioPath pathExtension] isEqualToString:@"webm"]) {
+                NSString *m4aPath = [[audioPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
+                if (uYouConvertWebmAudioToM4a(audioPath, m4aPath)) {
+                    if (UYTPointItemAtConvertedAudio(uyouItem, audioPath, m4aPath)) {
+                        UYTPatchInfo(@"[uYouPatches] Converted webm audio to m4a for merge: %@", m4aPath);
+                    }
+                } else {
+                    UYTPatchWarn(@"[uYouPatches] WebM to M4A conversion failed, merge may hang: %@", audioPath);
+                }
+            }
+        }
+    } @catch (NSException *e) {
+        UYTPatchWarn(@"[uYouPatches] WebM pre-conversion in mergeAudio failed: %@", e);
+    }
+
+    // Anti-hang guard (same as above) for the generic audio+video merge path.
+    if (UYTAudioStillWebm(item)) {
+        UYTPatchWarn(@"[uYouPatches] Audio still WebM after conversion - skipping merge to avoid infinite hang");
+        UYTFallbackToVideoOnly(item);
+        return;
+    }
+
+    // Generic stall watchdog.
+    UYTArmStallWatchdog(item, 45.0);
+
     @try {
         %orig;
     } @catch (NSException *e) {
