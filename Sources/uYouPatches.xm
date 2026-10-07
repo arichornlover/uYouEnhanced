@@ -523,6 +523,30 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 }
 %end
 
+// --- uYou's own converter ("Conversion failed with code %d") ---
+// uYou.dylib statically links an old MobileFFmpeg. When YouTube supplies
+// webm/opus (or AV1) streams that old ffmpeg can neither decode nor remux it
+// returns a non-zero rc and the download dies with "Conversion failed with
+// code 1" BEFORE any of our merge hooks run. Log every call (object types,
+// paths and return code) so a debug report shows exactly what uYou's converter
+// was handed and why it failed - then we can decide how to pre-empt it.
+%hook DownloadsManager
+- (int)convertVideo:(id)video toAudio:(id)audio {
+    @try {
+        NSString *videoDesc = video ? [NSString stringWithFormat:@"%@ (%@)", NSStringFromClass([video class]), video] : @"(nil)";
+        NSString *audioDesc = audio ? [NSString stringWithFormat:@"%@ (%@)", NSStringFromClass([audio class]), audio] : @"(nil)";
+        UYTPatchInfo(@"[uYouPatches] convertVideo:toAudio: called video=%@ audio=%@", videoDesc, audioDesc);
+    } @catch (NSException *e) {
+        UYTPatchWarn(@"[uYouPatches] convertVideo:toAudio: arg description failed: %@", e);
+    }
+    int rc = %orig;
+    @try {
+        UYTPatchInfo(@"[uYouPatches] convertVideo:toAudio: rc=%d", rc);
+    } @catch (NSException *e) {}
+    return rc;
+}
+%end
+
 // --- Format Detection Fallback (#735, #814, #520) ---
 %hook uYouItem
 - (BOOL)isMP4 {
