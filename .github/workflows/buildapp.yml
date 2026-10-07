@@ -182,7 +182,7 @@ jobs:
           bash tools/fetch-ffmpegkit.sh
 
       - name: Save FFmpegKit cache
-        if: ${{ inputs.build_ffmpeg && steps.ffmpeg_cache.outputs.cache-hit != 'true' && hashFiles('main/modules/ffmpeg') != '' }}
+        if: ${{ inputs.build_ffmpeg && steps.ffmpeg_cache.outputs.cache-hit != 'true' && hashFiles('main/modules/ffmpeg/**') != '' }}
         uses: actions/cache/save@v6
         with:
           path: main/modules/ffmpeg
