@@ -876,6 +876,8 @@ static void *UYTDownloadItemAudioLegKey = &UYTDownloadItemAudioLegKey;
                  type:(int)type {
 
     BOOL audioLeg = NO;
+    id newFilePath = filePath;
+    id newCachedPath = cachedPath;
     @try {
         NSString *base = [downloadID respondsToSelector:@selector(hasSuffix:)]
                        ? (NSString *)downloadID : [downloadID description] ?: @"";
@@ -888,6 +890,23 @@ static void *UYTDownloadItemAudioLegKey = &UYTDownloadItemAudioLegKey;
                    [path rangeOfString:@"Audio"].location != NSNotFound) {
             audioLeg = YES;
         }
+
+        // uYou hardcodes .webm for every audio leg. When the stream is MP4 the
+        // leg MUST carry the .m4a name before uYou builds its download task:
+        // uYou calls setRemoteURL (which captures the task destination) inside
+        // initWith... - renaming afterwards leaves the task writing .webm while
+        // the item later looks for the .m4a it never created (stuck at 100%).
+        NSString *fp = [filePath respondsToSelector:@selector(hasSuffix:)] ? (NSString *)filePath : [filePath description];
+        NSString *cp = [cachedPath respondsToSelector:@selector(hasSuffix:)] ? (NSString *)cachedPath : [cachedPath description];
+        if (audioLeg && UYTResolvedAudioIsMP4([videoID description]) &&
+            [fp.pathExtension.lowercaseString isEqualToString:@"webm"]) {
+            newFilePath = [[fp stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
+            if (cp.length && [cp.pathExtension.lowercaseString isEqualToString:@"webm"]) {
+                newCachedPath = [[cp stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
+            }
+            UYTDebugInfo(@"[UYTPipeline] audio leg will download as %@ (mp4a, no webm dance)", newFilePath);
+        }
+
         objc_setAssociatedObject(self, UYTDownloadItemAudioLegKey, @(audioLeg),
                                  OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         UYTDebugInfo(@"[UYTPipeline] DownloadItem init vid=%@ downloadID=%@ file=%@ cached=%@ title=%@ leg=%@",
@@ -897,30 +916,7 @@ static void *UYTDownloadItemAudioLegKey = &UYTDownloadItemAudioLegKey;
         UYTDebugInfo(@"[UYTPipeline] DownloadItem init vid=%@ (detail lookup failed: %@)", videoID, e.reason ?: e);
     }
 
-    id result = %orig(videoID, uYouItem, downloadID, url, filePath, cachedPath, type);
-
-    @try {
-        // Give the audio leg its true extension when the stream is MP4 (itag
-        // 140-class). uYou hardcodes .webm for every audio leg; a .webm-named
-        // MP4 file is what defeats AVFoundation's native addMetadata/merge
-        // (and forced the flaky webm->m4a ffmpeg detour) later.
-        if (audioLeg && UYTResolvedAudioIsMP4([videoID description])) {
-            NSString *fp = [self filePath];
-            if (fp.pathExtension.length && [fp.pathExtension.lowercaseString isEqualToString:@"webm"]) {
-                NSString *np = [[fp stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
-                [self setValue:np forKey:@"filePath"];
-                NSString *cp = [self valueForKey:@"cachedPath"];
-                if (cp.pathExtension.length && [cp.pathExtension.lowercaseString isEqualToString:@"webm"]) {
-                    [self setValue:[[cp stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"] forKey:@"cachedPath"];
-                }
-                UYTDebugInfo(@"[UYTPipeline] audio leg renamed to %@ (mp4a stream, no webm dance)", np);
-            }
-        }
-    } @catch (NSException *e) {
-        UYTDebugInfo(@"[UYTPipeline] audio-leg rename skipped: %@", e.reason ?: e);
-    }
-
-    return result;
+    return %orig(videoID, uYouItem, downloadID, url, newFilePath, newCachedPath, type);
 }
 
 - (void)setRemoteURL:(NSURL *)url {
