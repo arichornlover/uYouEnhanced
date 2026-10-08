@@ -221,65 +221,107 @@ YTMainAppControlsOverlayView *controlsOverlayView;
     return controlsOverlayView;
 }
 %end
+
+// iPad layout never allocates YTMainAppControlsOverlayView through the init
+// path we captured - it arrives via a different factory - so the static
+// `controlsOverlayView` stays nil and the uYou download menu can never be
+// forced. Find a live overlay (one we can call -uYou on) by walking every
+// foreground window instead, falling back to the captured instance first.
+static YTMainAppControlsOverlayView *UYTCurrentControlsOverlay(void) {
+    if (controlsOverlayView && [controlsOverlayView respondsToSelector:@selector(uYou)]) {
+        return controlsOverlayView;
+    }
+    @try {
+        Class overlayCls = %c(YTMainAppControlsOverlayView);
+        if (!overlayCls) return nil;
+        for (UIWindow *w in UYTCandidateWindows()) {
+            NSMutableArray<UIView *> *queue = [w.subviews mutableCopy];
+            NSUInteger i = 0;
+            while (i < queue.count) {
+                UIView *v = queue[i++];
+                if ([v isKindOfClass:overlayCls]) {
+                    YTMainAppControlsOverlayView *overlay = (YTMainAppControlsOverlayView *)v;
+                    if ([overlay respondsToSelector:@selector(uYou)]) return overlay;
+                }
+                [queue addObjectsFromArray:v.subviews];
+            }
+        }
+    } @catch (NSException *e) {}
+    return nil;
+}
+
 %hook YTElementsDefaultSheetController
 + (void)showSheetController:(id)arg1 showCommand:(id)arg2 commandContext:(id)arg3 handler:(id)arg4 {
     if (IS_ENABLED(kReplaceYTDownloadWithuYou) && [arg2 isKindOfClass:%c(ELMPBShowActionSheetCommand)]) {
         ELMPBShowActionSheetCommand *showCommand = (ELMPBShowActionSheetCommand *)arg2;
         NSArray *listOptions = [showCommand listOptionArray];
-        BOOL overlayAvailable = controlsOverlayView && [controlsOverlayView respondsToSelector:@selector(uYou)];
 
         NSString *sheetId = showCommand.sheetId;
-        BOOL isOfflineUpsell = (sheetId.length > 0 && [sheetId containsString:@"offline_upsell"]);
-        if (isOfflineUpsell) {
-            UYTDebugInfo(@"[uYouPlus] offline upsell detected via sheetId: %@", sheetId);
+        BOOL isDownloadSheet = (sheetId.length > 0 &&
+            ([sheetId containsString:@"offline"] ||
+             [sheetId containsString:@"download"] ||
+             [sheetId containsString:@"add_to.offline"]));
+        if (isDownloadSheet) {
+            UYTDebugInfo(@"[uYouPlus] download sheet detected via sheetId: %@", sheetId);
         }
 
-        for (ELMPBElement *element in isOfflineUpsell ? @[] : listOptions) {
-            ELMPBProperties *properties = [element properties];
-            if (!properties) continue;
+        // If the sheet id already marks this as the download/offline flow, skip
+        // the option scan and divert straight away. Otherwise scan the options
+        // for an offline/download marker.
+        BOOL elementMatched = NO;
+        if (!isDownloadSheet) {
+            for (ELMPBElement *element in listOptions) {
+                ELMPBProperties *properties = [element properties];
+                if (!properties) continue;
 
-            NSMutableArray<NSString *> *idHints = [NSMutableArray array];
+                NSMutableArray<NSString *> *idHints = [NSMutableArray array];
 
-            if ([properties respondsToSelector:@selector(firstSubmessage)]) {
-                id sub = [properties firstSubmessage];
-                if ([sub respondsToSelector:@selector(identifier)] && [sub identifier]) {
-                    [idHints addObject:[sub identifier]];
+                if ([properties respondsToSelector:@selector(firstSubmessage)]) {
+                    id sub = [properties firstSubmessage];
+                    if ([sub respondsToSelector:@selector(identifier)] && [sub identifier]) {
+                        [idHints addObject:[sub identifier]];
+                    }
                 }
-            }
-            if ([properties respondsToSelector:@selector(submessageAtIndex:)]) {
-                id sub = [properties submessageAtIndex:0];
-                if ([sub respondsToSelector:@selector(identifier)] && [sub identifier]) {
-                    [idHints addObject:[sub identifier]];
+                if ([properties respondsToSelector:@selector(submessageAtIndex:)]) {
+                    id sub = [properties submessageAtIndex:0];
+                    if ([sub respondsToSelector:@selector(identifier)] && [sub identifier]) {
+                        [idHints addObject:[sub identifier]];
+                    }
                 }
-            }
-            NSString *desc = [properties description] ?: @"";
+                NSString *desc = [properties description] ?: @"";
 
-            BOOL isOfflineUpsell = NO;
-            for (NSString *hint in idHints) {
-                if ([hint containsString:@"offline_upsell"]) {
-                    isOfflineUpsell = YES;
+                BOOL matched = NO;
+                for (NSString *hint in idHints) {
+                    if ([hint containsString:@"offline"] || [hint containsString:@"download"] ||
+                        [hint containsString:@"add_to.offline"]) {
+                        matched = YES;
+                        break;
+                    }
+                }
+                if (!matched && ([desc containsString:@"offline_upsell_dialog"] ||
+                                 [desc containsString:@"offline"] ||
+                                 [desc containsString:@"download"])) {
+                    matched = YES;
+                }
+
+                if (matched) {
+                    isDownloadSheet = YES;
+                    elementMatched = YES;
                     break;
                 }
             }
-            if (!isOfflineUpsell && [desc containsString:@"offline_upsell_dialog"]) {
-                isOfflineUpsell = YES;
-            }
-
-            if (isOfflineUpsell) {
-                if (overlayAvailable) {
-                    UYTDebugInfo(@"[uYouPlus] intercepted offline upsell sheet — launching uYou download");
-                    [controlsOverlayView uYou];
-                    return;
-                }
-                UYTDebugWarn(@"[uYouPlus] offline upsell detected but YTMainAppControlsOverlayView was never "
-                          "captured (iPad layout?) — showing original sheet");
-                break;
-            }
         }
 
-        if (!overlayAvailable) {
-            UYTDebugInfo(@"[uYouEnhanced] action sheet with %lu option(s); overlay view not captured",
-                      (unsigned long)listOptions.count);
+        if (isDownloadSheet) {
+            YTMainAppControlsOverlayView *overlay = UYTCurrentControlsOverlay();
+            if (overlay) {
+                UYTDebugInfo(@"[uYouPlus] intercepted download sheet — launching uYou download"
+                             "%s", elementMatched ? "" : " (sheetId)");
+                [overlay uYou];
+                return;
+            }
+            UYTDebugWarn(@"[uYouPlus] download sheet detected but no YTMainAppControlsOverlayView "
+                      "found in the window hierarchy — showing original sheet");
         }
     }
     %orig;

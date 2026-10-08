@@ -1,5 +1,6 @@
 
 #import <Foundation/Foundation.h>
+#import <objc/runtime.h>
 #import "DownloadPipeline.h"
 #import "UYTFileSize.h"
 #import <UIKit/UIKit.h>
@@ -858,6 +859,16 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
 
 %hook DownloadItem
 
+// uYou creates TWO DownloadItems for a normal video download: one for the audio
+// stream (<id>_Audio.<webm|m4a>) and one for the video stream (<id>_Video.<mp4>).
+// The videoID is identical for both, so the resolved-store audio-only flag can
+// not tell them apart. Remember which leg this item is at init time so
+// -setRemoteURL: can route the audio leg to the AUDIO stream and the video leg
+// to the muxed/video stream - otherwise the audio file silently receives the
+// whole video ("audio download is really the video") and the WebM->M4A step
+// fails with "-map 0:a:0 matches no streams".
+static void *UYTDownloadItemAudioLegKey = &UYTDownloadItemAudioLegKey;
+
 - (id)initWithVideoID:(id)videoID
              uYouItem:(id)uYouItem
            downloadID:(id)downloadID
@@ -867,8 +878,23 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
                  type:(int)type {
 
     @try {
-        UYTDebugInfo(@"[UYTPipeline] DownloadItem init vid=%@ downloadID=%@ file=%@ cached=%@ title=%@",
-                     videoID, downloadID, filePath, cachedPath, [uYouItem valueForKey:@"title"]);
+        BOOL audioLeg = NO;
+        NSString *base = [downloadID respondsToSelector:@selector(hasSuffix:)]
+                       ? (NSString *)downloadID : [downloadID description] ?: @"";
+        NSString *path = [filePath respondsToSelector:@selector(hasSuffix:)]
+                       ? (NSString *)filePath : [filePath description] ?: @"";
+        if ([base rangeOfString:@"Video"].location != NSNotFound ||
+            [path rangeOfString:@"Video"].location != NSNotFound) {
+            audioLeg = NO;
+        } else if ([base rangeOfString:@"Audio"].location != NSNotFound ||
+                   [path rangeOfString:@"Audio"].location != NSNotFound) {
+            audioLeg = YES;
+        }
+        objc_setAssociatedObject(self, UYTDownloadItemAudioLegKey, @(audioLeg),
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        UYTDebugInfo(@"[UYTPipeline] DownloadItem init vid=%@ downloadID=%@ file=%@ cached=%@ title=%@ leg=%@",
+                     videoID, downloadID, filePath, cachedPath, [uYouItem valueForKey:@"title"],
+                     audioLeg ? @"AUDIO" : @"VIDEO");
     } @catch (NSException *e) {
         UYTDebugInfo(@"[UYTPipeline] DownloadItem init vid=%@ (detail lookup failed: %@)", videoID, e.reason ?: e);
     }
@@ -883,19 +909,24 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
         return;
     }
 
-    // For an audio-only request uYou hands us the muxed/video stream. Letting that
-    // through writes whole-video bytes into <id>_Audio.m4a, which is exactly the
-    // "audio download that is really the video" bug, so it is filtered here.
+    // Is THIS item uYou's audio leg of the pair, or a standalone audio-only
+    // request? Both must receive the resolved audio stream; only the video leg
+    // (and muxed requests) may use the muxed/video stream. The old check was
+    // UYTIsAudioOnly(vid), which is true only for pure audio-only requests - so
+    // the audio leg of an ordinary video download grabbed the video URL and
+    // wrote whole-video bytes into <id>_Audio.webm.
+    NSNumber *leg = objc_getAssociatedObject(self, UYTDownloadItemAudioLegKey);
+    BOOL isAudioLeg = [leg isKindOfClass:[NSNumber class]] && leg.boolValue;
     BOOL audioOnly = UYTIsAudioOnly(vid);
     if (url.absoluteString.length) UYTRegisterRemoteURLForVideoID(vid, url.absoluteString);
 
-    NSString *working = audioOnly ? UYTAudioOnlyURL(vid) : UYTGetResolvedURL(vid);
+    NSString *working = (isAudioLeg || audioOnly) ? UYTAudioOnlyURL(vid) : UYTGetResolvedURL(vid);
     if (working.length) {
         NSURL *fixed = [NSURL URLWithString:working];
         if (fixed) {
             UYTRegisterRemoteURLForVideoID(vid, working);
-            if (audioOnly) {
-                UYTDebugInfo(@"[UYTPipeline] audio-only %@ -> forcing audio stream %@", vid, working);
+            if (isAudioLeg || audioOnly) {
+                UYTDebugInfo(@"[UYTPipeline] audio leg %@ -> audio stream %@", vid, working);
             } else {
                 UYTDebugInfo(@"[UYTPipeline] swapped broken task URL -> cached innertube URL for %@", vid);
             }
@@ -904,11 +935,13 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
         }
     }
 
-    if (audioOnly) {
-        // No audio-only stream resolved. Accepting uYou's URL here is the bug, so
-        // refuse; UYTArmStallWatchdog still finalizes the item instead of hanging.
-        UYTDebugErr(@"[UYTPipeline] audio-only %@ has no audio-only stream - refusing %@",
-                    vid, url.path.length ? url.path : @"(nil)");
+    if (isAudioLeg || audioOnly) {
+        // No audio stream resolved. Accepting uYou's URL here recreates the
+        // audio-download-is-really-the-video bug, so refuse; the stall watchdog
+        // still finalizes the item instead of hanging.
+        UYTDebugErr(@"[UYTPipeline] %@ %@ has no audio stream - refusing %@",
+                    isAudioLeg ? @"audio leg" : @"audio-only request", vid,
+                    url.path.length ? url.path : @"(nil)");
         return;
     }
 
