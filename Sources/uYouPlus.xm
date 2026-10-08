@@ -222,11 +222,6 @@ YTMainAppControlsOverlayView *controlsOverlayView;
 }
 %end
 
-// iPad layout never allocates YTMainAppControlsOverlayView through the init
-// path we captured - it arrives via a different factory - so the static
-// `controlsOverlayView` stays nil and the uYou download menu can never be
-// forced. Find a live overlay (one we can call -uYou on) by walking every
-// foreground window instead, falling back to the captured instance first.
 static YTMainAppControlsOverlayView *UYTCurrentControlsOverlay(void) {
     if (controlsOverlayView && [controlsOverlayView respondsToSelector:@selector(uYou)]) {
         return controlsOverlayView;
@@ -265,9 +260,6 @@ static YTMainAppControlsOverlayView *UYTCurrentControlsOverlay(void) {
             UYTDebugInfo(@"[uYouPlus] download sheet detected via sheetId: %@", sheetId);
         }
 
-        // If the sheet id already marks this as the download/offline flow, skip
-        // the option scan and divert straight away. Otherwise scan the options
-        // for an offline/download marker.
         BOOL elementMatched = NO;
         if (!isDownloadSheet) {
             for (ELMPBElement *element in listOptions) {
