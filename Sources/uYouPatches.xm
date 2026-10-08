@@ -1020,12 +1020,6 @@ static float uYouSavedPlaybackRate = 0.0f;
     if (playerVCClass && [playerVCClass instancesRespondToSelector:@selector(varispeedController)]) {
         %init(gVarispeedFallbackFix);
     }
-
-    // Initialize download fixes when uYou downloads are enabled
-    if (IS_ENABLED(kReplaceYTDownloadWithuYou)) {
-        %init(gYouDownloadFixes);
-    }
-
     // Speed fixes: only register when EVERY hooked selector exists on this
     // YouTube build. Hooking a missing selector silently adds it, making
     // respondsToSelector: lie; the next caller then dies with
