@@ -18,6 +18,8 @@
 
 @interface DownloadItem : NSObject
 @property (nonatomic, strong) NSString *videoID;
+@property (nonatomic, strong) NSString *filePath;
+@property (nonatomic, strong) NSString *cachedPath;
 - (void)setRemoteURL:(NSURL *)url;
 @end
 
@@ -87,6 +89,7 @@ static NSInteger UYTFormatContainerRank(UYTStreamFormat *f);
 static NSInteger UYTFormatCodecRank(UYTStreamFormat *f);
 static BOOL UYTFormatIsBetter(UYTStreamFormat *candidate, UYTStreamFormat *current);
 static NSString *UYTFormatDesc(UYTStreamFormat *f);
+static void UYTResolvedEntrySet(NSString *vid, NSString *key, id value);
 
 @implementation UYTDownloadPipeline
 
