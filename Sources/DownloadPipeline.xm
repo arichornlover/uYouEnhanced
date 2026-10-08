@@ -600,6 +600,7 @@ void UYTRefreshResolvedURLsForVideo(NSString *vid) {
             } else {
                 UYTStoreResolvedURLs(vid, muxed.url, audio.url, video.url);
             }
+            if (audio.mimeType.length) UYTResolvedEntrySet(vid, @"audioMime", audio.mimeType);
             UYTRegisterRemoteURLForVideoID(vid, video.url);
             UYTRegisterRemoteURLForVideoID(vid, audio.url);
             UYTRegisterRemoteURLForVideoID(vid, muxed.url);
@@ -734,6 +735,30 @@ BOOL UYTIsAudioOnly(NSString *vid) {
     }
 }
 
+// Did the refresh pick an MP4-class audio stream (itag 140 mp4a, or an already
+// staged .m4a)? If so the audio leg should be named .m4a, not uYou's default
+// .webm - AVFoundation chokes on the fake .webm extension later.
+static BOOL UYTResolvedAudioIsMP4(NSString *vid) {
+    @try {
+        if (!vid.length) return NO;
+        if (UYTStagedCanonicalPathFor(vid, @"m4a").length) return YES;
+        NSDictionary *entry = UYTResolvedEntrySnapshot(vid);
+        if (!entry) return NO;
+        id mime = entry[@"audioMime"];
+        if ([mime isKindOfClass:[NSString class]]) {
+            NSString *m = [mime lowercaseString];
+            if ([m hasPrefix:@"audio/mp4"]) return YES;
+            if ([m containsString:@"mp4a"]) return YES;
+            return NO;
+        }
+        id audio = entry[@"audio"];
+        if ([audio isKindOfClass:[NSString class]] && [audio hasPrefix:@"file://"]) return YES;
+        return NO;
+    } @catch (NSException *e) {
+        return NO;
+    }
+}
+
 // Audio-only requests must never be swapped onto a muxed/video stream, or the
 // audio file silently becomes the whole video and conversion fails downstream.
 NSString *UYTAudioOnlyURL(NSString *vid) {
@@ -847,8 +872,8 @@ static void *UYTDownloadItemAudioLegKey = &UYTDownloadItemAudioLegKey;
            cachedPath:(id)cachedPath
                  type:(int)type {
 
+    BOOL audioLeg = NO;
     @try {
-        BOOL audioLeg = NO;
         NSString *base = [downloadID respondsToSelector:@selector(hasSuffix:)]
                        ? (NSString *)downloadID : [downloadID description] ?: @"";
         NSString *path = [filePath respondsToSelector:@selector(hasSuffix:)]
@@ -869,7 +894,30 @@ static void *UYTDownloadItemAudioLegKey = &UYTDownloadItemAudioLegKey;
         UYTDebugInfo(@"[UYTPipeline] DownloadItem init vid=%@ (detail lookup failed: %@)", videoID, e.reason ?: e);
     }
 
-    return %orig(videoID, uYouItem, downloadID, url, filePath, cachedPath, type);
+    id result = %orig(videoID, uYouItem, downloadID, url, filePath, cachedPath, type);
+
+    @try {
+        // Give the audio leg its true extension when the stream is MP4 (itag
+        // 140-class). uYou hardcodes .webm for every audio leg; a .webm-named
+        // MP4 file is what defeats AVFoundation's native addMetadata/merge
+        // (and forced the flaky webm->m4a ffmpeg detour) later.
+        if (audioLeg && UYTResolvedAudioIsMP4([videoID description])) {
+            NSString *fp = [self filePath];
+            if (fp.pathExtension.length && [fp.pathExtension.lowercaseString isEqualToString:@"webm"]) {
+                NSString *np = [[fp stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
+                [self setValue:np forKey:@"filePath"];
+                NSString *cp = [self valueForKey:@"cachedPath"];
+                if (cp.pathExtension.length && [cp.pathExtension.lowercaseString isEqualToString:@"webm"]) {
+                    [self setValue:[[cp stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"] forKey:@"cachedPath"];
+                }
+                UYTDebugInfo(@"[UYTPipeline] audio leg renamed to %@ (mp4a stream, no webm dance)", np);
+            }
+        }
+    } @catch (NSException *e) {
+        UYTDebugInfo(@"[UYTPipeline] audio-leg rename skipped: %@", e.reason ?: e);
+    }
+
+    return result;
 }
 
 - (void)setRemoteURL:(NSURL *)url {

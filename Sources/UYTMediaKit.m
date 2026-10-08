@@ -151,6 +151,7 @@ BOOL UYTFFRun(NSArray<NSString *> *arguments) {
     BOOL ok = NO;
     long rc = -1;
     id session = nil;
+    NSString *detail = nil;
 
     @try {
         if (isKitNext) {
@@ -161,14 +162,12 @@ BOOL UYTFFRun(NSArray<NSString *> *arguments) {
                     id ret = ((id (*)(id, SEL))objc_msgSend)(session, @selector(getReturnCode));
                     if ([ret respondsToSelector:@selector(isSuccess)]) {
                         ok = ((BOOL (*)(id, SEL))objc_msgSend)(ret, @selector(isSuccess));
-                    }
-                    if ([ret respondsToSelector:@selector(getIntValue)]) {
-                        rc = (long)((long (*)(id, SEL))objc_msgSend)(ret, @selector(getIntValue));
-                        if (![ret respondsToSelector:@selector(isSuccess)]) {
-                            ok = (rc == 0);
+                        if ([ret respondsToSelector:@selector(intValue)]) {
+                            rc = (long)[ret intValue];
+                        } else if ([ret respondsToSelector:@selector(getValue)]) {
+                            rc = (long)[(NSNumber *)ret integerValue];
                         }
-                    } else if (![ret respondsToSelector:@selector(isSuccess)] &&
-                               [ret respondsToSelector:@selector(intValue)]) {
+                    } else if ([ret respondsToSelector:@selector(intValue)]) {
                         rc = (long)[ret intValue];
                         ok = (rc == 0);
                     }
@@ -178,11 +177,33 @@ BOOL UYTFFRun(NSArray<NSString *> *arguments) {
                     ok = [state containsString:@"COMPLETED"];
                     if (!ok) rc = -2;
                 }
+                if (!ok && [session respondsToSelector:@selector(getOutput)]) {
+                    id output = ((id (*)(id, SEL))objc_msgSend)(session, @selector(getOutput));
+                    if ([output isKindOfClass:[NSString class]] && [(NSString *)output length]) {
+                        NSArray<NSString *> *lines = [(NSString *)output
+                            componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
+                        // The tail usually carries the real reason: "Invalid
+                        // data found..." / "codec not found..." / "No such file".
+                        NSUInteger take = MIN((NSUInteger)4, lines.count);
+                        detail = [[lines subarrayWithRange:NSMakeRange(lines.count - take, take)]
+                            componentsJoinedByString:@" | "];
+                    }
+                }
             }
         } else {
             rc = ((int (*)(id, SEL, NSArray *))objc_msgSend)(
                 kitClass, @selector(executeWithArguments:), arguments);
             ok = (rc == 0);
+            if (!ok && [kitClass respondsToSelector:@selector(getLastErrorOutput)]) {
+                id output = ((id (*)(id, SEL))objc_msgSend)(kitClass, @selector(getLastErrorOutput));
+                if ([output isKindOfClass:[NSString class]] && [(NSString *)output length]) {
+                    NSArray<NSString *> *lines = [(NSString *)output
+                        componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
+                    NSUInteger take = MIN((NSUInteger)4, lines.count);
+                    detail = [[lines subarrayWithRange:NSMakeRange(lines.count - take, take)]
+                        componentsJoinedByString:@" | "];
+                }
+            }
         }
     } @catch (NSException *e) {
         UYTDebugErr(@"[uYouPatches] ffmpeg threw while running: %@ (%@)", command, e);
@@ -192,18 +213,8 @@ BOOL UYTFFRun(NSArray<NSString *> *arguments) {
     if (ok) {
         UYTDebugInfo(@"[uYouPatches] ffmpeg ok: %@", command);
     } else {
-        NSString *detail = nil;
-        if (session && [session respondsToSelector:@selector(getOutput)]) {
-            id output = ((id (*)(id, SEL))objc_msgSend)(session, @selector(getOutput));
-            if ([output isKindOfClass:[NSString class]] && [(NSString *)output length]) {
-                NSArray<NSString *> *lines = [(NSString *)output
-                    componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
-                NSUInteger take = MIN((NSUInteger)8, lines.count);
-                detail = [[lines subarrayWithRange:NSMakeRange(lines.count - take, take)]
-                    componentsJoinedByString:@" | "];
-            }
-        }
-        UYTDebugWarn(@"[uYouPatches] ffmpeg FAILED (rc=%ld): %@%@", rc, command,
+        UYTDebugWarn(@"[uYouPatches] ffmpeg FAILED (rc=%ld, %@): %@%@", rc,
+                     isKitNext ? @"FFmpegKit" : @"MobileFFmpeg", command,
                      detail.length ? [@" -> " stringByAppendingString:detail] : @"");
     }
     return ok;
@@ -260,8 +271,30 @@ static BOOL uytPathIsWebm(NSString *path) {
 BOOL UYTFFConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
     if (!webmPath.length || !m4aPath.length) return NO;
     NSFileManager *fm = [NSFileManager defaultManager];
-    if (![fm fileExistsAtPath:webmPath]) return NO;
+    if (![fm fileExistsAtPath:webmPath]) {
+        UYTDebugWarn(@"[uYouPatches] convert: input missing: %@", webmPath);
+        return NO;
+    }
     if ([fm fileExistsAtPath:m4aPath]) [fm removeItemAtPath:m4aPath error:nil];
+
+    unsigned long long inSize = UYTSizeOfFile(webmPath);
+    UYTContainer container = UYTProbeContainer(webmPath);
+    UYTDebugInfo(@"[uYouPatches] convert %@ (container=%ld, %llu bytes) -> %@",
+                 webmPath, (long)container, inSize, m4aPath);
+
+    // The .webm slot name lies: uYou names EVERY audio leg .webm even when the
+    // stream is plain MP4 (itag 140 mp4a). Such files need no codec work and no
+    // ffmpeg - copy the ISO-BMFF bytes straight to .m4a.
+    if (container == UYTContainerMP4) {
+        NSError *err = nil;
+        if ([fm copyItemAtPath:webmPath toPath:m4aPath error:&err]) {
+            UYTDebugInfo(@"[uYouPatches] audio was already MP4 - copied to %@ without transcode", m4aPath);
+            return YES;
+        }
+        UYTDebugWarn(@"[uYouPatches] copying mp4 audio to %@ failed: %@",
+                     m4aPath, err.localizedDescription ?: @"unknown");
+        return NO;
+    }
 
     BOOL ok = UYTFFRun(@[
         @"-i", webmPath,

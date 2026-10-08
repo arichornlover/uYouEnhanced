@@ -369,6 +369,16 @@ static void UYTFallbackToVideoOnly(id item) {
         // 2) Otherwise: uYou's cached video-only stream (silent, but playable).
         NSString *cachedVideoPath = [uyouItem cachedVideoPath];
         if (!src && cachedVideoPath && [fm fileExistsAtPath:cachedVideoPath]) src = cachedVideoPath;
+        // 3) The video-only leg file of THIS item (…_Video.mp4 already on disk).
+        @try {
+            NSString *itemPath = [item respondsToSelector:@selector(filePath)] ? [item filePath] : nil;
+            if (!src && itemPath.length &&
+                [itemPath.pathExtension.lowercaseString isEqualToString:@"mp4"] &&
+                [itemPath rangeOfString:@"_Video"].location != NSNotFound &&
+                [fm fileExistsAtPath:itemPath]) {
+                src = itemPath;
+            }
+        } @catch (NSException *e) {}
 
         if (src) {
             if ([fm fileExistsAtPath:filePath]) [fm removeItemAtPath:filePath error:nil];
@@ -424,6 +434,16 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
             }
             NSString *cv = [ui cachedVideoPath];
             if (cv.length) [candidates addObject:cv];
+            // The video-only leg of THIS item (…_Video.mp4 already on disk).
+            @try {
+                NSString *itemPath = [strongItem respondsToSelector:@selector(filePath)] ? [strongItem filePath] : nil;
+                if (itemPath.length &&
+                    [itemPath.pathExtension.lowercaseString isEqualToString:@"mp4"] &&
+                    [itemPath rangeOfString:@"_Video"].location != NSNotFound &&
+                    [fm fileExistsAtPath:itemPath]) {
+                    [candidates addObject:itemPath];
+                }
+            } @catch (NSException *e) {}
 
             for (NSString *cand in candidates) {
                 if (![fm fileExistsAtPath:cand]) continue;
