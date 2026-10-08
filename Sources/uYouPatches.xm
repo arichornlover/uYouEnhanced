@@ -7,11 +7,6 @@
 // ---------------------------------------------------------------------------
 // UYTLog compat
 // ---------------------------------------------------------------------------
-// uYouEnhanced buffers its own log and builds the in-app report out of it, so
-// a download failure is only diagnosable if these calls reach UYTLog. Prefer
-// UYTDebug* when the header is there and fall back to the hooking logger
-// otherwise - a missing log must never be what breaks a download or a build.
-// Both sinks are written on purpose: syslog for the user, the buffer for us.
 #if __has_include("UYTLog.h")
 #import "UYTLog.h"
 #define UYTPatchInfo(fmt, ...) do { UYTDebugInfo(fmt, ##__VA_ARGS__); HBLogInfo(fmt, ##__VA_ARGS__); } while (0)
@@ -24,25 +19,7 @@
 #endif
 
 # pragma mark - uYou Patches
-// Uses reverse-engineered uYou 3.0.4 source for reference.
-//
-// Base: origin/main (7da4c0a) with the open "uYou"-label issues that actually
-// live in this file fixed. Every fix below carries its issue number in the
-// comment directly above it.
-//
-// Download pipeline:  #1010, #947, #814, #771, #735, #520, #241, #159, #70
-// Speed control:      #795, #681
-// Fullscreen gesture: #57
-// Keep-awake:         #813
-//
-// Not handled here (they belong to other sources, not this file):
-//   #84, #354 quality/50fps selection   #93  home tab        #95  Shorts bar
-//   #179 PiP freeze                     #370 fullscreen crash logs w/o body
-//   #394 swipe-control UX               #399 playlist repeat
-//   #451 auto-caption + CC              #577 1080p Premium (feature request)
-//   #87  thumbnail export (needs the Photos entitlement, not a hook)
-//   #174 crash on video tap (no body / no crash log)
-//   #215 crash on deleting a download   #951 broad "features broken" report
+// Fixes below carry the issue number they address in the comment above them.
 
 // Shared access group / sideloading utilities
 static NSString *uYouAccessGroupIDInternal() {
@@ -285,9 +262,7 @@ static void refreshUYouAppearance() {
 %end
 %end // gVarispeedFallbackFix
 
-// uYou Download Fixes (Comprehensive Rework)
-// Addresses: #948, #70, #520, #241, #814, #813, #735
-// Based on reverse-engineered uYou 3.0.4 source
+// uYou Download Fixes (#948, #70, #520, #241, #814, #813, #735)
 
 %group gYouDownloadFixes
 
@@ -303,34 +278,18 @@ static BOOL uYouDownloadIsActive = NO;
 static NSInteger uYouActiveDownloadCount = 0;
 
 // --- WebM Audio Format Fix (#771, #465, #814) ---
-// Since YouTube v19.22, adaptive audio streams changed from m4a to webm.
-// uYou's merge methods (mergeAudioWithMP4VideoForDownloadItem: etc.) use
-// AVAssetExportSession which CANNOT merge mp4 video + webm audio,
-// causing downloads to hang forever at "conversion" or "Adding metadata".
-// Fix: detect webm audio and convert it to m4a before merge.
 static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
     if (!webmPath || !m4aPath) return NO;
 
     NSFileManager *fm = [NSFileManager defaultManager];
     if (![fm fileExistsAtPath:webmPath]) return NO;
-    // Never let input and output be the same path: the converter clears a
-    // stale output first and would delete the only copy of the source.
     if ([webmPath isEqualToString:m4aPath]) return NO;
 
-    // Delegates to UYTMediaKit's runner, which talks to uYou's own
-    // MobileFFmpeg/FFmpegKit payload through objc_msgSend (no link-time
-    // class reference, so no _OBJC_CLASS_$_MobileFFmpeg link break).
     if (!UYTFFConvertWebmAudioToM4a(webmPath, m4aPath)) {
         UYTPatchWarn(@"[uYouPatches] WebM to M4A conversion failed: %@", webmPath);
         return NO;
     }
 
-    // Exit code + size alone don't prove the m4a is actually playable audio:
-    // a truncated/corrupt file can still pass both checks and get handed to
-    // the merge step, where any failure was previously only caught by the
-    // generic try/catch or the 30-45s stall watchdog. Verify it has a usable
-    // audio track and non-zero duration first, and drop it otherwise so
-    // callers take the fallback path immediately.
     AVURLAsset *check = [AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:m4aPath] options:nil];
     AVAssetTrack *audioTrack = [[check tracksWithMediaType:AVMediaTypeAudio] firstObject];
     unsigned long long fileSize = [[fm attributesOfItemAtPath:m4aPath error:nil] fileSize];
@@ -344,14 +303,8 @@ static BOOL uYouConvertWebmAudioToM4a(NSString *webmPath, NSString *m4aPath) {
     return NO;
 }
 
-// #1010 - uYouItem derives tmpAudioPath from downloadIdentifier + audioFormat
-// and has NO tmpAudioPath setter: KVC on that key throws NSUnknownKeyException,
-// which the hooks below used to swallow before bailing out without calling
-// %orig - so uYou's merge, the metadata step and the INSERT INTO downloads
-// never ran and every download hung forever with the converted m4a unused.
-// Point the item at the converted file by switching audioFormat instead
-// (audioFormat IS a real property), then verify that tmpAudioPath now names
-// the m4a the conversion just wrote. Verified on device per issue #1010.
+// Point uYouItem's tmpAudioPath at the converted m4a via audioFormat (#1010:
+// tmpAudioPath has no setter, so KVC on it throws NSUnknownKeyException).
 static BOOL UYTPointItemAtConvertedAudio(id uyouItem, NSString *webmPath, NSString *m4aPath) {
     @try {
         [uyouItem setValue:@"m4a" forKey:@"audioFormat"];
@@ -360,7 +313,6 @@ static BOOL UYTPointItemAtConvertedAudio(id uyouItem, NSString *webmPath, NSStri
             UYTPatchWarn(@"[uYouPatches] tmpAudioPath is %@ after conversion, expected %@", now, m4aPath);
             return NO;
         }
-        // Nothing references the .webm source any more; reclaim the space.
         [[NSFileManager defaultManager] removeItemAtPath:webmPath error:nil];
         UYTPatchInfo(@"[uYouPatches] item now points at converted audio %@", m4aPath);
         return YES;
@@ -498,12 +450,9 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 
 %hook DownloadsManager
 - (void)getLinksLocallyPlayerItem:(id)item videoID:(id)videoID sourceView:(id)sourceView isShorts:(BOOL)isShorts {
-    // Prefetch working stream URLs through the client-rotating innertube fetch
-    // BEFORE uYou resolves links: uYou's own %orig delay gives the network call
-    // its window, and DownloadItem -setRemoteURL: in DownloadPipeline.xm then
-    // swaps any broken URL for the resolved one (fixes the HTTP 400/-1002 dead
-    // end called out in #1010). A failed fetch stores nothing and uYou keeps
-    // its own URL, so worst case is today's behaviour.
+    // Prefetch working stream URLs (#1010): setRemoteURL: in DownloadPipeline.xm
+    // swaps any broken URL for the resolved one. Best case fixes the HTTP 400
+    // dead end; worst case uYou keeps its own URL.
     if (videoID) {
         @try {
             NSString *vid = [NSString stringWithFormat:@"%@", videoID];
@@ -524,12 +473,8 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 %end
 
 // --- uYou's own converter ("Conversion failed with code %d") ---
-// uYou.dylib statically links an old MobileFFmpeg. When YouTube supplies
-// webm/opus (or AV1) streams that old ffmpeg can neither decode nor remux it
-// returns a non-zero rc and the download dies with "Conversion failed with
-// code 1" BEFORE any of our merge hooks run. Log every call (object types,
-// paths and return code) so a debug report shows exactly what uYou's converter
-// was handed and why it failed - then we can decide how to pre-empt it.
+// uYou.dylib's bundled old MobileFFmpeg can't decode webm/opus, so log calls
+// so a report shows what the converter was handed before it fails with rc != 0.
 %hook DownloadsManager
 - (int)convertVideo:(id)video toAudio:(id)audio {
     @try {
@@ -580,12 +525,8 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 %end
 
 // --- Metadata Attachment Exception Handling (#1010, #241, #814, #771, #947) ---
-// addMetadataToAudioForDownloadItem: can throw NSExceptions when the audio
-// file is corrupted, the export session fails, or AVAsset can't be
-// initialized (especially when audio is webm instead of m4a).
-// Fix: convert webm audio to m4a BEFORE adding metadata, point the item at
-// the converted file the #1010 way (audioFormat, never KVC on tmpAudioPath),
-// skip the doomed merge when the audio is still WebM, arm the stall watchdog.
+// AddMetadata can throw on corrupt/webm audio; convert to m4a first, point the
+// item at it via audioFormat (#1010), skip the merge if still WebM, watchdog it.
 %hook DownloadsManager
 - (void)addMetadataToAudioForDownloadItem:(id)item {
     // Pre-fix: convert webm audio to m4a if needed (#771, #465, #1010)
@@ -605,17 +546,14 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
         UYTPatchWarn(@"[uYouPatches] WebM pre-conversion in addMetadata failed: %@", e);
     }
 
-    // Anti-hang guard: if the audio is still WebM, %orig would sit inside
-    // AVAssetExportSession forever - finish without metadata instead.
+    // Anti-hang guard: %orig would sit inside AVAssetExportSession forever
+    // if the audio is still WebM - finish without metadata instead.
     if (UYTAudioStillWebm(item)) {
         UYTPatchWarn(@"[uYouPatches] Audio still WebM after conversion - skipping merge to avoid infinite hang");
         UYTFallbackToVideoOnly(item);
         return;
     }
 
-    // Stall watchdog for the metadata phase ("Adding Metadata to the M4A..."
-    // stuck at 0% on audio-only downloads). If metadata writing stalls, the
-    // watchdog completes the item from the converted m4a directly.
     UYTArmStallWatchdog(item, 30.0);
     @try {
         %orig;
@@ -629,12 +567,8 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 %end
 
 // --- Audio/Video Merge with WebM Audio Fix (#1010, #241, #771, #465, #814) ---
-// After YouTube v19.22, adaptive audio changed from m4a to webm.
-// AVAssetExportSession CANNOT merge mp4 video + webm audio, causing downloads
-// to hang forever at the "conversion" step.
-// Fix: detect webm audio, convert to m4a, point the item at the converted
-// file via audioFormat (#1010), skip the merge if still WebM, and arm the
-// stall watchdog so no path can hang forever.
+// AVAssetExportSession can't merge mp4 + webm (hangs forever); convert to m4a,
+// point the item at it via audioFormat, skip if still WebM, watchdog it.
 %hook DownloadsManager
 - (void)mergeAudioWithMP4VideoForDownloadItem:(id)item {
     // Pre-fix: convert webm audio to m4a before the merge (#771, #465, #1010)
@@ -818,10 +752,6 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 static float uYouSavedPlaybackRate = 0.0f;
 
 // --- Prevent Speed Reset During Video Transitions (#681) ---
-// The speed controls fail after some time because YouTube resets the
-// playback rate during video transitions. Hook the overlay to detect
-// and re-apply the user's chosen speed.
-
 %hook YTMainAppVideoPlayerOverlayViewController
 - (void)setPlaybackRate:(CGFloat)rate {
     %orig(rate);
@@ -837,8 +767,7 @@ static float uYouSavedPlaybackRate = 0.0f;
 - (CGFloat)currentPlaybackRate {
     CGFloat rate = %orig;
 
-    // If rate is 1.0 but we have a saved rate, the system reset it
-    // Re-apply the saved rate (on next runloop to avoid re-entrancy)
+    // Rate 1.0 with a saved non-1.0 rate means the system reset it; re-apply.
     if (rate == 1.0f && uYouSavedPlaybackRate > 0.0f && uYouSavedPlaybackRate != 1.0f) {
         dispatch_async(dispatch_get_main_queue(), ^{
             @try {
@@ -854,9 +783,6 @@ static float uYouSavedPlaybackRate = 0.0f;
 %end
 
 // --- Enforce Speed on Player VC Level (#681, #795) ---
-// Hook the player view controller to ensure playback rate persists
-// across video loads and player state changes.
-
 %hook YTPlayerViewController
 - (void)setPlaybackRate:(float)rate {
     %orig(rate);
@@ -885,17 +811,12 @@ static float uYouSavedPlaybackRate = 0.0f;
 %end
 
 // --- Hook the HAM Player to maintain rate (#681) ---
-// YouTube's internal player sometimes resets rate. Intercept at the
-// HAMPlayerInternal level to prevent unwanted resets.
-
 %hook HAMPlayerInternal
 - (void)setRate:(float)rate {
-    // If we have a saved rate and this is a reset to 1.0, restore
     if (rate == 1.0f && uYouSavedPlaybackRate > 0.0f && uYouSavedPlaybackRate != 1.0f) {
         // Only block the reset if the player is actively playing (not pausing/resuming)
         float currentRate = [self rate];
         if (currentRate > 0.0f && currentRate != 1.0f) {
-            // This looks like an unwanted reset, restore our rate
             %orig(uYouSavedPlaybackRate);
             return;
         }
@@ -903,14 +824,6 @@ static float uYouSavedPlaybackRate = 0.0f;
     %orig(rate);
 }
 %end
-
-// --- Initialize saved rate from preferences ---
-// static void uYouSpeedFixesInit() {
-//     float saved = [[NSUserDefaults standardUserDefaults] floatForKey:@"uYouSavedPlaybackRate"];
-//     if (saved > 0.0f) {
-//         uYouSavedPlaybackRate = saved;
-//     }
-// }
 
 %end // gYouSpeedFixes
 
@@ -1020,10 +933,14 @@ static float uYouSavedPlaybackRate = 0.0f;
     if (playerVCClass && [playerVCClass instancesRespondToSelector:@selector(varispeedController)]) {
         %init(gVarispeedFallbackFix);
     }
+
+    // Always on: downloads flow through these hooks regardless of the
+    // kReplaceYTDownloadWithuYou toggle (that toggle only reroutes the button).
+    UYTPatchInfo(@"[uYouPatches] arming gYouDownloadFixes (toggle=%d)", (int)IS_ENABLED(kReplaceYTDownloadWithuYou));
+    %init(gYouDownloadFixes);
+
     // Speed fixes: only register when EVERY hooked selector exists on this
-    // YouTube build. Hooking a missing selector silently adds it, making
-    // respondsToSelector: lie; the next caller then dies with
-    // "unrecognized selector sent to instance" (the startup SIGABRT).
+    // YouTube build, or respondsToSelector: lies and the next caller SIGABRTs.
     Class overlayVCClass = %c(YTMainAppVideoPlayerOverlayViewController);
     Class hamPlayerClass = %c(HAMPlayerInternal);
     BOOL speedFixesSafe =

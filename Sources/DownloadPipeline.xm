@@ -22,11 +22,7 @@
 @end
 
 static NSString * const UYTInnertubeURL = @"https://www.youtube.com/youtubei/v1/player?key=AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc";
-// Used only if the bundle has no CFBundleShortVersionString. This is an iOS
-// version string and must NEVER be reused as an ANDROID clientVersion: that
-// mismatch makes Innertube answer HTTP 400, which is the -1002 "no formats"
-// dead end reported in #1010.
-static NSString * const UYTFallbackAppVersion = @"20.10.4";
+static NSString * const UYTFallbackAppVersion = @"20.10.4"; // never reuse as an ANDROID clientVersion (HTTP 400 -> -1002, #1010)
 
 static NSString *UYTAppVersion(void) {
     static NSString *cached = nil;
@@ -63,12 +59,9 @@ static NSString *UYTIOSModel(void) {
 @implementation UYTStreamFormat
 @end
 
-// hasVideo/hasAudio must come from WHICH LIST the format arrived in, not from a
-// qualityLabel probe: raw Innertube adaptiveFormats have no qualityLabel key at all,
-// so the old `video/ && !qualityLabel` test flagged EVERY video-only format as
-// hasAudio=YES. That made bestVideoFormat always nil and let bestMuxedFormat hand
-// back a video-only URL - which is what ended up in the audio slot for audio-only
-// requests, i.e. "the audio file" silently contained the whole video.
+// hasVideo/hasAudio come from WHICH LIST the format arrived in, not a
+// qualityLabel probe (raw adaptiveFormats have none - the old test misflagged
+// video-only formats, so the audio slot could get the whole video).
 static UYTStreamFormat *UYTStreamFormatFromDict(NSDictionary *f, NSString *url, BOOL fromMuxedList) {
     UYTStreamFormat *sf = [[UYTStreamFormat alloc] init];
     sf.url = url;
@@ -100,13 +93,8 @@ static NSString *UYTFormatDesc(UYTStreamFormat *f);
 // ============================================================================
 // Innertube client table
 // ============================================================================
-// Innertube only accepts a client when the whole TRIPLE is self-consistent:
-// clientName + clientVersion + User-Agent must all belong to the same app.
-// The old code kept contexts and User-Agents in two separate arrays, and the
-// ANDROID context was filled with the iOS version 19.45.1 - so every download
-// first burned a round-trip on an HTTP 400 before rotation kicked in.
-//
-// One record per client now, so a name/version/UA triple cannot drift apart.
+// One record per client keeps clientName + clientVersion + User-Agent a
+// self-consistent triple (a mismatched triple answers HTTP 400).
 
 static NSArray<NSDictionary *> *UYTClientProfiles(void) {
     static NSArray *profiles = nil;
@@ -196,9 +184,8 @@ static NSArray<NSDictionary *> *UYTClientProfiles(void) {
 // ============================================================================
 // Per-client health
 // ============================================================================
-// A client that answers 400/403 is useless for the next few minutes. Remember
-// that and skip it, so a retry rotates onto a working client instead of
-// re-paying the same doomed round-trip on every single download.
+// A 400/403 kills a client for a while; remember and skip it so retries rotate
+// onto a working client instead of re-paying the same doomed round-trip.
 
 static const NSTimeInterval UYTClientCooldown = 120.0;
 
@@ -301,9 +288,7 @@ static NSArray<NSNumber *> *UYTClientOrder(void) {
     return n.length ? n : @"?";
 }
 
-// Innertube reports *why* it refused in the body: playabilityStatus.status /
-// .reason, or error.errors[].message. Surfacing it turns an opaque 400 into
-// something diagnosable from the device log.
+// Innertube reports *why* it refused in the body; surface it for the log.
 + (NSString *)hintFromResponseData:(NSData *)data {
     if (!data.length) return @"empty body";
     @try {
@@ -359,10 +344,7 @@ static NSArray<NSNumber *> *UYTClientOrder(void) {
                 return;
             }
 
-            // 400/403 means Innertube refused the client triple itself - a
-            // mismatched name/version/UA, a throttled client, or a client
-            // YouTube retired. That is a dead client, not a bad video, so
-            // penalise it hard and let rotation move straight on.
+            // 400/403 = Innertube refused the client triple: penalise hard.
             if (status == 400 || status == 401 || status == 403) {
                 UYTPenalizeClient(idx, 2);
                 UYTDebugErr(@"fetch %@ (client %d) REJECTED HTTP %ld for %@: %@", clientName, idx,
@@ -411,9 +393,7 @@ static NSArray<NSNumber *> *UYTClientOrder(void) {
                 }
             }
             if (!out.count && !ciphered.count) {
-                // A 200 that carries no streamingData is still a dead client
-                // (usually throttling or a silent PO-token gate), so feed it
-                // into the same rotation bookkeeping.
+                // A 200 with no streamingData is a dead client too; rotate it.
                 UYTPenalizeClient(idx, 1);
                 UYTDebugErr(@"fetch %@ (client %d) no usable URLs for %@: %@", clientName, idx, videoID,
                             [self hintFromResponseData:data]);
@@ -436,10 +416,7 @@ static NSArray<NSNumber *> *UYTClientOrder(void) {
                 if (!player) {
                     UYTDebugErr(@"[UYTPipeline] decipher unavailable for %@ (%@)", videoID,
                                 sigErr.localizedDescription ?: @"no player context");
-                    // Deliberately NOT penalising the client here: the player JS
-                    // fetch is client-independent, so a decipher failure fails
-                    // identically on every client. Rotating would just burn
-                    // round-trips and delay the real error.
+                    // NOT penalising here: decipher failure is client-independent.
                     if (out.count) {
                         completion(out, nil);
                     } else {
@@ -473,9 +450,7 @@ static NSArray<NSNumber *> *UYTClientOrder(void) {
     [task resume];
 }
 
-// Walk the rotation order until a client yields formats. `order` is snapshotted
-// per download so a client that just got penalised mid-attempt does not extend
-// this attempt forever, and so every client is tried at most once.
+// order is snapshotted per download: each client is tried at most once.
 + (void)attempt:(NSUInteger)n
           order:(NSArray<NSNumber *> *)order
         onVideo:(NSString *)videoID
@@ -513,8 +488,7 @@ static NSArray<NSNumber *> *UYTClientOrder(void) {
                      progress:(void (^)(double frac, unsigned long long bytes))progress
                    completion:(void (^)(NSArray<UYTStreamFormat *> *, NSError *))completion {
     (void)isShorts;
-    // The order is recomputed on every call, so a retry after a failure lands
-    // on a different client instead of repeating the one that just 400ed.
+    // Order is recomputed per call, so a retry lands on a different client.
     NSArray<NSNumber *> *order = UYTClientOrder();
     UYTDebugInfo(@"[UYTPipeline] resolving %@ via clients: %@", videoID,
                  [order componentsJoinedByString:@", "]);
@@ -560,10 +534,9 @@ static NSArray<NSNumber *> *UYTClientOrder(void) {
     return best ?: [self bestVideoFormat:formats];
 }
 
-// mp4 (avc1 + mp4a) can be stream-copied into the final .mp4 with `-c copy`.
- // webm (vp9/av01 + opus) forces a transcode that repeatedly failed with ffmpeg rc=1,
- // so rank the mp4/avc1 variants first and only fall back to webm when absent.
- static NSInteger UYTFormatContainerRank(UYTStreamFormat *f) {
+// mp4 (avc1+mp4a) is stream-copyable; webm forces a transcode that kept
+// failing with ffmpeg rc=1, so rank mp4/avc1 first and fall back to webm.
+static NSInteger UYTFormatContainerRank(UYTStreamFormat *f) {
      if (f.containerRank >= 0) return f.containerRank;
      NSString *m = f.mimeType.lowercaseString ?: @"";
      NSInteger r = 3;
@@ -761,8 +734,8 @@ BOOL UYTIsAudioOnly(NSString *vid) {
     }
 }
 
-// Audio-only requests must never be swapped onto a muxed or video stream: doing so
-// downloads the whole video and then fails the audio conversion downstream.
+// Audio-only requests must never be swapped onto a muxed/video stream, or the
+// audio file silently becomes the whole video and conversion fails downstream.
 NSString *UYTAudioOnlyURL(NSString *vid) {
     @try {
         if (!vid.length) return nil;
@@ -859,14 +832,11 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
 
 %hook DownloadItem
 
-// uYou creates TWO DownloadItems for a normal video download: one for the audio
-// stream (<id>_Audio.<webm|m4a>) and one for the video stream (<id>_Video.<mp4>).
-// The videoID is identical for both, so the resolved-store audio-only flag can
-// not tell them apart. Remember which leg this item is at init time so
-// -setRemoteURL: can route the audio leg to the AUDIO stream and the video leg
-// to the muxed/video stream - otherwise the audio file silently receives the
-// whole video ("audio download is really the video") and the WebM->M4A step
-// fails with "-map 0:a:0 matches no streams".
+// uYou makes TWO DownloadItems per video download (…_Audio and …_Video) sharing
+// the same videoID, so the resolved-store audio-only flag can't tell them apart.
+// Record which leg this item is so setRemoteURL: routes the audio leg to the
+// AUDIO stream and the video leg to the muxed/video stream (otherwise the audio
+// file gets the whole video and -map 0:a:0 matches no streams).
 static void *UYTDownloadItemAudioLegKey = &UYTDownloadItemAudioLegKey;
 
 - (id)initWithVideoID:(id)videoID
@@ -909,12 +879,8 @@ static void *UYTDownloadItemAudioLegKey = &UYTDownloadItemAudioLegKey;
         return;
     }
 
-    // Is THIS item uYou's audio leg of the pair, or a standalone audio-only
-    // request? Both must receive the resolved audio stream; only the video leg
-    // (and muxed requests) may use the muxed/video stream. The old check was
-    // UYTIsAudioOnly(vid), which is true only for pure audio-only requests - so
-    // the audio leg of an ordinary video download grabbed the video URL and
-    // wrote whole-video bytes into <id>_Audio.webm.
+    // The audio leg and audio-only requests take the audio stream; only the
+    // video leg/muxed requests may take the muxed/video stream.
     NSNumber *leg = objc_getAssociatedObject(self, UYTDownloadItemAudioLegKey);
     BOOL isAudioLeg = [leg isKindOfClass:[NSNumber class]] && leg.boolValue;
     BOOL audioOnly = UYTIsAudioOnly(vid);
@@ -936,9 +902,8 @@ static void *UYTDownloadItemAudioLegKey = &UYTDownloadItemAudioLegKey;
     }
 
     if (isAudioLeg || audioOnly) {
-        // No audio stream resolved. Accepting uYou's URL here recreates the
-        // audio-download-is-really-the-video bug, so refuse; the stall watchdog
-        // still finalizes the item instead of hanging.
+        // Refuse uYou's URL here (recreates the audio-is-really-the-video bug);
+        // the stall watchdog still finalizes the item instead of hanging.
         UYTDebugErr(@"[UYTPipeline] %@ %@ has no audio stream - refusing %@",
                     isAudioLeg ? @"audio leg" : @"audio-only request", vid,
                     url.path.length ? url.path : @"(nil)");
