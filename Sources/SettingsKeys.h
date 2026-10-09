@@ -36,7 +36,7 @@ NSArray *NSUserDefaultsCopyKeys = @[
     kHideYouTubeLogo, kYTStartupAnimation, kDisableHints,
     kStickNavigationBar, kHideiSponsorBlockButton, kHideChipBar,
     kShowNotificationsTab, kHidePlayNextInQueue, kHideCommunityPosts,
-    kHideChannelHeaderLinks, kiPhoneLayout,
+    kHideChannelHeaderLinks, kiPhoneLayout, kBigYTMiniPlayer,
     kAutoHideHomeBar, kHideSubscriptionsNotificationBadge,
     kNewSettingsUI, kFlex, kGoogleSigninFix,
 

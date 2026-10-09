@@ -175,6 +175,7 @@ static NSString *const kHidePlayNextInQueue = @"hidePlayNextInQueue_enabled";
 static NSString *const kHideCommunityPosts = @"hideCommunityPosts_enabled";
 static NSString *const kHideChannelHeaderLinks = @"hideChannelHeaderLinks_enabled";
 static NSString *const kiPhoneLayout = @"iPhoneLayout_enabled";
+static NSString *const kBigYTMiniPlayer = @"bigYTMiniPlayer_enabled";
 static NSString *const kAutoHideHomeBar = @"autoHideHomeBar_enabled";
 static NSString *const kHideSubscriptionsNotificationBadge = @"hideSubscriptionsNotificationBadge_enabled";
 static NSString *const kFixCasting = @"fixCasting_enabled";
