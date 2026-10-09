@@ -341,11 +341,11 @@ On [this repo's issue tracker](https://github.com/arichornlover/uYouEnhanced/iss
 
   - My official AltStore repo (uYouEnhanced - **iOS 16+**): https://therealfoxster.github.io/altsource-viewer/view/?source=https://raw.githubusercontent.com/arichornlover/arichornlover.github.io/main/apps.json
 
-  - [Open in AltStore (v21.14.4-3.0.5)](https://tinyurl.com/4esfbxde) - It will take a while to install because AltStore needs to download the IPA first.
+  - [Open in AltStore (v21.20.4-3.0.5)](https://tinyurl.com/4v8fju3s) - It will take a while to install because AltStore needs to download the IPA first.
   - NEWS - Nov 27 2024-Aug 22 2026: Please be aware that some of the **uYou** features aren't working in newer versions of YouTube.
 
 <details>
-  <summary>Version information (last updated: October 1, 2026)</summary>
+  <summary>Version information (last updated: October 9, 2026)</summary>
 
 | **Tweaks/App** | **Developer** | **Version** | **Open source** |
 | - | - | :-: | :-:  |
