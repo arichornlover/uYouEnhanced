@@ -858,6 +858,61 @@ void UYTWriteFinalDownloadProgress(id item, NSString *filePath) {
     } @catch (NSException *e) {}
 }
 
+@interface AFURLSessionManagerTaskDelegate : NSObject
+@end
+
+static NSString *UYTURLItag(NSURL *url) {
+    if (!url) return nil;
+    @try {
+        NSURLComponents *comps = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+        for (NSURLQueryItem *q in comps.queryItems ?: @[]) {
+            if ([q.name isEqualToString:@"itag"]) return q.value;
+        }
+    } @catch (NSException *e) {}
+    return nil;
+}
+
+// Where uYou's own bytes land (or fail): AF reports every task outcome here.
+// Without this the tweak could not tell "task failed" from "task still going".
+%hook AFURLSessionManagerTaskDelegate
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
+    @try {
+        NSURL *url = task.originalRequest.URL ?: task.currentRequest.URL;
+        if ([url.host containsString:@"googlevideo.com"]) {
+            NSInteger status = 0;
+            if ([task.response isKindOfClass:[NSHTTPURLResponse class]]) {
+                status = [(NSHTTPURLResponse *)task.response statusCode];
+            }
+            long long got = task.countOfBytesReceived;
+            long long expected = task.countOfBytesExpectedToReceive;
+            if (error || status >= 400) {
+                UYTDebugErr(@"[UYTPipeline] task FAILED itag=%@ status=%ld err=%ld %@ (got %lld/%lld)",
+                            UYTURLItag(url), (long)status,
+                            (long)(error ? error.code : 0),
+                            error.localizedDescription ?: @"no NSError", got, expected);
+            } else {
+                UYTDebugInfo(@"[UYTPipeline] task done itag=%@ status=%ld (got %lld/%lld)",
+                             UYTURLItag(url), (long)status, got, expected);
+            }
+        }
+    } @catch (NSException *e) {}
+    %orig;
+}
+%end
+
+%hook DownloadsManager
+- (void)startDownloadWithDownloadItem:(id)item {
+    @try {
+        id ui = [item valueForKey:@"uYouItem"];
+        UYTDebugInfo(@"[UYTPipeline] startDownload file=%@ cached=%@ uYou.tmpAudio=%@ uYou.tmpVideo=%@",
+                     [item valueForKey:@"filePath"], [item valueForKey:@"cachedPath"],
+                     ui ? [ui valueForKey:@"tmpAudioPath"] : nil,
+                     ui ? [ui valueForKey:@"tmpVideoPath"] : nil);
+    } @catch (NSException *e) {}
+    %orig;
+}
+%end
+
 %hook DownloadItem
 
 // uYou makes TWO DownloadItems per video download (…_Audio and …_Video) sharing
@@ -876,8 +931,6 @@ static void *UYTDownloadItemAudioLegKey = &UYTDownloadItemAudioLegKey;
                  type:(int)type {
 
     BOOL audioLeg = NO;
-    id newFilePath = filePath;
-    id newCachedPath = cachedPath;
     @try {
         NSString *base = [downloadID respondsToSelector:@selector(hasSuffix:)]
                        ? (NSString *)downloadID : [downloadID description] ?: @"";
@@ -891,32 +944,24 @@ static void *UYTDownloadItemAudioLegKey = &UYTDownloadItemAudioLegKey;
             audioLeg = YES;
         }
 
-        // uYou hardcodes .webm for every audio leg. When the stream is MP4 the
-        // leg MUST carry the .m4a name before uYou builds its download task:
-        // uYou calls setRemoteURL (which captures the task destination) inside
-        // initWith... - renaming afterwards leaves the task writing .webm while
-        // the item later looks for the .m4a it never created (stuck at 100%).
-        NSString *fp = [filePath respondsToSelector:@selector(hasSuffix:)] ? (NSString *)filePath : [filePath description];
-        NSString *cp = [cachedPath respondsToSelector:@selector(hasSuffix:)] ? (NSString *)cachedPath : [cachedPath description];
-        if (audioLeg && UYTResolvedAudioIsMP4([videoID description]) &&
-            [fp.pathExtension.lowercaseString isEqualToString:@"webm"]) {
-            newFilePath = [[fp stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
-            if (cp.length && [cp.pathExtension.lowercaseString isEqualToString:@"webm"]) {
-                newCachedPath = [[cp stringByDeletingPathExtension] stringByAppendingPathExtension:@"m4a"];
-            }
-            UYTDebugInfo(@"[UYTPipeline] audio leg will download as %@ (mp4a, no webm dance)", newFilePath);
-        }
+        // uYouItem derives its own tmpAudioPath/cachedAudioPath (…_Audio.webm)
+        // from audioFormat, while isDownloadFinished gates on those names.
+        // Renaming only the DownloadItem paths desyncs the two and uYou never
+        // finalizes the leg (observed: both rename variants stall forever).
+        // Keep uYou's names; AVFoundation is handled downstream by the
+        // content-sniffed mp4→m4a copy in addMetadata/merge.
+        BOOL audioMP4 = UYTResolvedAudioIsMP4([videoID description]);
 
         objc_setAssociatedObject(self, UYTDownloadItemAudioLegKey, @(audioLeg),
                                  OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        UYTDebugInfo(@"[UYTPipeline] DownloadItem init vid=%@ downloadID=%@ file=%@ cached=%@ title=%@ leg=%@",
+        UYTDebugInfo(@"[UYTPipeline] DownloadItem init vid=%@ downloadID=%@ file=%@ cached=%@ title=%@ leg=%@ audioMP4=%d",
                      videoID, downloadID, filePath, cachedPath, [uYouItem valueForKey:@"title"],
-                     audioLeg ? @"AUDIO" : @"VIDEO");
+                     audioLeg ? @"AUDIO" : @"VIDEO", audioMP4);
     } @catch (NSException *e) {
         UYTDebugInfo(@"[UYTPipeline] DownloadItem init vid=%@ (detail lookup failed: %@)", videoID, e.reason ?: e);
     }
 
-    return %orig(videoID, uYouItem, downloadID, url, newFilePath, newCachedPath, type);
+    return %orig(videoID, uYouItem, downloadID, url, filePath, cachedPath, type);
 }
 
 - (void)setRemoteURL:(NSURL *)url {
@@ -939,9 +984,11 @@ static void *UYTDownloadItemAudioLegKey = &UYTDownloadItemAudioLegKey;
         if (fixed) {
             UYTRegisterRemoteURLForVideoID(vid, working);
             if (isAudioLeg || audioOnly) {
-                UYTDebugInfo(@"[UYTPipeline] audio leg %@ -> audio stream %@", vid, working);
+                UYTDebugInfo(@"[UYTPipeline] audio leg %@ -> audio stream itag=%@ host=%@",
+                             vid, UYTURLItag(fixed), fixed.host);
             } else {
-                UYTDebugInfo(@"[UYTPipeline] swapped broken task URL -> cached innertube URL for %@", vid);
+                UYTDebugInfo(@"[UYTPipeline] swapped broken task URL -> innertube itag=%@ host=%@ for %@",
+                             UYTURLItag(fixed), fixed.host, vid);
             }
             %orig(fixed);
             return;
@@ -958,6 +1005,46 @@ static void *UYTDownloadItemAudioLegKey = &UYTDownloadItemAudioLegKey;
     }
 
     %orig;
+}
+
+- (void)createDownloadTask {
+    @try {
+        NSURL *remote = nil;
+        @try { remote = [self valueForKey:@"remoteURL"]; } @catch (NSException *e) {}
+        UYTDebugInfo(@"[UYTPipeline] createDownloadTask vid=%@ itag=%@ host=%@ file=%@ cached=%@",
+                     self.videoID ?: @"(nil)", UYTURLItag(remote),
+                     remote ? remote.host : @"(nil)",
+                     [self valueForKey:@"filePath"], [self valueForKey:@"cachedPath"]);
+    } @catch (NSException *e) {}
+
+    %orig;
+
+    @try {
+        id task = nil;
+        @try { task = [self valueForKey:@"downloadTask"]; } @catch (NSException *e) {}
+        UYTDebugInfo(@"[UYTPipeline] createDownloadTask %@ status=%@ error=%@",
+                     task ? @"started" : @"NO TASK",
+                     [self valueForKey:@"status"], [self valueForKey:@"error"]);
+    } @catch (NSException *e) {}
+}
+
+static void *UYTProgressLogKey = &UYTProgressLogKey;
+
+- (void)updateProgress {
+    %orig;
+    @try {
+        id prog = [self valueForKey:@"progress"];
+        double pv = [prog respondsToSelector:@selector(doubleValue)] ? [prog doubleValue] : -1.0;
+        BOOL edge = pv < 0.001 || pv > 0.999;
+        NSTimeInterval now = CFAbsoluteTimeGetCurrent();
+        NSNumber *last = objc_getAssociatedObject(self, UYTProgressLogKey);
+        if (last && !edge && (now - last.doubleValue) < 2.0) return;
+        objc_setAssociatedObject(self, UYTProgressLogKey, @(now), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        UYTDebugInfo(@"[UYTPipeline] progress vid=%@ p=%.2f total=%@ dl=%@ status=%@ error=%@",
+                     self.videoID ?: @"(nil)", pv,
+                     [self valueForKey:@"totalSize"], [self valueForKey:@"downloadedSize"],
+                     [self valueForKey:@"status"], [self valueForKey:@"error"]);
+    } @catch (NSException *e) {}
 }
 %end
 

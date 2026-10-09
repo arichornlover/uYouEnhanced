@@ -549,6 +549,12 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 // item at it via audioFormat (#1010), skip the merge if still WebM, watchdog it.
 %hook DownloadsManager
 - (void)addMetadataToAudioForDownloadItem:(id)item {
+    @try {
+        id ui = [item valueForKey:@"uYouItem"];
+        UYTDebugInfo(@"[uYouPatches] addMetadata entered file=%@ audio=%@",
+                     [item valueForKey:@"filePath"],
+                     ui ? [ui valueForKey:@"tmpAudioPath"] : nil);
+    } @catch (NSException *e) {}
     // Pre-fix: convert webm audio to m4a if needed (#771, #465, #1010)
     @try {
         uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
@@ -591,6 +597,13 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 // point the item at it via audioFormat, skip if still WebM, watchdog it.
 %hook DownloadsManager
 - (void)mergeAudioWithMP4VideoForDownloadItem:(id)item {
+    @try {
+        id ui = [item valueForKey:@"uYouItem"];
+        UYTDebugInfo(@"[uYouPatches] mergeMP4 entered file=%@ audio=%@ video=%@",
+                     [item valueForKey:@"filePath"],
+                     ui ? [ui valueForKey:@"tmpAudioPath"] : nil,
+                     ui ? [ui valueForKey:@"tmpVideoPath"] : nil);
+    } @catch (NSException *e) {}
     // Pre-fix: convert webm audio to m4a before the merge (#771, #465, #1010)
     @try {
         uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
@@ -647,6 +660,13 @@ static void UYTArmStallWatchdog(id item, NSTimeInterval seconds) {
 }
 
 - (void)mergeAudioWithVideoForDownloadItem:(id)item {
+    @try {
+        id ui = [item valueForKey:@"uYouItem"];
+        UYTDebugInfo(@"[uYouPatches] mergeAV entered file=%@ audio=%@ video=%@",
+                     [item valueForKey:@"filePath"],
+                     ui ? [ui valueForKey:@"tmpAudioPath"] : nil,
+                     ui ? [ui valueForKey:@"tmpVideoPath"] : nil);
+    } @catch (NSException *e) {}
     // Pre-fix: convert webm audio to m4a before the merge (#771, #465, #1010)
     @try {
         uYouItem *uyouItem = [item valueForKey:@"uYouItem"];
