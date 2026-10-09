@@ -347,3 +347,5 @@
 "RESTART_REQUIRED" = "App restart is required.";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "迷你播放器 (BigYTMiniPlayer)";
+"NEW_MINIPLAYER_STYLE_DESC" = "需要重新啟動應用程式。";

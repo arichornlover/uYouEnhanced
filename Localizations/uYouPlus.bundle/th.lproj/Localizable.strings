@@ -347,3 +347,5 @@
 "RESTART_REQUIRED" = "ต้องรีสตาร์ทแอป";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "BigYTMiniPlayer";
+"NEW_MINIPLAYER_STYLE_DESC" = "สไตล์แถบ mini player ใหม่";

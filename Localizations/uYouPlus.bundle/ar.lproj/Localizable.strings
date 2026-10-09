@@ -347,3 +347,5 @@
 "RESTART_REQUIRED" = "App restart is required.";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "تغيير شكل المشغّل المصغر (أداة BigYTMiniPlayer)";
+"NEW_MINIPLAYER_STYLE_DESC" = "تغيير شكل المشغّل المصغر في الآيفون إلى نفس شكله في الآيباد - تتطلب إغلاق التطبيق وإعادة فتحه.";

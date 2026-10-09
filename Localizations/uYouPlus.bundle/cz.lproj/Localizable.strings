@@ -347,3 +347,5 @@
 "RESTART_REQUIRED" = "App restart is required.";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "Nový styl minipřehrávače (BigYTMiniPlayer)";
+"NEW_MINIPLAYER_STYLE_DESC" = "Je potřeba restart aplikace.";

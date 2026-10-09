@@ -347,3 +347,5 @@
 "RESTART_REQUIRED" = "App restart is required.";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "Giao diện trình phát thu nhỏ kiểu mới (BigYTMiniPlayer)";
+"NEW_MINIPLAYER_STYLE_DESC" = "Cần khởi động lại ứng dụng.";

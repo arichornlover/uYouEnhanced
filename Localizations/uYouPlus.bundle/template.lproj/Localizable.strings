@@ -360,3 +360,5 @@ https://github.com/PoomSmart/Return-YouTube-Dislikes/tree/main/layout/Library/Ap
 "RESTART_REQUIRED" = "App restart is required.";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "BigYTMiniPlayer";
+"NEW_MINIPLAYER_STYLE_DESC" = "New mini player bar style";

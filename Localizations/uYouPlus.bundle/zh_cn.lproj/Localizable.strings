@@ -347,3 +347,5 @@
 "RESTART_REQUIRED" = "需要重启应用。";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "新迷你播放器风格 （BigYTMiniPlayer）";
+"NEW_MINIPLAYER_STYLE_DESC" = "更改本设置后需要重启 App。";

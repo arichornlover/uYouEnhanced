@@ -347,3 +347,5 @@
 "RESTART_REQUIRED" = "App restart is required.";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "Καινούργιο miniplayer θέμα στην μπάρα (BigYTMiniPlayer)";
+"NEW_MINIPLAYER_STYLE_DESC" = "Απαιτείται επανεκκίνηση της εφαρμογής.";

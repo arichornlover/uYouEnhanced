@@ -347,3 +347,5 @@
 "RESTART_REQUIRED" = "App restart is required.";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "Nieuwe Mini Speler stijl (BigYTMiniPlayer)";
+"NEW_MINIPLAYER_STYLE_DESC" = "Je moet de app opnieuw opstarten om dit te activeren.";

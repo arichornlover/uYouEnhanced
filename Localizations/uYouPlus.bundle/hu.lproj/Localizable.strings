@@ -347,3 +347,5 @@
 "RESTART_REQUIRED" = "App restart is required.";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "Új minilejátszó sáv (BigYTMiniPlayer)";
+"NEW_MINIPLAYER_STYLE_DESC" = "Az alkalmazás újraindítása szükséges.";

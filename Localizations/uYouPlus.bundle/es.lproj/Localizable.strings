@@ -347,3 +347,5 @@
 "RESTART_REQUIRED" = "App restart is required.";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "Nuevo estilo de barra del minirreproductor (BigYTMiniPlayer)";
+"NEW_MINIPLAYER_STYLE_DESC" = "Requiere reiniciar la app.";

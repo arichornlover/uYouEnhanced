@@ -347,3 +347,5 @@
 "RESTART_REQUIRED" = "Restart aplikacji jest wymagany.";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "Nowy styl miniodtwarzacza (BigYTMiniPlayer)";
+"NEW_MINIPLAYER_STYLE_DESC" = "Restart aplikacji jest wymagany.";

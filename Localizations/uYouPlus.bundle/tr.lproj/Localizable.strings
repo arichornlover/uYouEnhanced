@@ -347,3 +347,5 @@
 "RESTART_REQUIRED" = "Uygulama yeniden başlatılması gereklidir.";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "Yeni Mini Oynatıcı Tarzı";
+"NEW_MINIPLAYER_STYLE_DESC" = "Yeni mini oynatıcı çubuğu tarzı";

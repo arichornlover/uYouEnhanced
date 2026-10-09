@@ -347,3 +347,5 @@
 "RESTART_REQUIRED" = "App restart is required.";
 "OK" = "OK";
 "FAILED" = "Failed";
+"NEW_MINIPLAYER_STYLE" = "Stil nou bară Miniplayer (BigYTMiniPlayer)";
+"NEW_MINIPLAYER_STYLE_DESC" = "Este necesară repornirea aplicației.";
