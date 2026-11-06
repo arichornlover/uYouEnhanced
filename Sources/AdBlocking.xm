@@ -215,6 +215,57 @@ static NSMutableArray <YTIItemSectionRenderer *> *filteredArray(NSArray <YTIItem
     [newArray removeObjectsAtIndexes:removeIndexes];
     return newArray;
 }
+
+static BOOL isAdSectionEntry(id entry) {
+    if ([entry isKindOfClass:%c(YTIItemSectionSupportedRenderers)])
+        return isAdRenderer(((YTIItemSectionSupportedRenderers *)entry).elementRenderer, 5);
+    if ([entry isKindOfClass:%c(YTIElementRenderer)])
+        return isAdRenderer(entry, 5);
+    return NO;
+}
+
+static NSArray *filteredSectionEntries(NSArray *entries) {
+    NSIndexSet *adIndexes = [entries indexesOfObjectsPassingTest:^BOOL(id entry, NSUInteger index, BOOL *stop) {
+        return isAdSectionEntry(entry);
+    }];
+    if (!adIndexes.count) return entries;
+    NSMutableArray *filteredEntries = [entries mutableCopy];
+    [filteredEntries removeObjectsAtIndexes:adIndexes];
+    return filteredEntries;
+}
+
+%hook YTArraySectionViewModel
+
+- (id)initWithEntries:(NSArray *)entries {
+    return %orig(filteredSectionEntries(entries));
+}
+
+- (id)initWithTransform:(id)transform entries:(NSArray *)entries {
+    return %orig(transform, filteredSectionEntries(entries));
+}
+
+- (void)insertEntries:(NSArray *)entries atIndex:(NSUInteger)index {
+    NSArray *filteredEntries = filteredSectionEntries(entries);
+    if (filteredEntries.count)
+        %orig(filteredEntries, index);
+}
+
+- (void)replaceEntry:(id)oldEntry withEntry:(id)newEntry {
+    if (isAdSectionEntry(newEntry)) return;
+    %orig;
+}
+%end
+
+// Inline feed ads are inserted through externally managed ad slots after the
+// section renderers have been filtered. Reject these slots before they bind a
+// YTAdVideoElementsCellController to the collection view.
+%hook YTAdElementsCellExternallyManagedSlotAdapterImpl
+
+- (BOOL)isValidSlotType:(int)type {
+    return NO;
+}
+%end
+
 %hook _ASDisplayView
 - (void)didMoveToWindow {
     %orig;
