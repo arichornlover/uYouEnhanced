@@ -542,6 +542,12 @@ static YTMainAppControlsOverlayView *UYTCurrentControlsOverlay(void) {
 
 %group gMisc1b
 
+%hook YTGlobalConfig
+- (BOOL)iosEnableBackstageFullscreenImageViewer {
+    return YES;
+}
+%end
+
 %hook YTColdConfig
 
 - (BOOL)respectDeviceCaptionSetting {
